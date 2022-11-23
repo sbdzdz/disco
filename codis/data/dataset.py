@@ -1,11 +1,10 @@
 import numpy as np
-from torch import nn
 import itertools
 
 
 def generate_binary_images(n=4):
-    for n in itertools.product([0, 1], repeat=n**2):
-        yield np.array(n).reshape(1, 4, 4)
+    for i in itertools.product([0, 1], repeat=n**2):
+        yield np.array(i).reshape(1, n, n)
 
 
 def translate_x(data):
