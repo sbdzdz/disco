@@ -8,3 +8,8 @@
 venv
 .ipynb_checkpoints
 *.egg-info
+*.egg
+*.pyc
+
+# data
+*.npz
