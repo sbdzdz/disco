@@ -21,7 +21,6 @@ class AutoEncoder(nn.Module):
             DecoderBlock(in_channels, out_channels)
             for in_channels, out_channels in zip(hidden_dims[:-1], hidden_dims[1:])
         ]
-
         self.decoder = nn.Sequential(decoder_modules)
 
     def forward(self, x):
