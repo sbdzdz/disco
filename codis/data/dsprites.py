@@ -1,9 +1,11 @@
-import torch
-import numpy as np
 from pathlib import Path
 
+import numpy as np
+import torch
+from torch.utils.data import Dataset
 
-class DSpritesDataset(torch.utils.data.Dataset):
+
+class DSpritesDataset(Dataset):
     def __init__(self, path, transform=None):
         self.data = self.load_data(path)
         self.transform = transform
