@@ -1,18 +1,19 @@
 """Training script."""
-# import hydra
 import argparse
 from pathlib import Path
-import numpy as np
 
-import torch
-from codis.utils.visualization import show_images_grid, show_density
+from torch.utils.data import DataLoader
+
 from codis.data.dsprites import DSpritesDataset
+from codis.utils.visualization import show_images_grid
 
 
 def train(args):
     """Train the model."""
     dataset = DSpritesDataset(args.dsprites_path)
-    for element in dataset:
+    train_loader = DataLoader(dataset, batch_size=16, shuffle=True)
+    for element in train_loader:
+        print(element.shape)
         show_images_grid(element)
         break
 
@@ -24,7 +25,7 @@ def _main():
     parser.add_argument(
         "--dsprites_path",
         type=Path,
-        default=repo_root / "data/dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz",
+        default=repo_root / "codis/data/dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz",
     )
     args = parser.parse_args()
     train(args)
