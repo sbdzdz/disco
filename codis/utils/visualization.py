@@ -1,6 +1,6 @@
 """Plotting utilities."""
 import numpy as np
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
 
 
 def show_images_grid(imgs_, Nmax=25):
@@ -18,6 +18,7 @@ def show_images_grid(imgs_, Nmax=25):
             ax.set_yticks([])
         else:
             ax.axis("off")
+    plt.show()
 
 
 def show_density(imgs):
@@ -26,3 +27,4 @@ def show_density(imgs):
     ax.grid("off")
     ax.set_xticks([])
     ax.set_yticks([])
+    plt.show()
