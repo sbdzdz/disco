@@ -1,4 +1,6 @@
-numpy
-torch
+bezier
 hydra-core
 matplotlib
+numpy
+scipy
+torch
