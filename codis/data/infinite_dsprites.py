@@ -3,7 +3,6 @@ from math import atan2, pi
 from random import random
 from matplotlib import pyplot as plt
 import numpy as np
-import bezier
 from scipy.interpolate import splprep, splev
 
 
@@ -28,13 +27,6 @@ def interpolate_spline(points):
     u_new = np.linspace(u.min(), u.max(), 1000)
     x, y = splev(u_new, tck, der=0)
     return np.array([x, y])
-
-
-def interpolate_bezier(points, num_points=100):
-    points = np.array(points).T
-    curve = bezier.Curve(nodes=points, degree=points.shape[1] - 1)
-    points = curve.evaluate_multi(np.linspace(0, 1, num_points))
-    return points
 
 
 def generate_shape(n=6):

@@ -1,4 +1,3 @@
-bezier
 hydra-core
 matplotlib
 numpy
