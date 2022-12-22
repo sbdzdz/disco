@@ -13,3 +13,6 @@ venv
 
 # data
 *.npz
+
+# figures
+*.png
