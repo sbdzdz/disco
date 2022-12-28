@@ -1,5 +1,6 @@
 hydra-core
 matplotlib
 numpy
+pygame
 scipy
 torch
