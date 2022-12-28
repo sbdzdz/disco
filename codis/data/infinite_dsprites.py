@@ -1,22 +1,43 @@
 import numpy as np
+import pygame
 from matplotlib import pyplot as plt
+from pygame import gfxdraw
+from pygame.locals import *
 from scipy.interpolate import splev, splprep
 
 
-def plot_shapes_on_grid(n=3):
+def plot_shapes_on_grid(n=8):
     """Plot an n x n grid of random shapes."""
     _, axes = plt.subplots(
-        nrows=n, ncols=n, figsize=(15, 15), layout="tight", subplot_kw={"aspect": 1.0}
+        nrows=n, ncols=n, figsize=(20, 20), layout="tight", subplot_kw={"aspect": 1.0}
     )
     for ax in axes.flat:
         verts, spline = generate_shape(
-            min_verts=4, max_verts=10, radius_std=0.5, angle_std=0.5
+            min_verts=4, max_verts=10, radius_std=0.5, angle_std=0.7
         )
         ax.axis("off")
         ax.scatter(verts[0], verts[1], label="vertices", color="blue")
-        ax.scatter([0], [0], label="origin", color="green")
         ax.plot(spline[0], spline[1], label="spline", color="red")
     plt.savefig("shapes.png")
+
+
+def draw_shape(scale: int = 100, position: tuple[int] = (80, 80)):
+    pygame.init()
+
+    window = pygame.display.set_mode((800, 800))
+    window.fill((0, 0, 0))
+
+    _, spline = generate_shape()
+    spline = scale * spline + np.array(position).reshape(2, 1)
+    run = True
+    while run:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                run = False
+        pygame.gfxdraw.aapolygon(window, spline.T.tolist(), (255, 255, 255))
+        pygame.draw.polygon(window, (255, 255, 255), spline.T.tolist())
+        pygame.display.update()
+    pygame.quit()
 
 
 def generate_shape(
@@ -75,11 +96,12 @@ def interpolate(verts, k: int = 3, num_spline_points: int = 1000):
         An array of shape (2, num_spline_points).
     """
     verts = np.column_stack((verts, verts[:, 0]))
-    spline_params, u = splprep(verts, s=0.0, per=0, k=k)
+    spline_params, u = splprep(verts, s=0, per=1, k=k)
     u_new = np.linspace(u.min(), u.max(), num_spline_points)
     x, y = splev(u_new, spline_params, der=0)
     return np.array([x, y])
 
 
 if __name__ == "__main__":
-    plot_shapes_on_grid()
+    draw_shape()
+    # plot_shapes_on_grid()
