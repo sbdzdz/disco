@@ -6,7 +6,12 @@ from scipy.interpolate import splev, splprep
 
 
 def plot_shapes_on_grid(n=8):
-    """Plot an n x n grid of random shapes."""
+    """Plot an n x n grid of random shapes.
+    Args:
+        n: The number of rows and columns in the grid.
+    Returns:
+        None
+    """
     _, axes = plt.subplots(
         nrows=n, ncols=n, figsize=(20, 20), layout="tight", subplot_kw={"aspect": 1.0}
     )
@@ -21,6 +26,13 @@ def plot_shapes_on_grid(n=8):
 
 
 def draw_shape(scale: int = 100, position: tuple[int] = (80, 80)):
+    """Draw a random shape on a pygame window. Apply the given scale and position to the shape.
+    Args:
+        scale: The scale to apply to the shape.
+        position: The position to apply to the shape.
+    Returns:
+        None
+    """
     pygame.init()
 
     window = pygame.display.set_mode((800, 800))
@@ -103,4 +115,3 @@ def interpolate(verts, k: int = 3, num_spline_points: int = 1000):
 
 if __name__ == "__main__":
     draw_shape()
-    # plot_shapes_on_grid()
