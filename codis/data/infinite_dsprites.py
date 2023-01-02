@@ -1,8 +1,7 @@
 import numpy as np
 import pygame
 from matplotlib import pyplot as plt
-from pygame import gfxdraw
-from pygame.locals import *
+import pygame.gfxdraw
 from scipy.interpolate import splev, splprep
 
 
