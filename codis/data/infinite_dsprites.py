@@ -146,8 +146,8 @@ class InfiniteDSprites(IterableDataset):
         base_scale = 0.1 * height
         position = np.array(
             [
-                0.25 * height + 0.75 * height * latents.position_y,
-                0.25 * width + 0.75 * width * latents.position_x,
+                0.25 * height + 0.5 * height * latents.position_y,
+                0.25 * width + 0.5 * width * latents.position_x,
             ]
         ).reshape(2, 1)
         shape = base_scale * latents.scale * pickle.loads(latents.shape) + position
