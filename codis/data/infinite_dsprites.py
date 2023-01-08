@@ -71,7 +71,7 @@ class InfiniteDSprites(IterableDataset):
         min_verts: int = 3,
         max_verts: int = 10,
         radius_std: float = 0.5,
-        angle_std: float = 0.5,
+        angle_std: float = 0.7,
     ):
         """Generate a random polygon and optionally interpolate it with a spline.
         Args:
