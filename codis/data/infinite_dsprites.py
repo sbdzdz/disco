@@ -36,7 +36,7 @@ class InfiniteDSprites(IterableDataset):
         self,
         image_size: int = 64,
         scale_range: Iterable = np.linspace(0.5, 1, 6),
-        orientation_range: Iterable = np.linspace(0, 2 * np.pi, 40),
+        orientation_range: Iterable = np.linspace(0, 2 * np.pi, 40),  # TODO: apply
         position_x_range: Iterable = np.linspace(0, 1, 32),
         position_y_range: Iterable = np.linspace(0, 1, 32),
     ):
@@ -71,7 +71,8 @@ class InfiniteDSprites(IterableDataset):
         min_verts: int = 3,
         max_verts: int = 10,
         radius_std: float = 0.5,
-        angle_std: float = 0.7,
+        angle_std: float = 0.5,
+        # TODO: fix the sorting when using a higher angle variance
     ):
         """Generate a random polygon and optionally interpolate it with a spline.
         Args:
