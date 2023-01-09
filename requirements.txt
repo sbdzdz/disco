@@ -5,3 +5,4 @@ numpy
 pygame
 scipy
 torch
+tqdm
