@@ -27,12 +27,17 @@ def plot_shapes_on_grid(n=5):
     plt.savefig("shapes.png")
 
 
-def zoom_out_vis(n=9, num_frames=100):
+def zoom_out_vis(nrows=5, ncols=12, num_frames=300, height=10):
     """Create an animated GIF showing a grid of n x n InfiniteDSprites datasets."""
-    datasets = [iter(InfiniteDSprites()) for _ in range(n**2)]
+    datasets = [iter(InfiniteDSprites()) for _ in range(nrows * ncols)]
     frames = [[next(dataset) for dataset in datasets] for _ in range(num_frames)]
+    aspect_ratio = ncols / nrows
     _, axes = plt.subplots(
-        nrows=n, ncols=n, figsize=(20, 20), layout="tight", subplot_kw={"aspect": 1.0}
+        nrows,
+        ncols,
+        figsize=(aspect_ratio * height, height),
+        layout="tight",
+        subplot_kw={"aspect": 1.0},
     )
     with imageio.get_writer("zoom_out.gif", mode="I") as writer:
         for frame in tqdm(frames):
