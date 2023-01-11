@@ -52,8 +52,7 @@ class InfiniteDSprites(IterableDataset):
         window = pygame.display.set_mode((self.image_size, self.image_size))
         color = 0
         while True:
-            _, shape = self.generate_shape()
-            shape = pickle.dumps(shape)
+            _, shape = self.sample_polygon()
             for scale, orientation, position_x, position_y in product(
                 self.scale_range,
                 self.orientation_range,
@@ -66,7 +65,7 @@ class InfiniteDSprites(IterableDataset):
                 image = self.draw(window, latents)
                 yield image, latents
 
-    def generate_shape(
+    def sample_polygon(
         self,
         min_verts: int = 3,
         max_verts: int = 10,
@@ -84,38 +83,24 @@ class InfiniteDSprites(IterableDataset):
             A tuple of (points, spline), where points is an array of points of shape (2, num_verts)
             and spline is an array of shape (2, num_spline_points).
         """
-        n = np.random.randint(min_verts, max_verts + 1)
-        verts = self.sample_vertices(n, radius_std, angle_std)
+        num_verts = np.random.randint(min_verts, max_verts + 1)
+
+        rs = np.random.normal(1.0, radius_std, num_verts)
+        rs = np.clip(rs, 0.1, 1.9)
+
+        sector = 2 * np.pi / num_verts
+        intervals = np.linspace(0, 2 * np.pi, num_verts, endpoint=False)
+        thetas = np.random.normal(0.0, sector / 2 * angle_std, num_verts)
+        thetas = np.clip(thetas, -sector / 2, sector / 2) + intervals
+
+        verts = [[r * np.cos(theta), r * np.sin(theta)] for r, theta in zip(rs, thetas)]
+        verts = np.array(verts).T
         spline = (
             self.interpolate(verts)
             if np.random.rand() < 0.5
             else self.interpolate(verts, k=1)
         )
         return verts, spline
-
-    @staticmethod
-    def sample_vertices(n: int, radius_std: float, angle_std: float):
-        """Sample polar coordinates of the vertices.
-        Args:
-            n: Number of vertices.
-            radius_std: Standard deviation of the polar radius when sampling the vertices.
-            angle_std: Standard deviation of the polar angle when sampling the vertices.
-        Returns:
-            An array of shape (2, num_verts).
-        """
-        radia = np.random.normal(1.0, radius_std, n)
-        radia = np.clip(radia, 0.1, 1.9)
-
-        sector = 2 * np.pi / n
-        intervals = np.linspace(0, 2 * np.pi, n, endpoint=False)
-        angles = np.random.normal(0.0, sector / 2 * angle_std, n)
-        angles = np.clip(angles, -sector / 2, sector / 2) + intervals
-
-        points = [
-            [radius * np.cos(angle), radius * np.sin(angle)]
-            for radius, angle in zip(radia, angles)
-        ]
-        return np.array(points).T
 
     @staticmethod
     def interpolate(verts, k: int = 3, num_spline_points: int = 1000):
@@ -151,7 +136,7 @@ class InfiniteDSprites(IterableDataset):
                 0.25 * width + 0.5 * width * latents.position_x,
             ]
         ).reshape(2, 1)
-        shape = base_scale * latents.scale * pickle.loads(latents.shape) + position
+        shape = base_scale * latents.scale * latents.shape + position
         pygame.gfxdraw.aapolygon(window, shape.T.tolist(), (255, 255, 255))
         pygame.draw.polygon(window, pygame.Color("white"), shape.T.tolist())
         pygame.display.update()
