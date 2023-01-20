@@ -1,5 +1,4 @@
 import os
-import pickle
 from collections import namedtuple
 from itertools import islice, product
 from typing import Iterable
@@ -39,20 +38,46 @@ class InfiniteDSprites(IterableDataset):
         orientation_range: Iterable = np.linspace(0, 2 * np.pi, 40),  # TODO: apply
         position_x_range: Iterable = np.linspace(0, 1, 32),
         position_y_range: Iterable = np.linspace(0, 1, 32),
+        min_verts: int = 3,
+        max_verts: int = 10,
+        radius_std: float = 0.9,
+        angle_std: float = 0.9,
     ):
+        """Create a dataset of images of random shapes.
+        Args:
+            image_size: The size of the images in pixels.
+            scale_range: The range of scales to use.
+            orientation_range: The range of orientations to use.
+            position_x_range: The range of x positions to use.
+            position_y_range: The range of y positions to use.
+            min_verts: The minimum number of vertices in the shape.
+            max_verts: The maximum number of vertices in the shape.
+            radius_std: The standard deviation of the radius of the vertices.
+            angle_std: The standard deviation of the angle of the vertices.
+        Returns:
+            None
+        """
+        pygame.init()
+        os.environ["SDL_VIDEODRIVER"] = "dummy"
         self.image_size = image_size
         self.scale_range = scale_range
         self.orientation_range = orientation_range
         self.position_x_range = position_x_range
         self.position_y_range = position_y_range
+        self.min_verts = min_verts
+        self.max_verts = max_verts
+        self.radius_std = radius_std
+        self.angle_std = angle_std
+        self.sample_counter = 0
+
+    def __del__(self):
+        pygame.quit()
 
     def __iter__(self):
-        os.environ["SDL_VIDEODRIVER"] = "dummy"
-        pygame.init()
         window = pygame.display.set_mode((self.image_size, self.image_size))
         color = 0
         while True:
-            _, shape = self.sample_polygon()
+            _, shape = self.generate_polygon()
             for scale, orientation, position_x, position_y in product(
                 self.scale_range,
                 self.orientation_range,
@@ -65,14 +90,7 @@ class InfiniteDSprites(IterableDataset):
                 image = self.draw(window, latents)
                 yield image, latents
 
-    def sample_polygon(
-        self,
-        min_verts: int = 3,
-        max_verts: int = 10,
-        radius_std: float = 0.5,
-        angle_std: float = 0.5,
-        # TODO: fix the sorting when using a higher angle variance
-    ):
+    def generate_polygon(self):
         """Generate a random polygon and optionally interpolate it with a spline.
         Args:
             min_verts: Minimum number of vertices (inclusive).
@@ -83,18 +101,7 @@ class InfiniteDSprites(IterableDataset):
             A tuple of (points, spline), where points is an array of points of shape (2, num_verts)
             and spline is an array of shape (2, num_spline_points).
         """
-        num_verts = np.random.randint(min_verts, max_verts + 1)
-
-        rs = np.random.normal(1.0, radius_std, num_verts)
-        rs = np.clip(rs, 0.1, 1.9)
-
-        sector = 2 * np.pi / num_verts
-        intervals = np.linspace(0, 2 * np.pi, num_verts, endpoint=False)
-        thetas = np.random.normal(0.0, sector / 2 * angle_std, num_verts)
-        thetas = np.clip(thetas, -sector / 2, sector / 2) + intervals
-
-        verts = [[r * np.cos(theta), r * np.sin(theta)] for r, theta in zip(rs, thetas)]
-        verts = np.array(verts).T
+        verts = self.sample_vertex_positions()
         spline = (
             self.interpolate(verts)
             if np.random.rand() < 0.5
@@ -102,8 +109,31 @@ class InfiniteDSprites(IterableDataset):
         )
         return verts, spline
 
+    def sample_vertex_positions(self):
+        """Sample the positions of the vertices of a polygon.
+        Args:
+            radius_std: Standard deviation of the polar radius when sampling the vertices.
+            angle_std: Standard deviation of the polar angle when sampling the vertices.
+            num_verts: Number of vertices.
+        Returns:
+            An array of shape (2, num_verts).
+        """
+        num_verts = np.random.randint(self.min_verts, self.max_verts + 1)
+        rs = np.random.normal(1.0, self.radius_std, num_verts)
+        rs = np.clip(rs, 0.1, 1.9)
+
+        epsilon = 1e-6
+        circle_sector = np.pi / num_verts - epsilon
+        intervals = np.linspace(0, 2 * np.pi, num_verts, endpoint=False)
+        thetas = np.random.normal(0.0, circle_sector * self.angle_std, num_verts)
+        thetas = np.clip(thetas, -circle_sector, circle_sector) + intervals
+
+        verts = [[r * np.cos(theta), r * np.sin(theta)] for r, theta in zip(rs, thetas)]
+        verts = np.array(verts).T
+        return verts
+
     @staticmethod
-    def interpolate(verts, k: int = 3, num_spline_points: int = 1000):
+    def interpolate(verts: np.array, k: int = 3, num_spline_points: int = 1000):
         """Interpolate a set of vertices with a spline.
         Args:
             verts: An array of shape (2, num_verts).
