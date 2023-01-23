@@ -3,11 +3,13 @@ import io
 import imageio.v2 as imageio
 from matplotlib import pyplot as plt
 from tqdm import tqdm
+from typing import Iterable
+import numpy as np
 
-from codis.data.infinite_dsprites import InfiniteDSprites
+from codis.data.infinite_dsprites import InfiniteDSprites, Latents
 
 
-def plot_shapes_on_grid(nrows=5, ncols=12, fig_height=10):
+def draw_shapes_on_grid(nrows=5, ncols=12, fig_height=10):
     """Plot an n x n grid of random shapes.
     Args:
         n: The number of rows and columns in the grid.
@@ -23,25 +25,144 @@ def plot_shapes_on_grid(nrows=5, ncols=12, fig_height=10):
     )
     dataset = InfiniteDSprites()
     for ax in axes.flat:
-        verts, spline = dataset.generate_polygon()
+        spline = dataset.generate_shape()
         ax.axis("off")
-        ax.scatter(verts[0], verts[1], label="vertices", color="blue")
         ax.plot(spline[0], spline[1], label="spline", color="red")
     plt.savefig("shapes.png")
 
 
-def plot_animated_shapes_on_grid(nrows=5, ncols=12, num_frames=100, fig_height=10):
-    """Create an animated GIF showing a grid of nrows x ncols InfiniteDSprites datasets.
+def animate_shapes_on_grid(
+    nrows=5,
+    ncols=12,
+    fig_height=10,
+    scale_range: Iterable = np.linspace(0.5, 1, 6),
+    orientation_range: Iterable = np.linspace(0, 2 * np.pi, 100),
+    position_x_range: Iterable = np.linspace(0, 1, 32),
+    position_y_range: Iterable = np.linspace(0, 1, 32),
+):
+    """Create an animated GIF showing an animated grid of nrows x ncols shapes.
+    Args:
+    nrows: The number of rows in the grid.
+    ncols: The number of columns in the grid.
+    fig_height: The height of the figure in inches.
+    Returns:
+    None
+    """
+    dataset = InfiniteDSprites(image_size=128)
+    shapes = [dataset.generate_shape() for _ in range(nrows * ncols)]
+    scales = np.concatenate(
+        (
+            scale_range,
+            scale_range[-1]
+            * np.ones(
+                len(orientation_range) + len(position_x_range) + len(position_y_range)
+            ),
+        )
+    )
+
+    orientations = np.concatenate(
+        (
+            np.zeros(len(scale_range)),
+            orientation_range,
+            orientation_range[-1]
+            * np.ones(len(position_x_range) + len(position_y_range)),
+        )
+    )
+
+    positions_x = np.concatenate(
+        (
+            np.zeros(len(scale_range + len(orientation_range))),
+            position_x_range,
+            position_x_range[-1] * np.ones(len(position_y_range)),
+        )
+    )
+
+    positions_y = np.concatenate(
+        (
+            np.zeros(len(scale_range) + len(orientation_range) + len(position_x_range)),
+            position_y_range,
+        )
+    )
+
+    color = 0
+    frames = [
+        [
+            dataset.draw(
+                Latents(color, shape, scale, orientation, position_x, position_y)
+            )
+            for shape in shapes
+        ]
+        for scale, orientation, position_x, position_y in zip(
+            scales, orientations, positions_x, positions_y
+        )
+    ]
+    plot_on_grid(nrows, ncols, fig_height, frames)
+
+
+def animate_shapes_on_grid(
+    nrows=5,
+    ncols=12,
+    fig_height=10,
+    scale_range: Iterable = np.linspace(0.5, 1, 6),
+    orientation_range: Iterable = np.linspace(0, 2 * np.pi, 100),
+    position_x_range: Iterable = np.linspace(0, 1, 32),
+    position_y_range: Iterable = np.linspace(0, 1, 32),
+):
+    """Create an animated GIF showing an animated grid of nrows x ncols shapes.
     Args:
         nrows: The number of rows in the grid.
         ncols: The number of columns in the grid.
-        num_frames: The number of frames in the animation.
-        height: The height of the grid in inches.
+        fig_height: The height of the figure in inches.
     Returns:
         None
     """
-    datasets = [iter(InfiniteDSprites(image_size=128)) for _ in range(nrows * ncols)]
-    frames = [[next(dataset) for dataset in datasets] for _ in range(num_frames)]
+    dataset = InfiniteDSprites(image_size=128)
+    shapes = [dataset.generate_shape() for _ in range(nrows * ncols)]
+    length = (
+        len(scale_range)
+        + len(orientation_range)
+        + len(position_x_range)
+        + len(position_y_range)
+    )
+    scales, orientations, positions_x, positions_y = (
+        np.zeros(length),
+        np.zeros(length),
+        np.zeros(length),
+        np.zeros(length),
+    )
+
+    start = 0
+    scales[start, len(scale_range)] = scale_range
+    scales[len(scale_range) :] = scale_range[-1]
+
+    start = len(scale_range)
+    orientations[start : start + len(orientation_range)] = orientation_range
+    orientations[start + len(orientation_range) :] = orientation_range[-1]
+
+    start = len(scale_range) + len(orientation_range)
+    positions_x[start : start + len(position_x_range)] = position_x_range
+    positions_x[start + len(position_x_range) :] = position_x_range[-1]
+
+    start = len(scale_range) + len(orientation_range) + len(position_x_range)
+    positions_y[start : start + len(position_y_range)] = position_y_range
+    positions_y[start + len(position_y_range) :] = position_y_range[-1]
+
+    color = 0
+    frames = [
+        [
+            dataset.draw(
+                Latents(color, shape, scale, orientation, position_x, position_y)
+            )
+            for shape in shapes
+        ]
+        for scale, orientation, position_x, position_y in zip(
+            scales, orientations, positions_x, positions_y
+        )
+    ]
+    plot_on_grid(nrows, ncols, fig_height, frames)
+
+
+def plot_on_grid(nrows, ncols, fig_height, frames):
     with imageio.get_writer("zoom_out.gif", mode="I") as writer:
         for frame in tqdm(frames):
             _, axes = plt.subplots(
@@ -51,7 +172,7 @@ def plot_animated_shapes_on_grid(nrows=5, ncols=12, num_frames=100, fig_height=1
                 layout="tight",
                 subplot_kw={"aspect": 1.0},
             )
-            for ax, (image, _) in zip(axes.flat, frame):
+            for ax, image in zip(axes.flat, frame):
                 ax.axis("off")
                 ax.imshow(image)
                 buffer = io.BytesIO()
@@ -62,4 +183,4 @@ def plot_animated_shapes_on_grid(nrows=5, ncols=12, num_frames=100, fig_height=1
 
 
 if __name__ == "__main__":
-    plot_animated_shapes_on_grid()
+    animate_shapes_on_grid()
