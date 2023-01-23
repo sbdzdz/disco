@@ -170,7 +170,7 @@ class InfiniteDSprites(IterableDataset):
             ]
         )
         shape = rotation @ latents.shape
-        shape = base_scale * latents.scale * latents.shape + position
+        shape = base_scale * latents.scale * shape + position
         pygame.gfxdraw.aapolygon(self.window, shape.T.tolist(), (255, 255, 255))
         pygame.draw.polygon(self.window, pygame.Color("white"), shape.T.tolist())
         pygame.display.update()
