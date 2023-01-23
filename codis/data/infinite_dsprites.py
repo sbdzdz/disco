@@ -163,6 +163,13 @@ class InfiniteDSprites(IterableDataset):
                 0.25 * width + 0.5 * width * latents.position_x,
             ]
         ).reshape(2, 1)
+        rotation = np.array(
+            [
+                [np.cos(latents.orientation), -np.sin(latents.orientation)],
+                [np.sin(latents.orientation), np.cos(latents.orientation)],
+            ]
+        )
+        shape = rotation @ latents.shape
         shape = base_scale * latents.scale * latents.shape + position
         pygame.gfxdraw.aapolygon(self.window, shape.T.tolist(), (255, 255, 255))
         pygame.draw.polygon(self.window, pygame.Color("white"), shape.T.tolist())
