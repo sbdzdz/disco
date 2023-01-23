@@ -64,7 +64,7 @@ def animate_shapes_on_grid(
     )
 
     start = 0
-    scales[start, len(scale_range)] = scale_range
+    scales[start : len(scale_range)] = scale_range
     scales[len(scale_range) :] = scale_range[-1]
 
     start = len(scale_range)
