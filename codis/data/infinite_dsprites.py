@@ -68,16 +68,15 @@ class InfiniteDSprites(IterableDataset):
         self.max_verts = max_verts
         self.radius_std = radius_std
         self.angle_std = angle_std
-        self.sample_counter = 0
+        self.window = pygame.display.set_mode((self.image_size, self.image_size))
 
     def __del__(self):
         pygame.quit()
 
     def __iter__(self):
-        window = pygame.display.set_mode((self.image_size, self.image_size))
         color = 0
         while True:
-            _, shape = self.generate_polygon()
+            shape = self.generate_shape()
             for scale, orientation, position_x, position_y in product(
                 self.scale_range,
                 self.orientation_range,
@@ -87,11 +86,11 @@ class InfiniteDSprites(IterableDataset):
                 latents = Latents(
                     color, shape, scale, orientation, position_x, position_y
                 )
-                image = self.draw(window, latents)
+                image = self.draw(latents)
                 yield image, latents
 
-    def generate_polygon(self):
-        """Generate a random polygon and optionally interpolate it with a spline.
+    def generate_shape(self):
+        """Generate random vertices and connect them with straight lines or a smooth curve.
         Args:
             min_verts: Minimum number of vertices (inclusive).
             max_verts: Maximum number of vertices (inclusive).
@@ -102,12 +101,11 @@ class InfiniteDSprites(IterableDataset):
             and spline is an array of shape (2, num_spline_points).
         """
         verts = self.sample_vertex_positions()
-        spline = (
+        return (
             self.interpolate(verts)
             if np.random.rand() < 0.5
             else self.interpolate(verts, k=1)
         )
-        return verts, spline
 
     def sample_vertex_positions(self):
         """Sample the positions of the vertices of a polygon.
@@ -148,8 +146,7 @@ class InfiniteDSprites(IterableDataset):
         x, y = splev(u_new, spline_params, der=0)
         return np.array([x, y])
 
-    @staticmethod
-    def draw(window: pygame.Surface, latents: Latents):
+    def draw(self, latents: Latents):
         """Draw an image based on the values of the latents.
         Args:
             window: The pygame window to draw on.
@@ -157,8 +154,8 @@ class InfiniteDSprites(IterableDataset):
         Returns:
             The image as a numpy array.
         """
-        window.fill(pygame.Color("black"))
-        height, width = window.get_size()
+        self.window.fill(pygame.Color("black"))
+        height, width = self.window.get_size()
         base_scale = 0.1 * height
         position = np.array(
             [
@@ -167,10 +164,10 @@ class InfiniteDSprites(IterableDataset):
             ]
         ).reshape(2, 1)
         shape = base_scale * latents.scale * latents.shape + position
-        pygame.gfxdraw.aapolygon(window, shape.T.tolist(), (255, 255, 255))
-        pygame.draw.polygon(window, pygame.Color("white"), shape.T.tolist())
+        pygame.gfxdraw.aapolygon(self.window, shape.T.tolist(), (255, 255, 255))
+        pygame.draw.polygon(self.window, pygame.Color("white"), shape.T.tolist())
         pygame.display.update()
-        return pygame.surfarray.array3d(window)
+        return pygame.surfarray.array3d(self.window)
 
 
 if __name__ == "__main__":
