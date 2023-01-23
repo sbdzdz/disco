@@ -36,7 +36,7 @@ def animate_shapes_on_grid(
     ncols=12,
     fig_height=10,
     scale_range: Iterable = np.linspace(0.5, 1, 6),
-    orientation_range: Iterable = np.linspace(0, 2 * np.pi, 100),
+    orientation_range: Iterable = np.linspace(0, 2 * np.pi, 40),
     position_x_range: Iterable = np.linspace(0, 1, 32),
     position_y_range: Iterable = np.linspace(0, 1, 32),
 ):
