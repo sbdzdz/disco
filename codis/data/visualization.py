@@ -48,7 +48,7 @@ def animate_shapes_on_grid(
     Returns:
         None
     """
-    dataset = InfiniteDSprites(image_size=128)
+    dataset = InfiniteDSprites(image_size=256)
     shapes = [dataset.generate_shape() for _ in range(nrows * ncols)]
     length = (
         len(scale_range)
@@ -114,5 +114,32 @@ def plot_on_grid(nrows, ncols, fig_height, frames):
             writer.append_data(image)
 
 
+def draw_single_shape(
+    path="shape.png",
+    orientation=0,
+    scale=1,
+    position_x=0.5,
+    position_y=0.5,
+):
+    """Plot a single random shape with given latents applied and save it to disk.
+    Returns:
+        None
+    """
+    dataset = InfiniteDSprites(image_size=256)
+    shape = dataset.generate_shape()
+    latents = Latents(
+        color=0,
+        shape=shape,
+        scale=scale,
+        orientation=orientation,
+        position_x=position_x,
+        position_y=position_y,
+    )
+    image = dataset.draw(latents)
+    plt.imshow(image, aspect=1.0, cmap="gray")
+    plt.axis("off")
+    plt.savefig(path, bbox_inches="tight", pad_inches=0)
+
+
 if __name__ == "__main__":
-    animate_shapes_on_grid()
+    draw_single_shape("shape.png", 0, 0.5, 0.5, 0.5)
