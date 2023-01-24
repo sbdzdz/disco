@@ -40,8 +40,8 @@ class InfiniteDSprites(IterableDataset):
         position_y_range: Iterable = np.linspace(0, 1, 32),
         min_verts: int = 3,
         max_verts: int = 10,
-        radius_std: float = 0.9,
-        angle_std: float = 0.9,
+        radius_std: float = 0.8,
+        angle_std: float = 0.8,
     ):
         """Create a dataset of images of random shapes.
         Args:
@@ -101,11 +101,14 @@ class InfiniteDSprites(IterableDataset):
             and spline is an array of shape (2, num_spline_points).
         """
         verts = self.sample_vertex_positions()
-        return (
+        shape = (
             self.interpolate(verts)
             if np.random.rand() < 0.5
             else self.interpolate(verts, k=1)
         )
+        shape = shape / np.max(np.linalg.norm(shape, axis=0))  # normalize scale
+        shape = shape - np.mean(shape, axis=1, keepdims=True)  # center shape
+        return shape
 
     def sample_vertex_positions(self):
         """Sample the positions of the vertices of a polygon.
@@ -155,26 +158,38 @@ class InfiniteDSprites(IterableDataset):
             The image as a numpy array.
         """
         self.window.fill(pygame.Color("black"))
-        height, width = self.window.get_size()
-        base_scale = 0.1 * height
-        position = np.array(
-            [
-                0.25 * height + 0.5 * height * latents.position_y,
-                0.25 * width + 0.5 * width * latents.position_x,
-            ]
-        ).reshape(2, 1)
-        rotation = np.array(
-            [
-                [np.cos(latents.orientation), -np.sin(latents.orientation)],
-                [np.sin(latents.orientation), np.cos(latents.orientation)],
-            ]
-        )
-        shape = rotation @ latents.shape
-        shape = base_scale * latents.scale * shape + position
+        shape = self.apply_scale(latents.shape, latents.scale)
+        shape = self.apply_orientation(shape, latents.orientation)
+        shape = self.apply_position(shape, latents.position_x, latents.position_y)
         pygame.gfxdraw.aapolygon(self.window, shape.T.tolist(), (255, 255, 255))
         pygame.draw.polygon(self.window, pygame.Color("white"), shape.T.tolist())
         pygame.display.update()
         return pygame.surfarray.array3d(self.window)
+
+    def apply_scale(self, shape, scale):
+        """Apply a scale to a shape."""
+        return 0.2 * self.image_size * scale * shape
+
+    def apply_orientation(self, shape, orientation):
+        """Rotate the shape by the given orientation."""
+        rotation_matrix = np.array(
+            [
+                [np.cos(orientation), -np.sin(orientation)],
+                [np.sin(orientation), np.cos(orientation)],
+            ]
+        )
+        return rotation_matrix @ shape
+
+    def apply_position(self, shape, position_x, position_y):
+        """Apply a position to a shape."""
+        height, width = self.window.get_size()
+        position = np.array(
+            [
+                0.25 * height + 0.5 * height * position_y,
+                0.25 * width + 0.5 * width * position_x,
+            ]
+        ).reshape(2, 1)
+        return shape + position
 
 
 if __name__ == "__main__":
