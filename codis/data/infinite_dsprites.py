@@ -59,10 +59,12 @@ class InfiniteDSprites(IterableDataset):
         pygame.init()
         os.environ["SDL_VIDEODRIVER"] = "dummy"
         self.image_size = image_size
-        self.scale_range = scale_range
-        self.orientation_range = orientation_range
-        self.position_x_range = position_x_range
-        self.position_y_range = position_y_range
+        self.ranges = {
+            "scale": scale_range,
+            "orientation": orientation_range,
+            "position_x": position_x_range,
+            "position_y": position_y_range,
+        }
         self.min_verts = min_verts
         self.max_verts = max_verts
         self.radius_std = radius_std
@@ -82,10 +84,7 @@ class InfiniteDSprites(IterableDataset):
         while True:
             shape = self.generate_shape()
             for scale, orientation, position_x, position_y in product(
-                self.scale_range,
-                self.orientation_range,
-                self.position_x_range,
-                self.position_y_range,
+                *self.ranges.values()
             ):
                 latents = Latents(
                     color, shape, scale, orientation, position_x, position_y
