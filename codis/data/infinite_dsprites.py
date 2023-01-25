@@ -16,7 +16,6 @@ BaseLatents = namedtuple(
 
 
 class Latents(BaseLatents):
-    # TODO: use a dataclass instead of a namedtuple, but make sure it can be used with a PyTorch dataloader
     """Latent variables defining a single image."""
 
     def to(self, device):
@@ -35,7 +34,7 @@ class InfiniteDSprites(IterableDataset):
         self,
         image_size: int = 64,
         scale_range: Iterable = np.linspace(0.5, 1, 6),
-        orientation_range: Iterable = np.linspace(0, 2 * np.pi, 40),  # TODO: apply
+        orientation_range: Iterable = np.linspace(0, 2 * np.pi, 40),
         position_x_range: Iterable = np.linspace(0, 1, 32),
         position_y_range: Iterable = np.linspace(0, 1, 32),
         min_verts: int = 3,
