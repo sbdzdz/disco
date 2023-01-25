@@ -74,7 +74,24 @@ def draw_shapes_animated(
             scales, orientations, positions_x, positions_y
         )
     ]
-    plot_on_grid(nrows, ncols, fig_height, frames)
+
+    with imageio.get_writer("shapes.gif", mode="I") as writer:
+        for frame in tqdm(frames):
+            _, axes = plt.subplots(
+                nrows,
+                ncols,
+                figsize=(ncols / nrows * fig_height, fig_height),
+                layout="tight",
+                subplot_kw={"aspect": 1.0},
+            )
+            for ax, image in zip(axes.flat, frame):
+                ax.axis("off")
+                ax.imshow(image)
+                buffer = io.BytesIO()
+            plt.savefig(buffer, format="png")
+            plt.close()
+            image = imageio.imread(buffer)
+            writer.append_data(image)
 
 
 def generate_latent_progression(
@@ -109,26 +126,6 @@ def generate_latent_progression(
     positions_y[start : start + len(position_y_range)] = position_y_range
     positions_y[start + len(position_y_range) :] = position_y_range[-1]
     return scales, orientations, positions_x, positions_y
-
-
-def plot_on_grid(nrows, ncols, fig_height, frames):
-    with imageio.get_writer("zoom_out.gif", mode="I") as writer:
-        for frame in tqdm(frames):
-            _, axes = plt.subplots(
-                nrows,
-                ncols,
-                figsize=(ncols / nrows * fig_height, fig_height),
-                layout="tight",
-                subplot_kw={"aspect": 1.0},
-            )
-            for ax, image in zip(axes.flat, frame):
-                ax.axis("off")
-                ax.imshow(image)
-                buffer = io.BytesIO()
-            plt.savefig(buffer, format="png")
-            plt.close()
-            image = imageio.imread(buffer)
-            writer.append_data(image)
 
 
 def draw_single_shape(
