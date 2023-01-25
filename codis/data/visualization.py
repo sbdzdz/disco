@@ -14,7 +14,7 @@ from codis.data.infinite_dsprites import (
 )
 
 
-def draw_shapes_on_grid(nrows=5, ncols=12, fig_height=10):
+def draw_shapes(nrows=5, ncols=12, fig_height=10):
     """Plot an n x n grid of random shapes.
     Args:
         n: The number of rows and columns in the grid.
@@ -36,7 +36,7 @@ def draw_shapes_on_grid(nrows=5, ncols=12, fig_height=10):
     plt.savefig("shapes.png")
 
 
-def animate_shapes_on_grid(
+def draw_shapes_animated(
     nrows=5,
     ncols=12,
     fig_height=10,
