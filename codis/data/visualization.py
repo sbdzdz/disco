@@ -5,8 +5,13 @@ from matplotlib import pyplot as plt
 from tqdm import tqdm
 from typing import Iterable
 import numpy as np
+from itertools import islice
 
-from codis.data.infinite_dsprites import InfiniteDSprites, Latents
+from codis.data.infinite_dsprites import (
+    InfiniteDSprites,
+    InfiniteDSpritesTriplets,
+    Latents,
+)
 
 
 def draw_shapes_on_grid(nrows=5, ncols=12, fig_height=10):
@@ -153,5 +158,29 @@ def draw_single_shape(
     plt.savefig(path, bbox_inches="tight", pad_inches=0)
 
 
+def draw_triplets():
+    dataset = InfiniteDSpritesTriplets()
+    for (image_original, image_transform, image_reference), action in islice(
+        dataset, 10
+    ):
+        plt.figure(figsize=(10, 3))
+        plt.subplot(1, 3, 1)
+        plt.imshow(image_original, aspect=1.0, cmap="gray")
+        plt.axis("off")
+        plt.title("Original")
+        plt.subplot(1, 3, 2)
+        plt.imshow(image_transform, aspect=1.0, cmap="gray")
+        plt.axis("off")
+        plt.title("Transformed")
+        plt.subplot(1, 3, 3)
+        plt.imshow(image_reference, aspect=1.0, cmap="gray")
+        plt.axis("off")
+        plt.title("Reference")
+        plt.suptitle(f"Action: {action}")
+        plt.savefig(f"triplet_{action}.png", bbox_inches="tight", pad_inches=0)
+        plt.show()
+        plt.close()
+
+
 if __name__ == "__main__":
-    draw_single_shape("shape.png", 0, 0.5, 0.5, 0.5)
+    draw_triplets()
