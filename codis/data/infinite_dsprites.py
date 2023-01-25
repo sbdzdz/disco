@@ -208,6 +208,44 @@ class InfiniteDSprites(IterableDataset):
         ).reshape(2, 1)
         return shape + position
 
+    def sample_latents(self):
+        """Sample a random set of latents."""
+        return Latents(
+            color=0,
+            shape=self.generate_shape(),
+            scale=np.random.choice(self.ranges["scale"]),
+            orientation=np.random.choice(self.ranges["orientation"]),
+            position_x=np.random.choice(self.ranges["position_x"]),
+            position_y=np.random.choice(self.ranges["position_y"]),
+        )
+
+
+class InfiniteDSpritesTriplets(InfiniteDSprites):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def __iter__(self):
+        """Generate a tuple containing a triplet of images and an action encoding.
+        See the appendix of Montero et al. (2022) for details.
+        Args:
+            None
+        Yields:
+            A tuple of ((image_original, image_transform, image_target), action).
+        """
+        while True:
+            action = np.random.choice(list(self.ranges.keys()))
+            latents_original = self.sample_latents()
+            latents_transform = self.sample_latents()
+            if getattr(latents_original, action) == getattr(latents_transform, action):
+                continue
+            latents_target = latents_original._replace(
+                **{action: getattr(latents_transform, action)}
+            )
+            image_original = self.draw(latents_original)
+            image_transform = self.draw(latents_transform)
+            image_target = self.draw(latents_target)
+            yield ((image_original, image_transform, image_target), action)
+
 
 if __name__ == "__main__":
     dataset = InfiniteDSprites(image_size=512)
