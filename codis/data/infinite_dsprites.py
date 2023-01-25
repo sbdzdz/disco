@@ -73,6 +73,11 @@ class InfiniteDSprites(IterableDataset):
         pygame.quit()
 
     def __iter__(self):
+        """Generate an infinite stream of images and latent vectors.
+        Args:
+            None
+        Returns:
+            An infinite stream of (image, latents) tuples."""
         color = 0
         while True:
             shape = self.generate_shape()
@@ -169,8 +174,15 @@ class InfiniteDSprites(IterableDataset):
         """Apply a scale to a shape."""
         return 0.2 * self.image_size * scale * shape
 
-    def apply_orientation(self, shape, orientation):
-        """Rotate the shape by the given orientation."""
+    @staticmethod
+    def apply_orientation(shape, orientation):
+        """Apply an orientation to a shape.
+        Args:
+            shape: An array of shape (2, num_points).
+            orientation: The orientation in radians.
+        Returns:
+            The rotated shape.
+        """
         rotation_matrix = np.array(
             [
                 [np.cos(orientation), -np.sin(orientation)],
@@ -180,7 +192,14 @@ class InfiniteDSprites(IterableDataset):
         return rotation_matrix @ shape
 
     def apply_position(self, shape, position_x, position_y):
-        """Apply a position to a shape."""
+        """Apply a position to a shape.
+        Args:
+            shape: An array of shape (2, num_points).
+            position_x: The x position of the shape.
+            position_y: The y position of the shape.
+        Returns:
+            An array of shape (2, num_points).
+        """
         height, width = self.window.get_size()
         position = np.array(
             [
