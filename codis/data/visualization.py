@@ -40,7 +40,7 @@ def animate_shapes_on_grid(
     position_x_range: Iterable = np.linspace(0, 1, 32),
     position_y_range: Iterable = np.linspace(0, 1, 32),
 ):
-    """Create an animated GIF showing an animated grid of nrows x ncols shapes.
+    """Create an animated GIF showing an nrows x ncols grid of shapes undergoing transformations.
     Args:
         nrows: The number of rows in the grid.
         ncols: The number of columns in the grid.
@@ -50,6 +50,31 @@ def animate_shapes_on_grid(
     """
     dataset = InfiniteDSprites(image_size=256)
     shapes = [dataset.generate_shape() for _ in range(nrows * ncols)]
+    scales, orientations, positions_x, positions_y = generate_latent_progression(
+        scale_range,
+        orientation_range,
+        position_x_range,
+        position_y_range,
+    )
+
+    color = 0
+    frames = [
+        [
+            dataset.draw(
+                Latents(color, shape, scale, orientation, position_x, position_y)
+            )
+            for shape in shapes
+        ]
+        for scale, orientation, position_x, position_y in zip(
+            scales, orientations, positions_x, positions_y
+        )
+    ]
+    plot_on_grid(nrows, ncols, fig_height, frames)
+
+
+def generate_latent_progression(
+    scale_range, orientation_range, position_x_range, position_y_range
+):
     length = (
         len(scale_range)
         + len(orientation_range)
@@ -78,20 +103,7 @@ def animate_shapes_on_grid(
     start = len(scale_range) + len(orientation_range) + len(position_x_range)
     positions_y[start : start + len(position_y_range)] = position_y_range
     positions_y[start + len(position_y_range) :] = position_y_range[-1]
-
-    color = 0
-    frames = [
-        [
-            dataset.draw(
-                Latents(color, shape, scale, orientation, position_x, position_y)
-            )
-            for shape in shapes
-        ]
-        for scale, orientation, position_x, position_y in zip(
-            scales, orientations, positions_x, positions_y
-        )
-    ]
-    plot_on_grid(nrows, ncols, fig_height, frames)
+    return scales, orientations, positions_x, positions_y
 
 
 def plot_on_grid(nrows, ncols, fig_height, frames):
