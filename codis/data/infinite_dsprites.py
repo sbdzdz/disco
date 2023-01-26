@@ -39,7 +39,7 @@ class InfiniteDSprites(IterableDataset):
         position_y_range: Iterable = np.linspace(0, 1, 32),
         min_verts: int = 3,
         max_verts: int = 10,
-        radius_std: float = 0.8,
+        radius_std: float = 0.6,
         angle_std: float = 0.8,
     ):
         """Create a dataset of images of random shapes.
