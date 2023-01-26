@@ -1,6 +1,6 @@
 import os
 from collections import namedtuple
-from itertools import islice, product, count
+from itertools import count, islice, product
 from typing import Iterable
 
 import imageio
