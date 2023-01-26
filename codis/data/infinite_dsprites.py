@@ -1,6 +1,6 @@
 import os
 from collections import namedtuple
-from itertools import islice, product
+from itertools import islice, product, count
 from typing import Iterable
 
 import imageio
@@ -27,6 +27,9 @@ class Latents(BaseLatents):
             self.position_x.to(device),
             self.position_y.to(device),
         )
+
+    def __getitem__(self, key):
+        return getattr(self, key)
 
 
 class InfiniteDSprites(IterableDataset):
@@ -60,6 +63,7 @@ class InfiniteDSprites(IterableDataset):
         os.environ["SDL_VIDEODRIVER"] = "dummy"
         self.image_size = image_size
         self.ranges = {
+            "shape": (self.generate_shape() for _ in count()),
             "scale": scale_range,
             "orientation": orientation_range,
             "position_x": position_x_range,
@@ -82,8 +86,7 @@ class InfiniteDSprites(IterableDataset):
             An infinite stream of (image, latents) tuples."""
         color = 0
         while True:
-            shape = self.generate_shape()
-            for scale, orientation, position_x, position_y in product(
+            for shape, scale, orientation, position_x, position_y in product(
                 *self.ranges.values()
             ):
                 latents = Latents(
@@ -236,10 +239,13 @@ class InfiniteDSpritesTriplets(InfiniteDSprites):
             action = np.random.choice(list(self.ranges.keys()))
             latents_original = self.sample_latents()
             latents_transform = self.sample_latents()
-            if getattr(latents_original, action) == getattr(latents_transform, action):
+            if (
+                action != "shape"
+                and latents_original[action] == latents_transform[action]
+            ):
                 continue
             latents_target = latents_original._replace(
-                **{action: getattr(latents_transform, action)}
+                **{action: latents_transform[action]}
             )
             image_original = self.draw(latents_original)
             image_transform = self.draw(latents_transform)
