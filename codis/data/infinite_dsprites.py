@@ -59,8 +59,8 @@ class InfiniteDSprites(IterableDataset):
         Returns:
             None
         """
-        pygame.init()
         os.environ["SDL_VIDEODRIVER"] = "dummy"
+        pygame.display.init()
         self.image_size = image_size
         self.ranges = {
             "shape": (self.generate_shape() for _ in count()),
@@ -74,9 +74,6 @@ class InfiniteDSprites(IterableDataset):
         self.radius_std = radius_std
         self.angle_std = angle_std
         self.window = pygame.display.set_mode((self.image_size, self.image_size))
-
-    def __del__(self):
-        pygame.quit()
 
     def __iter__(self):
         """Generate an infinite stream of images and latent vectors.
