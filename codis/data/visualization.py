@@ -1,10 +1,11 @@
 import io
+import random
+from typing import Iterable
 
 import imageio.v2 as imageio
+import numpy as np
 from matplotlib import pyplot as plt
 from tqdm import tqdm
-from typing import Iterable
-import numpy as np
 
 from codis.data.infinite_dsprites import (
     InfiniteDSprites,
@@ -16,7 +17,9 @@ from codis.data.infinite_dsprites import (
 def draw_shapes(nrows=5, ncols=12, fig_height=10):
     """Plot an n x n grid of random shapes.
     Args:
-        n: The number of rows and columns in the grid.
+        nrows: The number of rows in the grid.
+        ncols: The number of columns in the grid.
+        fig_height: The height of the figure in inches.
     Returns:
         None
     """
@@ -96,6 +99,15 @@ def draw_shapes_animated(
 def generate_latent_progression(
     scale_range, orientation_range, position_x_range, position_y_range
 ):
+    """Generate a sequence of latents that can be used to animate a shape.
+    Args:
+        scale_range: The range of scales to use.
+        orientation_range: The range of orientations to use.
+        position_x_range: The range of x positions to use.
+        position_y_range: The range of y positions to use.
+    Returns:
+        A tuple of (scales, orientations, positions_x, positions_y) that can be used to animate a shape.
+    """
     length = (
         len(scale_range)
         + len(orientation_range)
@@ -135,9 +147,17 @@ def draw_single_shape(
     position_y=0.5,
 ):
     """Plot a single random shape with given latents applied and save it to disk.
+    Args:
+        path: The path to save the image to.
+        shape: The shape to use. This will just be used as a random seed.
+        orientation: The orientation of the shape.
+        scale: The scale of the shape.
+        position_x: The x position of the shape.
+        position_y: The y position of the shape.
     Returns:
         None
     """
+    random.seed(shape)
     dataset = InfiniteDSprites(image_size=256)
     shape = dataset.generate_shape()
     latents = Latents(
@@ -155,6 +175,13 @@ def draw_single_shape(
 
 
 def draw_triplet(fig_height=10):
+    """Plot a triplet of shapes form the InfiniteDSpritesTriplets.
+    See Montero et al. 2020 for details of the composition task.
+    Args:
+        fig_height: The height of the figure in inches.
+    Returns:
+        None
+    """
     dataset = InfiniteDSpritesTriplets(image_size=256)
     (images, action) = next(iter(dataset))
     _, axes = plt.subplots(
