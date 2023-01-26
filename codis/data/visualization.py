@@ -5,7 +5,6 @@ from matplotlib import pyplot as plt
 from tqdm import tqdm
 from typing import Iterable
 import numpy as np
-from itertools import islice
 
 from codis.data.infinite_dsprites import (
     InfiniteDSprites,
@@ -155,29 +154,24 @@ def draw_single_shape(
     plt.savefig(path, bbox_inches="tight", pad_inches=0)
 
 
-def draw_triplets():
-    dataset = InfiniteDSpritesTriplets()
-    for (image_original, image_transform, image_reference), action in islice(
-        dataset, 10
-    ):
-        plt.figure(figsize=(10, 3))
-        plt.subplot(1, 3, 1)
-        plt.imshow(image_original, aspect=1.0, cmap="gray")
-        plt.axis("off")
-        plt.title("Original")
-        plt.subplot(1, 3, 2)
-        plt.imshow(image_transform, aspect=1.0, cmap="gray")
-        plt.axis("off")
-        plt.title("Transformed")
-        plt.subplot(1, 3, 3)
-        plt.imshow(image_reference, aspect=1.0, cmap="gray")
-        plt.axis("off")
-        plt.title("Reference")
-        plt.suptitle(f"Action: {action}")
-        plt.savefig(f"triplet_{action}.png", bbox_inches="tight", pad_inches=0)
-        plt.show()
-        plt.close()
+def draw_triplet(fig_height=10):
+    dataset = InfiniteDSpritesTriplets(image_size=256)
+    fontsize = 25
+    (images, action) = next(iter(dataset))
+    _, axes = plt.subplots(
+        nrows=1,
+        ncols=3,
+        figsize=(3 * fig_height, fig_height),
+        subplot_kw={"aspect": 1.0},
+    )
+    names = ["Original", f"Transform: {action}", "Output"]
+    for ax, img, name in zip(axes.flat, images, names):
+        ax.axis("off")
+        ax.imshow(img)
+        ax.set_title(name, fontsize=fontsize)
+        ax.title.set_visible(True)
+    plt.savefig(f"triplet_{action}.png")
 
 
 if __name__ == "__main__":
-    draw_triplets()
+    draw_triplet()
