@@ -156,21 +156,18 @@ def draw_single_shape(
 
 def draw_triplet(fig_height=10):
     dataset = InfiniteDSpritesTriplets(image_size=256)
-    fontsize = 25
     (images, action) = next(iter(dataset))
     _, axes = plt.subplots(
         nrows=1,
         ncols=3,
         figsize=(3 * fig_height, fig_height),
         subplot_kw={"aspect": 1.0},
+        layout="tight",
     )
-    names = ["Original", f"Transform: {action}", "Output"]
-    for ax, img, name in zip(axes.flat, images, names):
+    for ax, img in zip(axes.flat, images):
         ax.axis("off")
         ax.imshow(img)
-        ax.set_title(name, fontsize=fontsize)
-        ax.title.set_visible(True)
-    plt.savefig(f"triplet_{action}.png")
+    plt.savefig(f"triplet_{action}.png", bbox_inches="tight", pad_inches=0)
 
 
 if __name__ == "__main__":
