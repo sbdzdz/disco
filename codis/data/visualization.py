@@ -167,7 +167,7 @@ def draw_triplet(fig_height=10):
     for ax, img in zip(axes.flat, images):
         ax.axis("off")
         ax.imshow(img)
-    plt.savefig(f"triplet_{action}.png", bbox_inches="tight", pad_inches=0)
+    plt.savefig(f"triplet_{action}.png", bbox_inches="tight")
 
 
 if __name__ == "__main__":
