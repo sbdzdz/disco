@@ -1,5 +1,4 @@
 import io
-import random
 from typing import Iterable
 
 import imageio.v2 as imageio
@@ -139,41 +138,6 @@ def generate_latent_progression(
     return scales, orientations, positions_x, positions_y
 
 
-def draw_single_shape(
-    path="shape.png",
-    orientation=0,
-    scale=1,
-    position_x=0.5,
-    position_y=0.5,
-):
-    """Plot a single random shape with given latents applied and save it to disk.
-    Args:
-        path: The path to save the image to.
-        shape: The shape to use. This will just be used as a random seed.
-        orientation: The orientation of the shape.
-        scale: The scale of the shape.
-        position_x: The x position of the shape.
-        position_y: The y position of the shape.
-    Returns:
-        None
-    """
-    random.seed(shape)
-    dataset = InfiniteDSprites(image_size=256)
-    shape = dataset.generate_shape()
-    latents = Latents(
-        color=0,
-        shape=shape,
-        scale=scale,
-        orientation=orientation,
-        position_x=position_x,
-        position_y=position_y,
-    )
-    image = dataset.draw(latents)
-    plt.imshow(image, aspect=1.0, cmap="gray")
-    plt.axis("off")
-    plt.savefig(path, bbox_inches="tight", pad_inches=0)
-
-
 def draw_triplet(fig_height=10):
     """Plot a triplet of shapes form the InfiniteDSpritesTriplets.
     See Montero et al. 2020 for details of the composition task.
@@ -195,6 +159,56 @@ def draw_triplet(fig_height=10):
         ax.axis("off")
         ax.imshow(img)
     plt.savefig(f"triplet_{action}.png", bbox_inches="tight")
+    plt.close()
+
+
+def draw_same_different_task(fig_height=10):
+    dataset = InfiniteDSprites(image_size=256)
+    latents_reference = dataset.sample_latents()
+    latents_same = dataset.sample_latents()
+    latents_different = dataset.sample_latents()
+
+    reference = dataset.draw(latents_reference)
+    for latent in ["shape", "scale", "orientation", "position_x", "position_y"]:
+        same = dataset.draw(
+            latents_same._replace(**{latent: latents_reference[latent]})
+        )
+        different = dataset.draw(latents_different)
+        pairs = [(reference, same), (reference, different)]
+        for pair, label in zip(pairs, ["same", "different"]):
+            _, axes = plt.subplots(
+                nrows=1,
+                ncols=2,
+                figsize=(2 * fig_height, fig_height),
+                subplot_kw={"aspect": 1.0},
+                layout="tight",
+            )
+            for ax, img in zip(axes.flat, pair):
+                ax.axis("off")
+                ax.imshow(img)
+            plt.savefig(
+                f"task_classification_{latent}_{label}.png",
+                bbox_inches="tight",
+                pad_inches=0,
+            )
+
+
+def draw_single_shape(path="shape.png", latents: Latents = None):
+    """Plot a single random shape with given latents applied and save it to disk.
+    Args:
+        path: The path to save the image to.
+        latents: The latents to apply to the shape.
+    Returns:
+        None
+    """
+    dataset = InfiniteDSprites(image_size=512)
+    if latents is None:
+        latents = dataset.sample_latents()
+    image = dataset.draw(latents)
+    plt.imshow(image, aspect=1.0, cmap="gray")
+    plt.axis("off")
+    plt.savefig(path, bbox_inches="tight", pad_inches=0)
+    plt.close("all")
 
 
 if __name__ == "__main__":
