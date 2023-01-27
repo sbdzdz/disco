@@ -163,6 +163,12 @@ def draw_triplet(fig_height=10):
 
 
 def draw_same_different_task(fig_height=10):
+    """Draw an example of the binary classification task.
+    Args:
+        fig_height: The height of the figure in inches.
+    Returns:
+        None
+    """
     dataset = InfiniteDSprites(image_size=256)
     latents_reference = dataset.sample_latents()
     latents_same = dataset.sample_latents()
