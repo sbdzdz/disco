@@ -199,6 +199,23 @@ def draw_same_different_task(fig_height=10):
             )
 
 
+def draw_multiple_choice_task():
+    dataset = InfiniteDSprites(image_size=256)
+    latents = dataset.sample_latents()
+    draw_single_shape("task_multiple_reference.png", latents)
+    for i in range(3):
+        latents_different = dataset.sample_latents()
+        draw_single_shape(f"task_multiple_different_{i}.png", latents_different)
+    latent = np.random.choice(
+        ["shape", "scale", "orientation", "position_x", "position_y"]
+    )
+    latents_different = dataset.sample_latents()
+    draw_single_shape(
+        f"task_multiple_same_{latent}.png",
+        latents_different._replace(**{latent: latents[latent]}),
+    )
+
+
 def draw_single_shape(path="shape.png", latents: Latents = None):
     """Plot a single random shape with given latents applied and save it to disk.
     Args:
