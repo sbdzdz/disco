@@ -32,6 +32,4 @@ class DSpritesDataset(Dataset):
         if self.transform:
             img = self.transform(img)
 
-        latents = self.data["latents_values"][idx]
-
         return img
