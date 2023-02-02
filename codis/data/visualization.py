@@ -5,6 +5,7 @@ import imageio.v2 as imageio
 import numpy as np
 from matplotlib import pyplot as plt
 from tqdm import tqdm
+from pathlib import Path
 
 from codis.data.infinite_dsprites import (
     InfiniteDSprites,
@@ -13,7 +14,30 @@ from codis.data.infinite_dsprites import (
 )
 
 
-def draw_shapes(nrows=5, ncols=12, fig_height=10):
+def draw_shape(path: Path = Path("vis/shape.png"), latents: Latents = None):
+    """Draw a single shape from given or randomly sampled latents and save it to disk.
+    Args:
+        path: The path to save the image to.
+        latents: The latents to apply to the shape.
+    Returns:
+        None
+    """
+    dataset = InfiniteDSprites(image_size=512)
+    if latents is None:
+        latents = dataset.sample_latents()
+    image = dataset.draw(latents)
+    plt.imshow(image, aspect=1.0, cmap="gray")
+    plt.axis("off")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(path, bbox_inches="tight", pad_inches=0)
+
+
+def draw_shapes(
+    path: Path = Path("vis/shapes.png"),
+    nrows: int = 5,
+    ncols: int = 12,
+    fig_height: float = 10,
+):
     """Plot an n x n grid of random shapes.
     Args:
         nrows: The number of rows in the grid.
@@ -34,13 +58,15 @@ def draw_shapes(nrows=5, ncols=12, fig_height=10):
         spline = dataset.generate_shape()
         ax.axis("off")
         ax.plot(spline[0], spline[1], label="spline", color="red")
-    plt.savefig("shapes.png")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(path)
 
 
 def draw_shapes_animated(
-    nrows=5,
-    ncols=12,
-    fig_height=10,
+    path: Path = Path("vis/shapes.gif"),
+    nrows: int = 5,
+    ncols: int = 12,
+    fig_height: float = 10,
     scale_range: Iterable = np.linspace(0.5, 1, 6),
     orientation_range: Iterable = np.linspace(0, 2 * np.pi, 40),
     position_x_range: Iterable = np.linspace(0, 1, 32),
@@ -76,7 +102,8 @@ def draw_shapes_animated(
         )
     ]
 
-    with imageio.get_writer("shapes.gif", mode="I") as writer:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with imageio.get_writer(path, mode="I") as writer:
         for frame in tqdm(frames):
             _, axes = plt.subplots(
                 nrows,
@@ -96,7 +123,10 @@ def draw_shapes_animated(
 
 
 def generate_latent_progression(
-    scale_range, orientation_range, position_x_range, position_y_range
+    scale_range: Iterable,
+    orientation_range: Iterable,
+    position_x_range: Iterable,
+    position_y_range: Iterable,
 ):
     """Generate a sequence of latents that can be used to animate a shape.
     Args:
@@ -138,7 +168,7 @@ def generate_latent_progression(
     return scales, orientations, positions_x, positions_y
 
 
-def draw_triplet(fig_height=10):
+def draw_triplet(path: Path = Path("vis/triplet.png"), fig_height: float = 10):
     """Plot a triplet of shapes form the InfiniteDSpritesTriplets.
     See Montero et al. 2020 for details of the composition task.
     Args:
@@ -158,11 +188,15 @@ def draw_triplet(fig_height=10):
     for ax, img in zip(axes.flat, images):
         ax.axis("off")
         ax.imshow(img)
-    plt.savefig(f"triplet_{action}.png", bbox_inches="tight")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path = path.with_name(f"{path.stem}_{action}{path.suffix}")
+    plt.savefig(path, bbox_inches="tight")
     plt.close()
 
 
-def draw_same_different_task(fig_height=10):
+def draw_classification_tak(
+    path: Path = Path("vis/classification.png"), fig_height: float = 10
+):
     """Draw an example of the binary classification task.
     Args:
         fig_height: The height of the figure in inches.
@@ -181,6 +215,7 @@ def draw_same_different_task(fig_height=10):
         )
         different = dataset.draw(latents_different)
         pairs = [(reference, same), (reference, different)]
+        path.parent.mkdir(parents=True, exist_ok=True)
         for pair, label in zip(pairs, ["same", "different"]):
             _, axes = plt.subplots(
                 nrows=1,
@@ -192,47 +227,9 @@ def draw_same_different_task(fig_height=10):
             for ax, img in zip(axes.flat, pair):
                 ax.axis("off")
                 ax.imshow(img)
+            path = path.with_name(f"{path.stem}_{latent}_{label}{path.suffix}")
             plt.savefig(
-                f"task_classification_{latent}_{label}.png",
+                path,
                 bbox_inches="tight",
                 pad_inches=0,
             )
-
-
-def draw_multiple_choice_task():
-    dataset = InfiniteDSprites(image_size=256)
-    latents = dataset.sample_latents()
-    draw_single_shape("task_multiple_reference.png", latents)
-    for i in range(3):
-        latents_different = dataset.sample_latents()
-        draw_single_shape(f"task_multiple_different_{i}.png", latents_different)
-    latent = np.random.choice(
-        ["shape", "scale", "orientation", "position_x", "position_y"]
-    )
-    latents_different = dataset.sample_latents()
-    draw_single_shape(
-        f"task_multiple_same_{latent}.png",
-        latents_different._replace(**{latent: latents[latent]}),
-    )
-
-
-def draw_single_shape(path="shape.png", latents: Latents = None):
-    """Plot a single random shape with given latents applied and save it to disk.
-    Args:
-        path: The path to save the image to.
-        latents: The latents to apply to the shape.
-    Returns:
-        None
-    """
-    dataset = InfiniteDSprites(image_size=512)
-    if latents is None:
-        latents = dataset.sample_latents()
-    image = dataset.draw(latents)
-    plt.imshow(image, aspect=1.0, cmap="gray")
-    plt.axis("off")
-    plt.savefig(path, bbox_inches="tight", pad_inches=0)
-    plt.close("all")
-
-
-if __name__ == "__main__":
-    draw_triplet()
