@@ -25,7 +25,8 @@ class DSpritesDataset(Dataset):
             idx = idx.tolist()
 
         img = self.data["imgs"][idx]
-        img = img.astype(np.float32) / 255.0
+        img = img.astype(np.float32)
+        img = img / 255.0
         img = np.expand_dims(img, axis=0)
         if self.transform:
             img = self.transform(img)
@@ -33,11 +34,3 @@ class DSpritesDataset(Dataset):
         latents = self.data["latents_values"][idx]
 
         return img, latents
-
-
-if __name__ == "__main__":
-    project_dir = Path(__file__).resolve().parents[2]
-    dataset = DSpritesDataset(
-        project_dir / "codis/data/dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz"
-    )
-    print(len(dataset))
