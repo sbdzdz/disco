@@ -28,9 +28,10 @@ class DSpritesDataset(Dataset):
         img = img.astype(np.float32)
         img = img / 255.0
         img = np.expand_dims(img, axis=0)
+
         if self.transform:
             img = self.transform(img)
 
         latents = self.data["latents_values"][idx]
 
-        return img, latents
+        return img
