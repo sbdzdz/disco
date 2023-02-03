@@ -1,3 +1,4 @@
+"""Infinite dataset of random shapes."""
 import os
 from collections import namedtuple
 from itertools import count, islice, product
@@ -221,12 +222,15 @@ class InfiniteDSprites(IterableDataset):
 
 
 class InfiniteDSpritesTriplets(InfiniteDSprites):
+    """Infinite dataset of triplets of images.
+    For details see the composition task proposed by Montero et al. (2020).
+    """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def __iter__(self):
-        """Generate a tuple containing a triplet of images and an action encoding.
-        See the appendix of Montero et al. (2022) for details.
+        """Generate a tuple containing a tuple of threee images and an action encoding.
         Args:
             None
         Yields:
