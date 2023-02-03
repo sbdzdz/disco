@@ -1,4 +1,4 @@
-name: Python package
+name: Linting and formatting
 
 on:
   push:
