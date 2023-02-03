@@ -10,6 +10,7 @@ venv
 *.egg-info
 *.egg
 *.pyc
+__pycache__
 
 # data
 *.npz

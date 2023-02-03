@@ -1,4 +1,8 @@
-numpy
-torch
 hydra-core
+imageio
 matplotlib
+numpy
+pygame
+scipy
+torch
+tqdm
