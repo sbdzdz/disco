@@ -1,11 +1,12 @@
+"""Visualization utilities for the dSprites and InfiniteDSprites datasets."""
 import io
-from typing import Iterable
+from pathlib import Path
+from typing import Optional, Sequence
 
 import imageio.v2 as imageio
 import numpy as np
 from matplotlib import pyplot as plt
 from tqdm import tqdm
-from pathlib import Path
 
 from codis.data.infinite_dsprites import (
     InfiniteDSprites,
@@ -14,7 +15,7 @@ from codis.data.infinite_dsprites import (
 )
 
 
-def draw_shape(path: Path = Path("vis/shape.png"), latents: Latents = None):
+def draw_shape(path: Path = Path("vis/shape.png"), latents: Optional[Latents] = None):
     """Draw a single shape from given or randomly sampled latents and save it to disk.
     Args:
         path: The path to save the image to.
@@ -67,10 +68,10 @@ def draw_shapes_animated(
     nrows: int = 5,
     ncols: int = 12,
     fig_height: float = 10,
-    scale_range: Iterable = np.linspace(0.5, 1, 6),
-    orientation_range: Iterable = np.linspace(0, 2 * np.pi, 40),
-    position_x_range: Iterable = np.linspace(0, 1, 32),
-    position_y_range: Iterable = np.linspace(0, 1, 32),
+    scale_range=np.linspace(0.5, 1, 6),
+    orientation_range=np.linspace(0, 2 * np.pi, 40),
+    position_x_range=np.linspace(0, 1, 32),
+    position_y_range=np.linspace(0, 1, 32),
 ):
     """Create an animated GIF showing an nrows x ncols grid of shapes undergoing transformations.
     Args:
@@ -119,14 +120,14 @@ def draw_shapes_animated(
             plt.savefig(buffer, format="png")
             plt.close()
             image = imageio.imread(buffer)
-            writer.append_data(image)
+            writer.append_data(image)  # type: ignore
 
 
 def generate_latent_progression(
-    scale_range: Iterable,
-    orientation_range: Iterable,
-    position_x_range: Iterable,
-    position_y_range: Iterable,
+    scale_range: Sequence,
+    orientation_range: Sequence,
+    position_x_range: Sequence,
+    position_y_range: Sequence,
 ):
     """Generate a sequence of latents that can be used to animate a shape.
     Args:
@@ -135,7 +136,7 @@ def generate_latent_progression(
         position_x_range: The range of x positions to use.
         position_y_range: The range of y positions to use.
     Returns:
-        A tuple of (scales, orientations, positions_x, positions_y) that can be used to animate a shape.
+        A tuple of (scales, orientations, positions_x, positions_y) representing a smooth animation.
     """
     length = (
         len(scale_range)
