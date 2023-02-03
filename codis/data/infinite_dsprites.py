@@ -1,11 +1,11 @@
-"""Infinite dataset of random shapes."""
+"""Class definitions for the infinite dSprites dataset."""
 import os
 from collections import namedtuple
 from itertools import count, islice, product
-from typing import Iterable
 
 import imageio
 import numpy as np
+import numpy.typing as npt
 import pygame
 import pygame.gfxdraw
 from scipy.interpolate import splev, splprep
@@ -20,6 +20,7 @@ class Latents(BaseLatents):
     """Latent variables defining a single image."""
 
     def to(self, device):
+        """Move the latents to a device."""
         return Latents(
             self.color.to(device),
             self.shape.to(device),
@@ -33,18 +34,21 @@ class Latents(BaseLatents):
         return getattr(self, key)
 
 
+# pylint: disable=W0223
 class InfiniteDSprites(IterableDataset):
+    """Infinite dataset of procedurally generated shapes."""
+
     def __init__(
         self,
         image_size: int = 64,
-        scale_range: Iterable = np.linspace(0.5, 1, 6),
-        orientation_range: Iterable = np.linspace(0, 2 * np.pi, 40),
-        position_x_range: Iterable = np.linspace(0, 1, 32),
-        position_y_range: Iterable = np.linspace(0, 1, 32),
         min_verts: int = 3,
         max_verts: int = 10,
         radius_std: float = 0.6,
         angle_std: float = 0.8,
+        scale_range=np.linspace(0.5, 1, 6),
+        orientation_range=np.linspace(0, 2 * np.pi, 40),
+        position_x_range=np.linspace(0, 1, 32),
+        position_y_range=np.linspace(0, 1, 32),
     ):
         """Create a dataset of images of random shapes.
         Args:
@@ -63,6 +67,11 @@ class InfiniteDSprites(IterableDataset):
         os.environ["SDL_VIDEODRIVER"] = "dummy"
         pygame.display.init()
         self.image_size = image_size
+        self.min_verts = min_verts
+        self.max_verts = max_verts
+        self.radius_std = radius_std
+        self.angle_std = angle_std
+        self.window = pygame.display.set_mode((self.image_size, self.image_size))
         self.ranges = {
             "shape": (self.generate_shape() for _ in count()),
             "scale": scale_range,
@@ -70,11 +79,6 @@ class InfiniteDSprites(IterableDataset):
             "position_x": position_x_range,
             "position_y": position_y_range,
         }
-        self.min_verts = min_verts
-        self.max_verts = max_verts
-        self.radius_std = radius_std
-        self.angle_std = angle_std
-        self.window = pygame.display.set_mode((self.image_size, self.image_size))
 
     def __iter__(self):
         """Generate an infinite stream of images and latent vectors.
@@ -90,8 +94,8 @@ class InfiniteDSprites(IterableDataset):
                 latents = Latents(
                     color, shape, scale, orientation, position_x, position_y
                 )
-                image = self.draw(latents)
-                yield image, latents
+                img = self.draw(latents)
+                yield img, latents
 
     def generate_shape(self):
         """Generate random vertices and connect them with straight lines or a smooth curve.
@@ -138,7 +142,7 @@ class InfiniteDSprites(IterableDataset):
         return verts
 
     @staticmethod
-    def interpolate(verts: np.array, k: int = 3, num_spline_points: int = 1000):
+    def interpolate(verts: npt.NDArray, k: int = 3, num_spline_points: int = 1000):
         """Interpolate a set of vertices with a spline.
         Args:
             verts: An array of shape (2, num_verts).
@@ -148,7 +152,7 @@ class InfiniteDSprites(IterableDataset):
             An array of shape (2, num_spline_points).
         """
         verts = np.column_stack((verts, verts[:, 0]))
-        spline_params, u = splprep(verts, s=0, per=1, k=k)
+        spline_params, u, *_ = splprep(verts, s=0, per=1, k=k)
         u_new = np.linspace(u.min(), u.max(), num_spline_points)
         x, y = splev(u_new, spline_params, der=0)
         return np.array([x, y])
@@ -170,12 +174,12 @@ class InfiniteDSprites(IterableDataset):
         pygame.display.update()
         return pygame.surfarray.array3d(self.window)
 
-    def apply_scale(self, shape, scale):
+    def apply_scale(self, shape: npt.NDArray, scale: float):
         """Apply a scale to a shape."""
         return 0.2 * self.image_size * scale * shape
 
     @staticmethod
-    def apply_orientation(shape, orientation):
+    def apply_orientation(shape: npt.NDArray, orientation: float):
         """Apply an orientation to a shape.
         Args:
             shape: An array of shape (2, num_points).
@@ -191,7 +195,7 @@ class InfiniteDSprites(IterableDataset):
         )
         return rotation_matrix @ shape
 
-    def apply_position(self, shape, position_x, position_y):
+    def apply_position(self, shape: npt.NDArray, position_x: float, position_y: float):
         """Apply a position to a shape.
         Args:
             shape: An array of shape (2, num_points).

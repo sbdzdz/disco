@@ -1,7 +1,7 @@
 """Visualization utilities for the dSprites and InfiniteDSprites datasets."""
 import io
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Optional
 
 import imageio.v2 as imageio
 import numpy as np
@@ -68,10 +68,6 @@ def draw_shapes_animated(
     nrows: int = 5,
     ncols: int = 12,
     fig_height: float = 10,
-    scale_range=np.linspace(0.5, 1, 6),
-    orientation_range=np.linspace(0, 2 * np.pi, 40),
-    position_x_range=np.linspace(0, 1, 32),
-    position_y_range=np.linspace(0, 1, 32),
 ):
     """Create an animated GIF showing an nrows x ncols grid of shapes undergoing transformations.
     Args:
@@ -84,10 +80,7 @@ def draw_shapes_animated(
     dataset = InfiniteDSprites(image_size=256)
     shapes = [dataset.generate_shape() for _ in range(nrows * ncols)]
     scales, orientations, positions_x, positions_y = generate_latent_progression(
-        scale_range,
-        orientation_range,
-        position_x_range,
-        position_y_range,
+        dataset
     )
 
     color = 0
@@ -123,12 +116,7 @@ def draw_shapes_animated(
             writer.append_data(image)  # type: ignore
 
 
-def generate_latent_progression(
-    scale_range: Sequence,
-    orientation_range: Sequence,
-    position_x_range: Sequence,
-    position_y_range: Sequence,
-):
+def generate_latent_progression(dataset):
     """Generate a sequence of latents that can be used to animate a shape.
     Args:
         scale_range: The range of scales to use.
@@ -138,6 +126,12 @@ def generate_latent_progression(
     Returns:
         A tuple of (scales, orientations, positions_x, positions_y) representing a smooth animation.
     """
+    scale_range, orientation_range, position_x_range, position_y_range = (
+        dataset.ranges["scale"],
+        dataset.ranges["orientation"],
+        dataset.ranges["position_x"],
+        dataset.ranges["position_y"],
+    )
     length = (
         len(scale_range)
         + len(orientation_range)
