@@ -18,8 +18,6 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
-    - name: Display Python version
-      run: python -c "import sys; print(sys.version)"
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -28,6 +26,6 @@ jobs:
         python -m pip install -e .
     - name: Lint with pylint
       run: |
-        pylint ./codis --rcfile .pylintrc
+        pylint ./codis
     - name: Run black
       run: black --check --verbose ./codis
