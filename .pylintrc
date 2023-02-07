@@ -1,0 +1,9 @@
+[MASTER]
+
+extension-pkg-whitelist=pygame
+
+[BASIC]
+
+good-names=x,y,u,k,ax,to,rs,bn
+max-args = 10
+max-locals = 20

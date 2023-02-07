@@ -1,16 +1,18 @@
-from pathlib import Path
-
+"""DSprites dataset loader."""
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 
 
 class DSpritesDataset(Dataset):
+    """DSprites dataset."""
+
     def __init__(self, path, transform=None):
         self.data = self.load_data(path)
         self.transform = transform
 
     def load_data(self, path):
+        """Load the data from the given path."""
         return np.load(
             path,
             encoding="latin1",

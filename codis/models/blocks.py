@@ -1,8 +1,10 @@
-"""Building blocks for the  models."""
+"""Building blocks for the VAEs."""
 from torch import nn
 
 
 class EncoderBlock(nn.Module):
+    """Standard encoder block."""
+
     def __init__(
         self,
         in_channels,
@@ -11,7 +13,7 @@ class EncoderBlock(nn.Module):
         stride=2,
         padding=1,
     ):
-        super(EncoderBlock, self).__init__()
+        super().__init__()
         self.conv = nn.Conv2d(
             in_channels,
             out_channels,
@@ -23,10 +25,13 @@ class EncoderBlock(nn.Module):
         self.relu = nn.LeakyReLU()
 
     def forward(self, x):
+        """Forward pass of the encoder block."""
         return self.relu(self.bn(self.conv(x)))
 
 
 class DecoderBlock(nn.Module):
+    """Standard decoder block."""
+
     def __init__(
         self,
         in_channels,
@@ -36,7 +41,7 @@ class DecoderBlock(nn.Module):
         padding=1,
         output_padding=1,
     ):
-        super(DecoderBlock, self).__init__()
+        super().__init__()
         self.conv = nn.ConvTranspose2d(
             in_channels,
             out_channels,
@@ -49,4 +54,5 @@ class DecoderBlock(nn.Module):
         self.relu = nn.LeakyReLU()
 
     def forward(self, x):
+        """Forward pass of the decoder block."""
         return self.relu(self.bn(self.conv(x)))
