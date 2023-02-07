@@ -34,7 +34,7 @@ class Latents(BaseLatents):
         return getattr(self, key)
 
 
-# pylint: disable=W0223
+# pylint: disable=abstract-method
 class InfiniteDSprites(IterableDataset):
     """Infinite dataset of procedurally generated shapes."""
 
