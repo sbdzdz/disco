@@ -1,3 +1,4 @@
 [BASIC]
 
-good-names=x,y,u,k,ax,to,rs
+good-names=x,y,u,k,ax,to,rs,bn
+max-args = 10
