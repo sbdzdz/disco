@@ -2,4 +2,4 @@
 
 good-names=x,y,u,k,ax,to,rs,bn
 max-args = 10
-max-local-variables = 20
+max-locals = 20
