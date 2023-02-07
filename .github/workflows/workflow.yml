@@ -27,6 +27,6 @@ jobs:
         python -m pip install -r requirements.txt --upgrade
     - name: Lint with pylint
       run: |
-        pylint ./codis
+        pylint ./codis --rcfile .pylintrc
     - name: Run black
       run: black --check --verbose ./codis
