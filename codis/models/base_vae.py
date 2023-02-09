@@ -21,9 +21,9 @@ class BaseVAE(nn.Module):
         raise NotImplementedError
 
     @abstractmethod
-    def forward(self, *inputs: Tensor) -> Tensor:
+    def forward(self, x: Tensor) -> Tensor:
         """Forward pass of the model."""
 
     @abstractmethod
-    def loss_function(self, *inputs: Any, **kwargs) -> Tensor:
+    def loss_function(self, x: Any, **kwargs) -> Tensor:
         """Loss function for the model."""
