@@ -12,12 +12,12 @@ class BaseVAE(nn.Module):
         """Encode the input into the latent space."""
         raise NotImplementedError
 
-    def decode(self, x: Tensor) -> Any:
+    def decode(self, z: Tensor) -> Any:
         """Decode the input from the latent space."""
         raise NotImplementedError
 
-    def generate(self, x: Tensor, **kwargs) -> Tensor:
-        """Generate a sample from the latent space."""
+    def reconstruct(self, x: Tensor, **kwargs) -> Tensor:
+        """Given an image x, reconstruct it."""
         raise NotImplementedError
 
     @abstractmethod
