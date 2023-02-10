@@ -8,3 +8,6 @@ max-locals = 20
 
 [DESIGN]
 max-attributes = 15
+
+[TYPECHECK]
+generated-members=torch.*
