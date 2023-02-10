@@ -3,7 +3,7 @@ from typing import Optional
 
 from torch import nn
 
-from codis.models.blocks import DecoderBlock, EncoderBlock
+from codis.models.blocks import build_decoder_block, build_encoder_block
 
 
 class AutoEncoder(nn.Module):
@@ -19,14 +19,14 @@ class AutoEncoder(nn.Module):
 
         hidden_dims = [in_channels] + hidden_dims
         encoder_modules = [
-            EncoderBlock(in_channels, out_channels)
+            build_encoder_block(in_channels, out_channels)
             for in_channels, out_channels in zip(hidden_dims[:-1], hidden_dims[1:])
         ]
         self.encoder = nn.Sequential(*encoder_modules)
 
         hidden_dims.reverse()
         decoder_modules = [
-            DecoderBlock(in_channels, out_channels)
+            build_decoder_block(in_channels, out_channels)
             for in_channels, out_channels in zip(hidden_dims[:-1], hidden_dims[1:])
         ]
         self.decoder = nn.Sequential(*decoder_modules)
