@@ -8,22 +8,22 @@ from torch import Tensor, nn
 class BaseVAE(nn.Module):
     """Base class for all VAEs."""
 
+    @abstractmethod
     def encode(self, x: Tensor) -> List[Tensor]:
-        """Encode the input into the latent space."""
-        raise NotImplementedError
+        """Encode an input vector into the latent space."""
 
+    @abstractmethod
     def decode(self, z: Tensor) -> Any:
-        """Decode the input from the latent space."""
-        raise NotImplementedError
+        """Decode a latent vector."""
 
+    @abstractmethod
     def reconstruct(self, x: Tensor, **kwargs) -> Tensor:
-        """Given an image x, reconstruct it."""
-        raise NotImplementedError
+        """Reconstruct the input vector."""
 
     @abstractmethod
-    def forward(self, x: Tensor) -> Tensor:
-        """Forward pass of the model."""
+    def forward(self, x: Tensor) -> List[Tensor]:
+        """Perform the forward pass."""
 
     @abstractmethod
-    def loss_function(self, x: Any, **kwargs) -> Tensor:
-        """Loss function for the model."""
+    def loss_function(self, x: Tensor, x_hat: Tensor, **kwargs) -> dict:
+        """Calculate the loss function for the model."""
