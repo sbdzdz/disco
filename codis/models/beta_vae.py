@@ -6,11 +6,7 @@ from torch import Tensor, nn
 from torch.nn import functional as F
 
 from codis.models.base_vae import BaseVAE
-from codis.models.blocks import (
-    build_decoder_block,
-    build_encoder_block,
-    build_final_layer,
-)
+from codis.models.blocks import Encoder, Decoder
 
 
 class BetaVAE(BaseVAE):
@@ -42,30 +38,16 @@ class BetaVAE(BaseVAE):
             hidden_dims = [32, 64, 128, 256, 512]
         hidden_dims = [in_channels] + hidden_dims
 
-        # Encoder
-        encoder_modules = [
-            build_encoder_block(in_channels, out_channels)
-            for in_channels, out_channels in zip(hidden_dims[:-1], hidden_dims[1:])
-        ]
-        self.encoder = nn.Sequential(*encoder_modules)
-
+        self.encoder = Encoder(hidden_dims)
+        self.decoder = Decoder(list(reversed(hidden_dims)))
         self.fc_mu = nn.Linear(hidden_dims[-1] * 4, latent_dim)
         self.fc_var = nn.Linear(hidden_dims[-1] * 4, latent_dim)
         self.decoder_input = nn.Linear(latent_dim, hidden_dims[-1] * 4)
-        hidden_dims.reverse()
-
-        # Decoder
-        decoder_modules = [
-            build_decoder_block(in_channels, out_channels)
-            for in_channels, out_channels in zip(hidden_dims[:-1], hidden_dims[1:])
-        ]
-        self.decoder = nn.Sequential(*decoder_modules)
-        self.final_layer = build_final_layer(hidden_dims[-1], hidden_dims[-1])
 
     def encode(self, x: Tensor) -> List[Tensor]:
         """Pass the input through the encoder network and return the latent code.
         Args:
-            x: Input tensor [N x C x H x W]
+            x: Input tensor of shape (B x C x H x W)
         Returns:
             List of latent codes
         """
@@ -77,41 +59,40 @@ class BetaVAE(BaseVAE):
     def decode(self, z: Tensor) -> Tensor:
         """Pass the latent code through the decoder network and return the reconstructed input.
         Args:
-            z: Latent code tensor [N x D]
+            z: Latent code tensor of shape (B x D)
         Returns:
-            Reconstructed input [N x C x H x W]
+            Reconstructed input of shape (B x C x H x W)
         """
         result = self.decoder_input(z)
         result = result.view(-1, 512, 2, 2)
         result = self.decoder(result)
-        result = self.final_layer(result)
         return result
 
     def reparameterize(self, mu: Tensor, logvar: Tensor) -> Tensor:
-        """
-        Will a single z be enough ti compute the expectation
-        for the loss??
-        :param mu: (Tensor) Mean of the latent Gaussian
-        :param logvar: (Tensor) Standard deviation of the latent Gaussian
-        :return:
+        """Perform the reparameterization trick.
+        Args:
+            mu: Mean of the latent Gaussian of shape (N x D)
+            logvar: Standard deviation of the latent Gaussian of shape (N x D)
+        Returns:
+            Sampled latent vector [N x D]
         """
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
-        return eps * std + mu
+        return mu + eps * std
 
     def forward(self, x: Tensor) -> List[Tensor]:
-        """Pass the input through the network and return the reconstructed input and latent code."""
+        """Perform the forward pass.
+        Args:
+            x: Input tensor [N x C x H x W]
+        Returns:
+            List of tensors [reconstructed input, latent mean, latent log variance]
+        """
         mu, log_var = self.encode(x)
         z = self.reparameterize(mu, log_var)
-        return self.decode(z)
+        return [self.decode(z), mu, log_var]
 
     def loss_function(
-        self,
-        x: Tensor,
-        x_hat: Tensor,
-        mu: Tensor,
-        log_var: Tensor,
-        kld_weight: float,
+        self, x: Tensor, x_hat: Tensor, mu: Tensor, log_var: Tensor, kld_weight: float
     ) -> dict:
         """Compute the loss given reconstructions and ground truth images."""
         self.num_iter += 1
@@ -138,8 +119,7 @@ class BetaVAE(BaseVAE):
 
         z = z.to(current_device)
 
-        samples = self.decode(z)
-        return samples
+        return self.decode(z)
 
     def reconstruct(self, x: Tensor, **kwargs) -> Tensor:
         """
