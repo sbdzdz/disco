@@ -1,24 +1,51 @@
 """Training script."""
 import argparse
+from itertools import islice
 from pathlib import Path
 
+import torch
 from torch.utils.data import DataLoader
 
-from codis.data.dsprites import DSpritesDataset
-from codis.utils.visualization import show_images_grid
+from codis.data import DSprites, InfiniteDSprites
+from codis.models import BetaVAE
+from codis.visualization import show_images_grid
 
 
 def train(args):
     """Train the model."""
-    dataset = DSpritesDataset(args.dsprites_path)
-    train_loader = DataLoader(dataset, batch_size=16, shuffle=True)
-    for element in train_loader:
-        print(element.shape)
-        show_images_grid(element)
-        break
+    dsprites = DSprites(args.dsprites_path)
+    dsprites_loader = DataLoader(dsprites, batch_size=16, shuffle=True)
+    infinite_dsprites = InfiniteDSprites()
+    infinite_dsprites_loader = DataLoader(
+        infinite_dsprites, batch_size=16, shuffle=True
+    )
+    model = BetaVAE()
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+    # train on dSprites
+    for epoch in range(10):
+        running_loss = 0
+        for i, batch in enumerate(dsprites_loader):
+            optimizer.zero_grad()
+            x_hat, mu, log_var, _ = model(batch)
+            losses = model.loss_function(batch, x_hat, mu, log_var)
+            losses["loss"].backward()
+            optimizer.step()
+            running_loss += losses["loss"]
+            if i % 100 == 0:
+                print(f"Epoch: {epoch}, batch: {i}, loss: {running_loss/100:2f}")
+                running_loss = 0
+
+    # evaluate
+    model.eval()
+    with torch.no_grad():
+        for batch in islice(infinite_dsprites_loader, 20):
+            x_hat, mu, log_var, _ = model(batch)
+            loss = model.loss_function(batch, x_hat, mu, log_var)["loss"]
+            print(loss)
+        show_images_grid(batch, x_hat)
 
 
-# @hydra.main(version_base="1.2", config_path=root / "configs", config_name="train.yaml")
 def _main():
     parser = argparse.ArgumentParser()
     repo_root = Path(__file__).parent.parent
