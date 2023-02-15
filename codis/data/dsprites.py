@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import Dataset
 
 
-class DSpritesDataset(Dataset):
+class DSprites(Dataset):
     """DSprites dataset."""
 
     def __init__(self, path, transform=None):
