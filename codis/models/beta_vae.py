@@ -12,8 +12,6 @@ from codis.models.blocks import Encoder, Decoder
 class BetaVAE(BaseVAE):
     """The β-VAE model class."""
 
-    num_iter = 0  # Global static variable to keep track of iterations
-
     def __init__(
         self,
         in_channels: int,
@@ -83,7 +81,7 @@ class BetaVAE(BaseVAE):
     def forward(self, x: Tensor) -> List[Tensor]:
         """Perform the forward pass.
         Args:
-            x: Input tensor [N x C x H x W]
+            x: Input tensor of shape (B x C x H x W)
         Returns:
             List of tensors [reconstructed input, latent mean, latent log variance]
         """
@@ -94,8 +92,16 @@ class BetaVAE(BaseVAE):
     def loss_function(
         self, x: Tensor, x_hat: Tensor, mu: Tensor, log_var: Tensor, kld_weight: float
     ) -> dict:
-        """Compute the loss given reconstructions and ground truth images."""
-        self.num_iter += 1
+        """Compute the loss given ground truth images and their reconstructions.
+        Args:
+            x: Ground truth images of shape (B x C x H x W)
+            x_hat: Reconstructed images of shape (B x C x H x W)
+            mu: Latent mean of shape (B x D)
+            log_var: Latent log variance of shape (B x D)
+            kld_weight: Weight for the Kullback-Leibler divergence term
+        Returns:
+            Dictionary containing the loss value and the individual losses.
+        """
         recons_loss = F.mse_loss(x_hat, x)
 
         kld_loss = torch.mean(
@@ -108,24 +114,22 @@ class BetaVAE(BaseVAE):
         return {"loss": loss, "Reconstruction_Loss": recons_loss, "KLD": kld_loss}
 
     def sample(self, num_samples: int, current_device: int, **kwargs) -> Tensor:
-        """
-        Samples from the latent space and return the corresponding
-        image space map.
-        :param num_samples: (Int) Number of samples
-        :param current_device: (Int) Device to run the model
-        :return: (Tensor)
+        """Sample a vector in the latent space and return the corresponding image.
+        Args:
+            num_samples: Number of samples to generate
+            current_device: Device to run the model
+        Returns:
+            Tensor of shape (num_samples x C x H x W)
         """
         z = torch.randn(num_samples, self.latent_dim)
-
         z = z.to(current_device)
-
         return self.decode(z)
 
     def reconstruct(self, x: Tensor, **kwargs) -> Tensor:
+        """ Given an input image x, returns the reconstructed image.
+        Args:
+            x: Input tensor of shape (B x C x H x W)
+        Returns:
+            Reconstructed input of shape (B x C x H x W)
         """
-        Given an input image x, returns the reconstructed image
-        :param x: (Tensor) [B x C x H x W]
-        :return: (Tensor) [B x C x H x W]
-        """
-
         return self.forward(x)[0]
