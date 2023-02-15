@@ -16,9 +16,7 @@ def train(args):
     dsprites = DSprites(args.dsprites_path)
     dsprites_loader = DataLoader(dsprites, batch_size=16, shuffle=True)
     infinite_dsprites = InfiniteDSprites()
-    infinite_dsprites_loader = DataLoader(
-        infinite_dsprites, batch_size=16, shuffle=True
-    )
+    infinite_dsprites_loader = DataLoader(infinite_dsprites, batch_size=16)
     model = BetaVAE()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
