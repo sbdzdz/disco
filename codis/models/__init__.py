@@ -1,2 +1,2 @@
-from autoencoder import AutoEncoder
-from beta_vae import BetaVAE
+from codis.models.autoencoder import AutoEncoder
+from codis.models.beta_vae import BetaVAE
