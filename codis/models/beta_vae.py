@@ -14,8 +14,8 @@ class BetaVAE(BaseVAE):
 
     def __init__(
         self,
-        in_channels: int,
-        latent_dim: int,
+        in_channels: int = 1,
+        latent_dim: int = 64,
         hidden_dims: Optional[List] = None,
         beta: int = 4,
         gamma: float = 1000.0,
@@ -37,10 +37,11 @@ class BetaVAE(BaseVAE):
         hidden_dims = [in_channels] + hidden_dims
 
         self.encoder = Encoder(hidden_dims)
-        self.decoder = Decoder(list(reversed(hidden_dims)))
         self.fc_mu = nn.Linear(hidden_dims[-1] * 4, latent_dim)
         self.fc_var = nn.Linear(hidden_dims[-1] * 4, latent_dim)
+
         self.decoder_input = nn.Linear(latent_dim, hidden_dims[-1] * 4)
+        self.decoder = Decoder(list(reversed(hidden_dims)))
 
     def encode(self, x: Tensor) -> List[Tensor]:
         """Pass the input through the encoder network and return the latent code.
@@ -126,7 +127,7 @@ class BetaVAE(BaseVAE):
         return self.decode(z)
 
     def reconstruct(self, x: Tensor, **kwargs) -> Tensor:
-        """ Given an input image x, returns the reconstructed image.
+        """Given an input image x, returns the reconstructed image.
         Args:
             x: Input tensor of shape (B x C x H x W)
         Returns:
