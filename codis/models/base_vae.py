@@ -25,5 +25,7 @@ class BaseVAE(nn.Module):
         """Perform the forward pass."""
 
     @abstractmethod
-    def loss_function(self, x: Tensor, x_hat: Tensor, **kwargs) -> dict:
+    def loss_function(
+        self, x: Tensor, x_hat: Tensor, mu: Tensor, log_var: Tensor
+    ) -> dict:
         """Calculate the loss function for the model."""
