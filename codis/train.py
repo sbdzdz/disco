@@ -25,7 +25,7 @@ def train(args):
         running_loss = 0
         for i, batch in enumerate(dsprites_loader):
             optimizer.zero_grad()
-            x_hat, mu, log_var, _ = model(batch)
+            x_hat, mu, log_var = model(batch)
             losses = model.loss_function(batch, x_hat, mu, log_var)
             losses["loss"].backward()
             optimizer.step()
