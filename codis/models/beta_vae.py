@@ -21,14 +21,12 @@ class BetaVAE(BaseVAE):
         gamma: float = 1000.0,
         max_capacity: int = 25,
         max_iter: int = int(1e5),
-        loss_type: str = "B",
     ) -> None:
         super().__init__()
 
         self.latent_dim = latent_dim
         self.beta = beta
         self.gamma = gamma
-        self.loss_type = loss_type
         self.max_capacity = torch.Tensor([max_capacity])
         self.max_iter = max_iter
 
@@ -91,7 +89,12 @@ class BetaVAE(BaseVAE):
         return [self.decode(z), mu, log_var]
 
     def loss_function(
-        self, x: Tensor, x_hat: Tensor, mu: Tensor, log_var: Tensor, kld_weight: float
+        self,
+        x: Tensor,
+        x_hat: Tensor,
+        mu: Tensor,
+        log_var: Tensor,
+        kld_weight: float = 1,
     ) -> dict:
         """Compute the loss given ground truth images and their reconstructions.
         Args:
@@ -109,12 +112,11 @@ class BetaVAE(BaseVAE):
             -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp(), dim=1), dim=0
         )
 
-        if self.loss_type == "H":
-            loss = recons_loss + self.beta * kld_weight * kld_loss
+        loss = recons_loss + self.beta * kld_weight * kld_loss
 
         return {"loss": loss, "Reconstruction_Loss": recons_loss, "KLD": kld_loss}
 
-    def sample(self, num_samples: int, current_device: int, **kwargs) -> Tensor:
+    def sample(self, num_samples: int, current_device: int) -> Tensor:
         """Sample a vector in the latent space and return the corresponding image.
         Args:
             num_samples: Number of samples to generate
