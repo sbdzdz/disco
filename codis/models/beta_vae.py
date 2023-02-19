@@ -32,14 +32,13 @@ class BetaVAE(BaseVAE):
 
         if hidden_dims is None:
             hidden_dims = [32, 64, 128, 256, 512]
-        hidden_dims = [in_channels] + hidden_dims
 
-        self.encoder = Encoder(hidden_dims)
+        self.encoder = Encoder(hidden_dims, in_channels)
         self.fc_mu = nn.Linear(hidden_dims[-1] * 4, latent_dim)
         self.fc_var = nn.Linear(hidden_dims[-1] * 4, latent_dim)
 
         self.decoder_input = nn.Linear(latent_dim, hidden_dims[-1] * 4)
-        self.decoder = Decoder(list(reversed(hidden_dims)))
+        self.decoder = Decoder(list(reversed(hidden_dims)), in_channels)
 
     def encode(self, x: Tensor) -> List[Tensor]:
         """Pass the input through the encoder network and return the latent code.
