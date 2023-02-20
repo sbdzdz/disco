@@ -1,4 +1,7 @@
-"""Visualization utilities for the dSprites and InfiniteDSprites datasets."""
+"""Visualization utilities for the dSprites and InfiniteDSprites datasets.
+Example usage:
+    python -c "from codis.data.visualization import draw_shape; draw_shape()"
+"""
 import io
 from pathlib import Path
 from typing import Optional
@@ -15,7 +18,7 @@ from codis.data.infinite_dsprites import (
 )
 
 
-def draw_shape(path: Path = Path("vis/shape.png"), latents: Optional[Latents] = None):
+def draw_shape(path: Path = Path("img/shape.png"), latents: Optional[Latents] = None):
     """Draw a single shape from given or randomly sampled latents and save it to disk.
     Args:
         path: The path to save the image to.
@@ -34,7 +37,7 @@ def draw_shape(path: Path = Path("vis/shape.png"), latents: Optional[Latents] = 
 
 
 def draw_shapes(
-    path: Path = Path("vis/shapes.png"),
+    path: Path = Path("img/shapes.png"),
     nrows: int = 5,
     ncols: int = 12,
     fig_height: float = 10,
@@ -64,7 +67,7 @@ def draw_shapes(
 
 
 def draw_shapes_animated(
-    path: Path = Path("vis/shapes.gif"),
+    path: Path = Path("img/shapes.gif"),
     nrows: int = 5,
     ncols: int = 12,
     fig_height: float = 10,
@@ -163,7 +166,7 @@ def generate_latent_progression(dataset):
     return scales, orientations, positions_x, positions_y
 
 
-def draw_triplet(path: Path = Path("vis/triplet.png"), fig_height: float = 10):
+def draw_triplet(path: Path = Path("img/triplet.png"), fig_height: float = 10):
     """Plot a triplet of shapes form the InfiniteDSpritesTriplets.
     See Montero et al. 2020 for details of the composition task.
     Args:
@@ -190,7 +193,7 @@ def draw_triplet(path: Path = Path("vis/triplet.png"), fig_height: float = 10):
 
 
 def draw_classification_tak(
-    path: Path = Path("vis/classification.png"), fig_height: float = 10
+    path: Path = Path("img/classification.png"), fig_height: float = 10
 ):
     """Draw an example of the binary classification task.
     Args:
@@ -228,3 +231,94 @@ def draw_classification_tak(
                 bbox_inches="tight",
                 pad_inches=0,
             )
+
+
+def draw_analogy_task(path: Path = Path("img/analogy.png"), fig_height: float = 10):
+    """Draw an example of the analogy task.
+    Args:
+        fig_height: The height of the figure in inches.
+    Returns:
+        None
+    """
+    dataset = InfiniteDSprites(image_size=256)
+    latents_reference_source = dataset.sample_latents()
+    latents_reference_target = dataset.sample_latents()._replace(
+        shape=latents_reference_source.shape
+    )
+
+    query_shape = dataset.generate_shape()
+    latents_query_source = latents_reference_source._replace(shape=query_shape)
+    latents_query_target = latents_reference_target._replace(shape=query_shape)
+
+    # Draw the images on a single grid with reference source and target in the top row and query source and target in the bottom row.
+    reference_source = dataset.draw(latents_reference_source)
+    reference_target = dataset.draw(latents_reference_target)
+    query_source = dataset.draw(latents_query_source)
+    query_target = dataset.draw(latents_query_target)
+    images = [reference_source, reference_target, query_source, query_target]
+    _, axes = plt.subplots(
+        nrows=2,
+        ncols=2,
+        figsize=(fig_height, fig_height),
+        subplot_kw={"aspect": 1.0},
+        layout="tight",
+    )
+    for ax, img in zip(axes.flat, images):
+        ax.axis("off")
+        ax.imshow(img)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(path, bbox_inches="tight", pad_inches=0)
+    plt.close()
+
+
+def draw_hard_analogy_task(
+    path: Path = Path("img/hard_analogy.png"), fig_height: float = 10
+):
+    """Draw an example of the hard analogy task.
+    Args:
+        fig_height: The height of the figure in inches.
+    Returns:
+        None
+    """
+    dataset = InfiniteDSprites(image_size=256)
+    latents_reference_source = dataset.sample_latents()
+    latents_reference_target = dataset.sample_latents()._replace(
+        shape=latents_reference_source.shape
+    )
+    # get the differenc of the x position with a periodic boundary condition
+    position_x_delta = latents_reference_target.position_x - latents_reference_source.position_x
+    position_y_delta = latents_reference_target.position_y - latents_reference_source.position_y
+    orientation_delta = latents_reference_target.orientation - latents_reference_source.orientation
+    scale_delta = latents_reference_target.scale - latents_reference_source.scale
+
+    latents_query_source = dataset.sample_latents()
+    position_x = (latents_query_source.position_x + position_x_delta) % dataset.ranges["position_x"].max()
+    position_y = (latents_query_source.position_y + position_y_delta) % dataset.ranges["position_y"].max()
+    orientation = (latents_query_source.orientation + orientation_delta) % dataset.ranges["orientation"].max()
+    scale = (latents_query_source.scale + scale_delta) % dataset.ranges["scale"].max()
+    latents_query_target = latents_query_source._replace(
+        position_x=position_x,
+        position_y=position_y,
+        orientation=orientation,
+        scale=scale,
+    )
+
+    # Draw the images on a single grid with reference source and target in the top row and query source and target in the bottom row.
+    reference_source = dataset.draw(latents_reference_source)
+    reference_target = dataset.draw(latents_reference_target)
+    query_source = dataset.draw(latents_query_source)
+    query_target = dataset.draw(latents_query_target)
+    images = [reference_source, reference_target, query_source, query_target]
+    _, axes = plt.subplots(
+        nrows=2,
+        ncols=2,
+        figsize=(fig_height, fig_height),
+        subplot_kw={"aspect": 1.0},
+        layout="tight",
+    )
+    for ax, img in zip(axes.flat, images):
+        ax.axis("off")
+        ax.imshow(img)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(path, bbox_inches="tight", pad_inches=0)
+    plt.close()
