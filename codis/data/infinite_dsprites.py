@@ -176,7 +176,8 @@ class InfiniteDSprites(IterableDataset):
 
     def apply_scale(self, shape: npt.NDArray, scale: float):
         """Apply a scale to a shape."""
-        return 0.2 * self.image_size * scale * shape
+        height, _ = self.window.get_size()
+        return 0.2 * height * scale * shape
 
     @staticmethod
     def apply_orientation(shape: npt.NDArray, orientation: float):
@@ -261,10 +262,9 @@ class InfiniteDSpritesTriplets(InfiniteDSprites):
 class InfiniteDSpritesAnalogies(InfiniteDSprites):
     """Infinite dataset of image analogies."""
 
-    def __init__(self, border=True, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.border = border
-        self.image_size = self.image_size // 2
+        self.window = pygame.display.set_mode((self.image_size//2, self.image_size//2))
 
     def __iter__(self):
         """Generate an infinite stream of images representing an analogy task.
