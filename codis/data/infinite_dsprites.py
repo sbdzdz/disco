@@ -8,7 +8,6 @@ import numpy as np
 import numpy.typing as npt
 import pygame
 import pygame.gfxdraw
-from matplotlib import pyplot as plt
 from scipy.interpolate import splev, splprep
 from torch.utils.data import IterableDataset
 
@@ -289,7 +288,7 @@ class InfiniteDSpritesAnalogies(InfiniteDSprites):
                 self.draw(source_latents._replace(shape=query_shape)),
                 self.draw(target_latents._replace(shape=query_shape)),
             )
-            yield self.draw_grid_with_border_old([reference_source, reference_target, query_source, query_target])
+            yield self.draw_grid_with_border([reference_source, reference_target, query_source, query_target])
 
     def draw_grid(self, images):
         """Draw images on a 2x2 grid without a border."""
@@ -299,24 +298,6 @@ class InfiniteDSpritesAnalogies(InfiniteDSprites):
         yield np.concatenate([top_half, bottom_half], axis=0)
 
     def draw_grid_with_border(self, images):
-        """Draw images on a 2x2 grid with a border using Matplotlib."""
-        import io
-        from mpl_toolkits.axes_grid1 import ImageGrid
-        dpi = 100
-        fig = plt.figure(figsize = (self.image_size*2/dpi, self.image_size*2/dpi))
-        grid = ImageGrid(fig, 111, nrows_ncols=(2, 2), axes_pad=0.03)
-        for ax, img in zip(grid, images):
-            ax.axis('off')
-            ax.imshow(img)
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0.0, dpi=dpi)
-        buf.seek(0)
-        grid = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-        return grid.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-        #return grid.reshape((self.image_size*2, self.image_size*2, 3))
-        return grid.reshape((394, 394, 3))
-
-    def draw_grid_with_border_old(self, images):
         """Draw images on a 2x2 grid with a border."""
         border_size = 2 * self.image_size // 64
         for image in images:
@@ -330,10 +311,8 @@ class InfiniteDSpritesAnalogies(InfiniteDSprites):
 
 
 if __name__ == "__main__":
-    dataset = InfiniteDSpritesAnalogies(image_size=256)
-    print(next(iter(dataset)))
-    #dataset = InfiniteDSprites(image_size=512)
-    #writer = imageio.get_writer("infinite_dsprites.gif", mode="I")
-    #for image, _ in islice(dataset, 1000):
-    #    writer.append_data(image)
-    #writer.close()
+    dataset = InfiniteDSprites(image_size=512)
+    writer = imageio.get_writer("infinite_dsprites.gif", mode="I")
+    for image, _ in islice(dataset, 1000):
+        writer.append_data(image)
+    writer.close()
