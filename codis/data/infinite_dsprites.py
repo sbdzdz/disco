@@ -262,9 +262,11 @@ class InfiniteDSpritesTriplets(InfiniteDSprites):
 class InfiniteDSpritesAnalogies(InfiniteDSprites):
     """Infinite dataset of image analogies."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, reference_shape=None, query_shape=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.window = pygame.display.set_mode((self.image_size//2, self.image_size//2))
+        self.reference_shape = reference_shape
+        self.query_shape = query_shape
 
     def __iter__(self):
         """Generate an infinite stream of images representing an analogy task.
@@ -280,34 +282,23 @@ class InfiniteDSpritesAnalogies(InfiniteDSprites):
         while True:
             source_latents = self.sample_latents()
             target_latents = self.sample_latents()
-            reference_shape = self.generate_shape()
-            query_shape = self.generate_shape()
+            reference_shape = self.reference_shape if self.reference_shape is not None else self.generate_shape()
+            query_shape = self.query_shape if self.query_shape is not None else self.generate_shape()
             reference_source, reference_target, query_source, query_target = (
                 self.draw(source_latents._replace(shape=reference_shape)),
                 self.draw(target_latents._replace(shape=reference_shape)),
                 self.draw(source_latents._replace(shape=query_shape)),
                 self.draw(target_latents._replace(shape=query_shape)),
             )
-            yield self.draw_grid_with_border([reference_source, reference_target, query_source, query_target])
+            border_size = self.image_size // 128 or 1
+            grid = np.concatenate([
+                np.concatenate([reference_source, reference_target], axis=1),
+                np.concatenate([query_source, query_target], axis=1),
+            ], axis=0)
+            grid[self.image_size//2 - border_size:self.image_size//2 + border_size, :] = 255 # draw horizontal border
+            grid[:, self.image_size//2 - border_size:self.image_size//2 + border_size] = 255 # draw vertical border
 
-    def draw_grid(self, images):
-        """Draw images on a 2x2 grid without a border."""
-        reference_source, reference_target, query_source, query_target = images
-        top_half = np.concatenate([reference_source, reference_target], axis=1)
-        bottom_half = np.concatenate([query_source, query_target], axis=1)
-        yield np.concatenate([top_half, bottom_half], axis=0)
-
-    def draw_grid_with_border(self, images):
-        """Draw images on a 2x2 grid with a border."""
-        border_size = 2 * self.image_size // 64
-        for image in images:
-            image[:border_size, :] = 255
-            image[-border_size:, :] = 255
-            image[:, :border_size] = 255
-            image[:, -border_size:] = 255
-        top_half = np.concatenate([images[0], images[1]], axis=1)
-        bottom_half = np.concatenate([images[2], images[3]], axis=1)
-        return np.concatenate([top_half, bottom_half], axis=0)
+            yield grid
 
 
 if __name__ == "__main__":
