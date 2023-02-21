@@ -8,6 +8,7 @@ import numpy as np
 import numpy.typing as npt
 import pygame
 import pygame.gfxdraw
+from matplotlib import pyplot as plt
 from scipy.interpolate import splev, splprep
 from torch.utils.data import IterableDataset
 
@@ -234,7 +235,7 @@ class InfiniteDSpritesTriplets(InfiniteDSprites):
         super().__init__(*args, **kwargs)
 
     def __iter__(self):
-        """Generate a tuple containing a tuple of threee images and an action encoding.
+        """Generate an infinite stream of tuples consisting of a triplet of images and an action encoding.
         Args:
             None
         Yields:
@@ -258,9 +259,81 @@ class InfiniteDSpritesTriplets(InfiniteDSprites):
             yield ((image_original, image_transform, image_target), action)
 
 
+class InfiniteDSpritesAnalogies(InfiniteDSprites):
+    """Infinite dataset of image analogies."""
+
+    def __init__(self, border=True, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.border = border
+        self.image_size = self.image_size // 2
+
+    def __iter__(self):
+        """Generate an infinite stream of images representing an analogy task.
+        Each output array represents a 2x2 grid of images. Top row: reference source, reference target.
+        Bottom row: query source, query target. The task is to infer a transformation between reference
+        source and reference target and apply it to query source to obtain query target. Reference source
+        and query source differ only in shape.
+        Args:
+            None
+        Yields:
+            An image grid as a single numpy array.
+        """
+        while True:
+            source_latents = self.sample_latents()
+            target_latents = self.sample_latents()
+            reference_shape = self.generate_shape()
+            query_shape = self.generate_shape()
+            reference_source, reference_target, query_source, query_target = (
+                self.draw(source_latents._replace(shape=reference_shape)),
+                self.draw(target_latents._replace(shape=reference_shape)),
+                self.draw(source_latents._replace(shape=query_shape)),
+                self.draw(target_latents._replace(shape=query_shape)),
+            )
+            yield self.draw_grid_with_border_old([reference_source, reference_target, query_source, query_target])
+
+    def draw_grid(self, images):
+        """Draw images on a 2x2 grid without a border."""
+        reference_source, reference_target, query_source, query_target = images
+        top_half = np.concatenate([reference_source, reference_target], axis=1)
+        bottom_half = np.concatenate([query_source, query_target], axis=1)
+        yield np.concatenate([top_half, bottom_half], axis=0)
+
+    def draw_grid_with_border(self, images):
+        """Draw images on a 2x2 grid with a border using Matplotlib."""
+        import io
+        from mpl_toolkits.axes_grid1 import ImageGrid
+        dpi = 100
+        fig = plt.figure(figsize = (self.image_size*2/dpi, self.image_size*2/dpi))
+        grid = ImageGrid(fig, 111, nrows_ncols=(2, 2), axes_pad=0.03)
+        for ax, img in zip(grid, images):
+            ax.axis('off')
+            ax.imshow(img)
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0.0, dpi=dpi)
+        buf.seek(0)
+        grid = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+        return grid.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        #return grid.reshape((self.image_size*2, self.image_size*2, 3))
+        return grid.reshape((394, 394, 3))
+
+    def draw_grid_with_border_old(self, images):
+        """Draw images on a 2x2 grid with a border."""
+        border_size = 2 * self.image_size // 64
+        for image in images:
+            image[:border_size, :] = 255
+            image[-border_size:, :] = 255
+            image[:, :border_size] = 255
+            image[:, -border_size:] = 255
+        top_half = np.concatenate([images[0], images[1]], axis=1)
+        bottom_half = np.concatenate([images[2], images[3]], axis=1)
+        return np.concatenate([top_half, bottom_half], axis=0)
+
+
 if __name__ == "__main__":
-    dataset = InfiniteDSprites(image_size=512)
-    writer = imageio.get_writer("infinite_dsprites.gif", mode="I")
-    for image, _ in islice(dataset, 1000):
-        writer.append_data(image)
-    writer.close()
+    dataset = InfiniteDSpritesAnalogies(image_size=256)
+    print(next(iter(dataset)))
+    #dataset = InfiniteDSprites(image_size=512)
+    #writer = imageio.get_writer("infinite_dsprites.gif", mode="I")
+    #for image, _ in islice(dataset, 1000):
+    #    writer.append_data(image)
+    #writer.close()
