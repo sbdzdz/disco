@@ -14,6 +14,7 @@ from tqdm import tqdm
 from codis.data.infinite_dsprites import (
     InfiniteDSprites,
     InfiniteDSpritesTriplets,
+    InfiniteDSpritesAnalogies,
     Latents,
 )
 
@@ -240,35 +241,19 @@ def draw_analogy_task(path: Path = Path("img/analogy.png"), fig_height: float = 
     Returns:
         None
     """
-    dataset = InfiniteDSprites(image_size=256)
-    latents_reference_source = dataset.sample_latents()
-    latents_reference_target = dataset.sample_latents()._replace(
-        shape=latents_reference_source.shape
-    )
-
-    query_shape = dataset.generate_shape()
-    latents_query_source = latents_reference_source._replace(shape=query_shape)
-    latents_query_target = latents_reference_target._replace(shape=query_shape)
-
-    # Draw the images on a single grid with reference source and target in the top row and query source and target in the bottom row.
-    reference_source = dataset.draw(latents_reference_source)
-    reference_target = dataset.draw(latents_reference_target)
-    query_source = dataset.draw(latents_query_source)
-    query_target = dataset.draw(latents_query_target)
-    images = [reference_source, reference_target, query_source, query_target]
+    dataset = InfiniteDSpritesAnalogies(image_size=512)
+    image = next(iter(dataset))
     _, axes = plt.subplots(
-        nrows=2,
-        ncols=2,
+        nrows=1,
+        ncols=1,
         figsize=(fig_height, fig_height),
         subplot_kw={"aspect": 1.0},
         layout="tight",
     )
-    for ax, img in zip(axes.flat, images):
-        ax.axis("off")
-        ax.imshow(img)
+    axes.axis("off")
+    axes.imshow(image)
     path.parent.mkdir(parents=True, exist_ok=True)
-    plt.savefig(path, bbox_inches="tight", pad_inches=0)
-    plt.close()
+    plt.savefig(path, bbox_inches="tight", pad_inches=0.0)
 
 
 def draw_hard_analogy_task(
