@@ -19,6 +19,42 @@ from codis.data.infinite_dsprites import (
 )
 
 
+def draw_batch(images, path: Path = Path("img/images_grid.png"), fig_height: float = 10, n_max: int = 25):
+    """Show a batch of images on a grid.
+    Only the first n_max images are shown.
+    Args:
+        images: A tensor of shape (N, C, H, W) or (N, H, W).
+        n_max: The maximum number of images to show.
+    Returns:
+        None
+    """
+    num_images = min(images.shape[0], n_max)
+    if images.ndim == 4:
+        images = images.squeeze(1)
+    ncols = int(np.ceil(np.sqrt(num_images)))
+    nrows = int(np.ceil(num_images / ncols))
+    _, axes = plt.subplots(ncols, nrows, figsize=(ncols/nrows * fig_height, fig_height))
+    axes = axes.flatten()
+
+    for ax, img in zip(axes, images[:num_images]):
+        ax.imshow(img, cmap="Greys_r", interpolation="nearest")
+        ax.axis("off")
+    plt.savefig(path, bbox_inches="tight", pad_inches=0)
+
+
+def draw_density(images, path: Path = Path("img/images_density.png"), fig_height: float = 10):
+    """Show the density of a set of images averaged over the batch dimension.
+    Args:
+        imgs: A tensor of shape (N, C, H, W) or (N, H, W).
+    Returns:
+        None
+    """
+    _, ax = plt.subplots()
+    ax.imshow(images.mean(axis=0), interpolation="nearest", cmap="Greys_r")
+    ax.axis("off")
+    plt.show()
+
+
 def draw_shape(path: Path = Path("img/shape.png"), latents: Optional[Latents] = None):
     """Draw a single shape from given or randomly sampled latents and save it to disk.
     Args:
