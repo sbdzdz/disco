@@ -67,6 +67,41 @@ def draw_shapes(
     plt.savefig(path)
 
 
+def draw_shape_animated(path: Path = Path("img/shape.gif"), fig_height: float = 10):
+    """Create an animated GIF showing a shape undergoing transformations.
+    Args:
+        fig_height: The height of the figure in inches.
+    Returns:
+        None
+    """
+    dataset = InfiniteDSprites(image_size=512)
+    shape = dataset.generate_shape()
+    scales, orientations, positions_x, positions_y = generate_latent_progression(
+        dataset
+    )
+    color = 0
+    frames = [
+        dataset.draw(
+            Latents(color, shape, scale, orientation, position_x, position_y)
+        )
+        for scale, orientation, position_x, position_y in zip(
+            scales, orientations, positions_x, positions_y
+        )
+    ]
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with imageio.get_writer(path, mode="I") as writer:
+        for frame in tqdm(frames):
+            _, ax = plt.subplots(figsize=(fig_height, fig_height))
+            ax.axis("off")
+            ax.imshow(frame)
+            buffer = io.BytesIO()
+            plt.savefig(buffer, format="png", bbox_inches="tight", pad_inches=0)
+            plt.close()
+            image = imageio.imread(buffer)
+            writer.append_data(image) # type: ignore
+
+
 def draw_shapes_animated(
     path: Path = Path("img/shapes.gif"),
     nrows: int = 5,
@@ -270,7 +305,6 @@ def draw_hard_analogy_task(
     latents_reference_target = dataset.sample_latents()._replace(
         shape=latents_reference_source.shape
     )
-    # get the differenc of the x position with a periodic boundary condition
     position_x_delta = latents_reference_target.position_x - latents_reference_source.position_x
     position_y_delta = latents_reference_target.position_y - latents_reference_source.position_y
     orientation_delta = latents_reference_target.orientation - latents_reference_source.orientation
@@ -288,12 +322,14 @@ def draw_hard_analogy_task(
         scale=scale,
     )
 
-    # Draw the images on a single grid with reference source and target in the top row and query source and target in the bottom row.
-    reference_source = dataset.draw(latents_reference_source)
-    reference_target = dataset.draw(latents_reference_target)
-    query_source = dataset.draw(latents_query_source)
-    query_target = dataset.draw(latents_query_target)
-    images = [reference_source, reference_target, query_source, query_target]
+    # draw the images on a single grid
+    images = [
+        dataset.draw(latents_reference_source),
+        dataset.draw(latents_reference_target),
+        dataset.draw(latents_query_source),
+        dataset.draw(latents_query_target),
+
+    ]
     _, axes = plt.subplots(
         nrows=2,
         ncols=2,
