@@ -18,12 +18,15 @@ from codis.data.infinite_dsprites import (
     Latents,
 )
 
+repo_root = Path(__file__).parent.parent.parent
+
 
 def draw_batch_grid(
     images,
-    path: Path = Path("img/images_grid.png"),
+    path: Path = repo_root / "img/images_grid.png",
     fig_height: float = 10,
     n_max: int = 25,
+    show=False,
 ):
     """Show a batch of images on a grid.
     Only the first n_max images are shown.
@@ -45,11 +48,16 @@ def draw_batch_grid(
     for ax, img in zip(axes.flat, images[:num_images]):
         ax.imshow(img, cmap="Greys_r", interpolation="nearest")
         ax.axis("off")
-    plt.savefig(path, bbox_inches="tight", pad_inches=0)
+    plt.savefig(path, bbox_inches="tight")
+    if show:
+        plt.show()
 
 
 def draw_batch_density(
-    images, path: Path = Path("img/images_density.png"), fig_height: float = 10
+    images,
+    path: Path = repo_root / "img/images_density.png",
+    fig_height: float = 10,
+    show=False,
 ):
 
     """Show a batch of images averaged over the batch dimension.
@@ -62,9 +70,13 @@ def draw_batch_density(
     ax.imshow(images.mean(axis=0), interpolation="nearest", cmap="Greys_r")
     ax.axis("off")
     plt.savefig(path, bbox_inches="tight", pad_inches=0)
+    if show:
+        plt.show()
 
 
-def draw_shape(path: Path = Path("img/shape.png"), latents: Optional[Latents] = None):
+def draw_shape(
+    path: Path = repo_root / "img/shape.png", latents: Optional[Latents] = None
+):
     """Draw a single shape from given or randomly sampled latents and save it to disk.
     Args:
         path: The path to save the image to.
@@ -83,7 +95,7 @@ def draw_shape(path: Path = Path("img/shape.png"), latents: Optional[Latents] = 
 
 
 def draw_shapes(
-    path: Path = Path("img/shapes.png"),
+    path: Path = repo_root / "img/shapes.png",
     nrows: int = 5,
     ncols: int = 12,
     fig_height: float = 10,
@@ -112,7 +124,9 @@ def draw_shapes(
     plt.savefig(path)
 
 
-def draw_shape_animated(path: Path = Path("img/shape.gif"), fig_height: float = 10):
+def draw_shape_animated(
+    path: Path = repo_root / "img/shape.gif", fig_height: float = 10
+):
     """Create an animated GIF showing a shape undergoing transformations.
     Args:
         fig_height: The height of the figure in inches.
@@ -146,7 +160,7 @@ def draw_shape_animated(path: Path = Path("img/shape.gif"), fig_height: float = 
 
 
 def draw_shapes_animated(
-    path: Path = Path("img/shapes.gif"),
+    path: Path = repo_root / "img/shapes.gif",
     nrows: int = 5,
     ncols: int = 12,
     fig_height: float = 10,
@@ -245,7 +259,7 @@ def generate_latent_progression(dataset):
     return scales, orientations, positions_x, positions_y
 
 
-def draw_triplet(path: Path = Path("img/triplet.png"), fig_height: float = 10):
+def draw_triplet(path: Path = repo_root / "img/triplet.png", fig_height: float = 10):
     """Plot a triplet of shapes form the InfiniteDSpritesTriplets.
     See Montero et al. 2020 for details of the composition task.
     Args:
@@ -271,8 +285,8 @@ def draw_triplet(path: Path = Path("img/triplet.png"), fig_height: float = 10):
     plt.close()
 
 
-def draw_classification_tak(
-    path: Path = Path("img/classification.png"), fig_height: float = 10
+def draw_classification_task(
+    path: Path = repo_root / "img/classification.png", fig_height: float = 10
 ):
     """Draw an example of the binary classification task.
     Args:
@@ -312,7 +326,9 @@ def draw_classification_tak(
             )
 
 
-def draw_analogy_task(path: Path = Path("img/analogy.png"), fig_height: float = 10):
+def draw_analogy_task(
+    path: Path = repo_root / "img/analogy.png", fig_height: float = 10
+):
     """Draw an example of the analogy task.
     Args:
         fig_height: The height of the figure in inches.
@@ -335,7 +351,7 @@ def draw_analogy_task(path: Path = Path("img/analogy.png"), fig_height: float = 
 
 
 def draw_hard_analogy_task(
-    path: Path = Path("img/hard_analogy.png"), fig_height: float = 10
+    path: Path = repo_root / "img/hard_analogy.png", fig_height: float = 10
 ):
     """Draw an example of the hard analogy task.
     Args:
