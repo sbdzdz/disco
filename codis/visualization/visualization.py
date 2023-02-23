@@ -19,7 +19,12 @@ from codis.data.infinite_dsprites import (
 )
 
 
-def draw_batch(images, path: Path = Path("img/images_grid.png"), fig_height: float = 10, n_max: int = 25):
+def draw_batch_grid(
+    images,
+    path: Path = Path("img/images_grid.png"),
+    fig_height: float = 10,
+    n_max: int = 25,
+):
     """Show a batch of images on a grid.
     Only the first n_max images are shown.
     Args:
@@ -33,26 +38,30 @@ def draw_batch(images, path: Path = Path("img/images_grid.png"), fig_height: flo
         images = images.squeeze(1)
     ncols = int(np.ceil(np.sqrt(num_images)))
     nrows = int(np.ceil(num_images / ncols))
-    _, axes = plt.subplots(ncols, nrows, figsize=(ncols/nrows * fig_height, fig_height))
-    axes = axes.flatten()
+    _, axes = plt.subplots(
+        ncols, nrows, figsize=(ncols / nrows * fig_height, fig_height)
+    )
 
-    for ax, img in zip(axes, images[:num_images]):
+    for ax, img in zip(axes.flat, images[:num_images]):
         ax.imshow(img, cmap="Greys_r", interpolation="nearest")
         ax.axis("off")
     plt.savefig(path, bbox_inches="tight", pad_inches=0)
 
 
-def draw_density(images, path: Path = Path("img/images_density.png"), fig_height: float = 10):
-    """Show the density of a set of images averaged over the batch dimension.
+def draw_batch_density(
+    images, path: Path = Path("img/images_density.png"), fig_height: float = 10
+):
+
+    """Show a batch of images averaged over the batch dimension.
     Args:
         imgs: A tensor of shape (N, C, H, W) or (N, H, W).
     Returns:
         None
     """
-    _, ax = plt.subplots()
+    _, ax = plt.subplots(figsize=(fig_height, fig_height))
     ax.imshow(images.mean(axis=0), interpolation="nearest", cmap="Greys_r")
     ax.axis("off")
-    plt.show()
+    plt.savefig(path, bbox_inches="tight", pad_inches=0)
 
 
 def draw_shape(path: Path = Path("img/shape.png"), latents: Optional[Latents] = None):
@@ -117,9 +126,7 @@ def draw_shape_animated(path: Path = Path("img/shape.gif"), fig_height: float = 
     )
     color = 0
     frames = [
-        dataset.draw(
-            Latents(color, shape, scale, orientation, position_x, position_y)
-        )
+        dataset.draw(Latents(color, shape, scale, orientation, position_x, position_y))
         for scale, orientation, position_x, position_y in zip(
             scales, orientations, positions_x, positions_y
         )
@@ -135,7 +142,7 @@ def draw_shape_animated(path: Path = Path("img/shape.gif"), fig_height: float = 
             plt.savefig(buffer, format="png", bbox_inches="tight", pad_inches=0)
             plt.close()
             image = imageio.imread(buffer)
-            writer.append_data(image) # type: ignore
+            writer.append_data(image)  # type: ignore
 
 
 def draw_shapes_animated(
@@ -181,10 +188,10 @@ def draw_shapes_animated(
                 layout="tight",
                 subplot_kw={"aspect": 1.0},
             )
+            buffer = io.BytesIO()
             for ax, image in zip(axes.flat, frame):
                 ax.axis("off")
                 ax.imshow(image)
-                buffer = io.BytesIO()
             plt.savefig(buffer, format="png")
             plt.close()
             image = imageio.imread(buffer)
@@ -341,22 +348,17 @@ def draw_hard_analogy_task(
     latents_reference_target = dataset.sample_latents()._replace(
         shape=latents_reference_source.shape
     )
-    position_x_delta = latents_reference_target.position_x - latents_reference_source.position_x
-    position_y_delta = latents_reference_target.position_y - latents_reference_source.position_y
-    orientation_delta = latents_reference_target.orientation - latents_reference_source.orientation
-    scale_delta = latents_reference_target.scale - latents_reference_source.scale
-
     latents_query_source = dataset.sample_latents()
-    position_x = (latents_query_source.position_x + position_x_delta) % dataset.ranges["position_x"].max()
-    position_y = (latents_query_source.position_y + position_y_delta) % dataset.ranges["position_y"].max()
-    orientation = (latents_query_source.orientation + orientation_delta) % dataset.ranges["orientation"].max()
-    scale = (latents_query_source.scale + scale_delta) % dataset.ranges["scale"].max()
-    latents_query_target = latents_query_source._replace(
-        position_x=position_x,
-        position_y=position_y,
-        orientation=orientation,
-        scale=scale,
-    )
+    latents_query_target = latents_query_source
+
+    # TODO: implement the modulo arithmetic inside the datasetj
+    for latent in ["scale", "orientation", "position_x", "position_y"]:
+        delta = latents_reference_target[latent] - latents_reference_source[latent]
+        latent_range = dataset.ranges[latent]
+        range_min, range_max = latent_range.min(), latent_range.max()
+        new_value = latents_query_source[latent] + delta
+        new_value = range_min + (new_value - range_min) % (range_max - range_min)
+        latents_query_target = latents_query_target._replace(**{latent: new_value})
 
     # draw the images on a single grid
     images = [
@@ -364,7 +366,6 @@ def draw_hard_analogy_task(
         dataset.draw(latents_reference_target),
         dataset.draw(latents_query_source),
         dataset.draw(latents_query_target),
-
     ]
     _, axes = plt.subplots(
         nrows=2,
