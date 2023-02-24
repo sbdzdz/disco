@@ -30,6 +30,7 @@ draw_batch_grid(batch, show=True)
 ```
 
 ![Result of the above code](examples/batch.png | width=500)
+<img src="examples/batch.png" width="400">
 
 
 For other use cases and a more detailed introduction, see the notebooks in the `examples` folder.
