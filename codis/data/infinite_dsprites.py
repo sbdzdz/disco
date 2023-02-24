@@ -44,7 +44,7 @@ class InfiniteDSprites(IterableDataset):
         max_verts: int = 10,
         radius_std: float = 0.6,
         angle_std: float = 0.8,
-        color_range=("red", "green", "blue"),
+        color_range=("white"),
         scale_range=np.linspace(0.5, 1, 6),
         orientation_range=np.linspace(0, 2 * np.pi, 40),
         position_x_range=np.linspace(0, 1, 32),
