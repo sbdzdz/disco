@@ -29,7 +29,7 @@ batch = next(iter(dataloader))
 draw_batch_grid(batch, show=True)
 ```
 
-<img src="examples/batch.png" width="600" alt="The result of the above code.">
+<img src="examples/img/batch.png" width="600" alt="The result of the above code.">
 
 
 For other use cases and a more detailed introduction, see the notebooks in the [examples](examples/) folder.
