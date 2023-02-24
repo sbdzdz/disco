@@ -28,4 +28,4 @@ jobs:
       run: |
         pylint ./codis
     - name: Run black
-      run: black --check --verbose ./codis
+      run: black --check --verbose --diff ./codis
