@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 
 from codis.data import DSprites, InfiniteDSprites
 from codis.models import BetaVAE
-from codis.visualization import show_images_grid
+from codis.visualization import draw_batch_grid
 
 
 def train(args):
@@ -41,7 +41,7 @@ def train(args):
             x_hat, mu, log_var, _ = model(batch)
             loss = model.loss_function(batch, x_hat, mu, log_var)["loss"]
             print(loss)
-        show_images_grid(batch, x_hat)
+        draw_batch_grid(batch, x_hat)
 
 
 def _main():

@@ -1,9 +1,8 @@
 """Class definitions for the infinite dSprites dataset."""
 import os
 from collections import namedtuple
-from itertools import count, islice, product
+from itertools import product
 
-import imageio
 import numpy as np
 import numpy.typing as npt
 import pygame
@@ -40,11 +39,12 @@ class InfiniteDSprites(IterableDataset):
 
     def __init__(
         self,
-        image_size: int = 64,
+        image_size: int = 256,
         min_verts: int = 3,
         max_verts: int = 10,
         radius_std: float = 0.6,
         angle_std: float = 0.8,
+        color_range=("white",),
         scale_range=np.linspace(0.5, 1, 6),
         orientation_range=np.linspace(0, 2 * np.pi, 40),
         position_x_range=np.linspace(0, 1, 32),
@@ -73,7 +73,7 @@ class InfiniteDSprites(IterableDataset):
         self.angle_std = angle_std
         self.window = pygame.display.set_mode((self.image_size, self.image_size))
         self.ranges = {
-            "shape": (self.generate_shape() for _ in count()),
+            "color": color_range,
             "scale": scale_range,
             "orientation": orientation_range,
             "position_x": position_x_range,
@@ -86,9 +86,9 @@ class InfiniteDSprites(IterableDataset):
             None
         Returns:
             An infinite stream of (image, latents) tuples."""
-        color = 0
         while True:
-            for shape, scale, orientation, position_x, position_y in product(
+            shape = self.generate_shape()
+            for color, scale, orientation, position_x, position_y in product(
                 *self.ranges.values()
             ):
                 latents = Latents(
@@ -169,14 +169,17 @@ class InfiniteDSprites(IterableDataset):
         shape = self.apply_scale(latents.shape, latents.scale)
         shape = self.apply_orientation(shape, latents.orientation)
         shape = self.apply_position(shape, latents.position_x, latents.position_y)
-        pygame.gfxdraw.aapolygon(self.window, shape.T.tolist(), (255, 255, 255))
-        pygame.draw.polygon(self.window, pygame.Color("white"), shape.T.tolist())
+        pygame.gfxdraw.aapolygon(
+            self.window, shape.T.tolist(), pygame.Color(latents.color)
+        )
+        pygame.draw.polygon(self.window, pygame.Color(latents.color), shape.T.tolist())
         pygame.display.update()
         return pygame.surfarray.array3d(self.window)
 
     def apply_scale(self, shape: npt.NDArray, scale: float):
         """Apply a scale to a shape."""
-        return 0.2 * self.image_size * scale * shape
+        height, _ = self.window.get_size()
+        return 0.2 * height * scale * shape
 
     @staticmethod
     def apply_orientation(shape: npt.NDArray, orientation: float):
@@ -216,7 +219,7 @@ class InfiniteDSprites(IterableDataset):
     def sample_latents(self):
         """Sample a random set of latents."""
         return Latents(
-            color=0,
+            color=np.random.choice(self.ranges["color"]),
             shape=self.generate_shape(),
             scale=np.random.choice(self.ranges["scale"]),
             orientation=np.random.choice(self.ranges["orientation"]),
@@ -234,7 +237,7 @@ class InfiniteDSpritesTriplets(InfiniteDSprites):
         super().__init__(*args, **kwargs)
 
     def __iter__(self):
-        """Generate a tuple containing a tuple of threee images and an action encoding.
+        """Generate an infinite stream of tuples consisting of a triplet of images and an action encoding.
         Args:
             None
         Yields:
@@ -258,9 +261,57 @@ class InfiniteDSpritesTriplets(InfiniteDSprites):
             yield ((image_original, image_transform, image_target), action)
 
 
-if __name__ == "__main__":
-    dataset = InfiniteDSprites(image_size=512)
-    writer = imageio.get_writer("infinite_dsprites.gif", mode="I")
-    for image, _ in islice(dataset, 1000):
-        writer.append_data(image)
-    writer.close()
+class InfiniteDSpritesAnalogies(InfiniteDSprites):
+    """Infinite dataset of image analogies."""
+
+    def __init__(self, *args, reference_shape=None, query_shape=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.window = pygame.display.set_mode(
+            (self.image_size // 2, self.image_size // 2)
+        )
+        self.reference_shape = reference_shape
+        self.query_shape = query_shape
+
+    def __iter__(self):
+        """Generate an infinite stream of images representing an analogy task.
+        Each output array represents a 2x2 grid of images. Top row: reference source, reference target.
+        Bottom row: query source, query target. The task is to infer a transformation between reference
+        source and reference target and apply it to query source to obtain query target. Reference source
+        and query source differ only in shape.
+        Args:
+            None
+        Yields:
+            An image grid as a single numpy array.
+        """
+        while True:
+            source_latents = self.sample_latents()
+            target_latents = self.sample_latents()
+            reference_shape = (
+                self.reference_shape
+                if self.reference_shape is not None
+                else self.generate_shape()
+            )
+            query_shape = (
+                self.query_shape
+                if self.query_shape is not None
+                else self.generate_shape()
+            )
+            reference_source, reference_target, query_source, query_target = (
+                self.draw(source_latents._replace(shape=reference_shape)),
+                self.draw(target_latents._replace(shape=reference_shape)),
+                self.draw(source_latents._replace(shape=query_shape)),
+                self.draw(target_latents._replace(shape=query_shape)),
+            )
+            grid = np.concatenate(
+                [
+                    np.concatenate([reference_source, reference_target], axis=1),
+                    np.concatenate([query_source, query_target], axis=1),
+                ],
+                axis=0,
+            )
+            border_width = self.image_size // 128 or 1
+            mid = self.image_size // 2
+            grid[mid - border_width : mid + border_width, :] = 255  # horizontal border
+            grid[:, mid - border_width : mid + border_width] = 255  # vertical border
+
+            yield grid
