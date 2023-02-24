@@ -1,7 +1,8 @@
 """Datasets and data utils."""
+from codis.data.dsprites import DSpritesDataset
 from codis.data.infinite_dsprites import (
-    Latents,
     InfiniteDSprites,
-    InfiniteDSpritesTriplets,
     InfiniteDSpritesAnalogies,
+    InfiniteDSpritesTriplets,
+    Latents,
 )
