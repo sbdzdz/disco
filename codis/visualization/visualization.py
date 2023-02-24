@@ -59,7 +59,6 @@ def draw_batch_density(
     fig_height: float = 10,
     show=False,
 ):
-
     """Show a batch of images averaged over the batch dimension.
     Args:
         imgs: A tensor of shape (N, C, H, W) or (N, H, W).
