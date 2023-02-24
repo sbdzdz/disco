@@ -1,8 +1,10 @@
+black
 hydra-core
 imageio
 matplotlib
 numpy
 pygame
+pylint
 scipy
 torch
 tqdm
