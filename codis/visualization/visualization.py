@@ -367,7 +367,6 @@ def draw_hard_analogy_task(
     latents_query_source = dataset.sample_latents()
     latents_query_target = latents_query_source
 
-    # TODO: implement the modulo arithmetic inside the datasetj
     for latent in ["scale", "orientation", "position_x", "position_y"]:
         delta = latents_reference_target[latent] - latents_reference_source[latent]
         latent_range = dataset.ranges[latent]
