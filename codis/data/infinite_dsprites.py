@@ -1,7 +1,7 @@
 """Class definitions for the infinite dSprites dataset."""
 import os
 from collections import namedtuple
-from itertools import count, product
+from itertools import product
 
 import numpy as np
 import numpy.typing as npt
@@ -73,7 +73,6 @@ class InfiniteDSprites(IterableDataset):
         self.angle_std = angle_std
         self.window = pygame.display.set_mode((self.image_size, self.image_size))
         self.ranges = {
-            "shape": (self.generate_shape() for _ in count()),
             "color": color_range,
             "scale": scale_range,
             "orientation": orientation_range,
@@ -88,8 +87,9 @@ class InfiniteDSprites(IterableDataset):
         Returns:
             An infinite stream of (image, latents) tuples."""
         while True:
-            for shape, color, scale, orientation, position_x, position_y in product(
-                *self.ranges.values()  # shape needs to go first because it is an infinite generator
+            shape = self.generate_shape()
+            for color, scale, orientation, position_x, position_y in product(
+                *self.ranges.values()
             ):
                 latents = Latents(
                     color, shape, scale, orientation, position_x, position_y
