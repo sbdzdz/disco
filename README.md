@@ -32,7 +32,7 @@ draw_batch_grid(batch, show=True)
 <img src="examples/batch.png" width="600" alt="The result of the above code.">
 
 
-For other use cases and a more detailed introduction, see the notebooks in the `examples` folder.
+For other use cases and a more detailed introduction, see the notebooks in the [examples](examples/) folder.
 
 ## (Optional) Download DSprites
 
