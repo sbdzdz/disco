@@ -5,17 +5,15 @@ from pathlib import Path
 from torch.utils.data import DataLoader
 
 from codis.data.dsprites import DSpritesDataset
-from codis.utils.visualization import show_images_grid
+from codis.visualization import draw_batch_grid
 
 
 def train(args):
     """Train the model."""
     dataset = DSpritesDataset(args.dsprites_path)
-    train_loader = DataLoader(dataset, batch_size=16, shuffle=True)
-    for element in train_loader:
-        print(element.shape)
-        show_images_grid(element)
-        break
+    train_loader = DataLoader(dataset, batch_size=16)
+    batch = next(iter(train_loader))
+    draw_batch_grid(batch)
 
 
 # @hydra.main(version_base="1.2", config_path=root / "configs", config_name="train.yaml")
