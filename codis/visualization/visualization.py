@@ -165,7 +165,7 @@ def draw_shapes_animated(
     ncols: int = 11,
     fig_height: float = 10,
 ):
-    """Create an animated GIF showing an nrows x ncols grid of shapes undergoing transformations.
+    """Create an animated GIF showing a grid of shapes undergoing transformations.
     Args:
         nrows: The number of rows in the grid.
         ncols: The number of columns in the grid.
@@ -220,7 +220,7 @@ def generate_latent_progression(dataset):
         position_x_range: The range of x positions to use.
         position_y_range: The range of y positions to use.
     Returns:
-        A tuple of (scales, orientations, positions_x, positions_y) representing a smooth animation.
+        A tuple of latent value sequences representing a smooth animation.
     """
     scale_range, orientation_range, position_x_range, position_y_range = (
         dataset.ranges["scale"],
