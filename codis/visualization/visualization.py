@@ -11,7 +11,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
-from codis.data.infinite_dsprites import (
+from codis.data import (
     InfiniteDSprites,
     InfiniteDSpritesTriplets,
     InfiniteDSpritesAnalogies,
@@ -138,7 +138,7 @@ def draw_shape_animated(
     scales, orientations, positions_x, positions_y = generate_latent_progression(
         dataset
     )
-    color = 0
+    color = np.random.choice(dataset.ranges["color"])
     frames = [
         dataset.draw(Latents(color, shape, scale, orientation, position_x, position_y))
         for scale, orientation, position_x, position_y in zip(
@@ -162,7 +162,7 @@ def draw_shape_animated(
 def draw_shapes_animated(
     path: Path = repo_root / "img/shapes.gif",
     nrows: int = 5,
-    ncols: int = 12,
+    ncols: int = 11,
     fig_height: float = 10,
 ):
     """Create an animated GIF showing an nrows x ncols grid of shapes undergoing transformations.
@@ -175,17 +175,17 @@ def draw_shapes_animated(
     """
     dataset = InfiniteDSprites(image_size=256)
     shapes = [dataset.generate_shape() for _ in range(nrows * ncols)]
+    colors = np.random.choice(dataset.ranges["color"], size=nrows * ncols)
     scales, orientations, positions_x, positions_y = generate_latent_progression(
         dataset
     )
 
-    color = 0
     frames = [
         [
             dataset.draw(
                 Latents(color, shape, scale, orientation, position_x, position_y)
             )
-            for shape in shapes
+            for shape, color in zip(shapes, colors)
         ]
         for scale, orientation, position_x, position_y in zip(
             scales, orientations, positions_x, positions_y
