@@ -41,7 +41,7 @@ def draw_batch_grid(
         images = images.squeeze(1)
     ncols = int(np.ceil(np.sqrt(num_images)))
     nrows = int(np.ceil(num_images / ncols))
-    _, axes = plt.subplots(
+    fig, axes = plt.subplots(
         ncols, nrows, figsize=(ncols / nrows * fig_height, fig_height)
     )
 
@@ -51,6 +51,7 @@ def draw_batch_grid(
     plt.savefig(path, bbox_inches="tight")
     if show:
         plt.show()
+    return fig
 
 
 def draw_batch_and_reconstructions(
@@ -76,7 +77,7 @@ def draw_batch_and_reconstructions(
         x_hat = x_hat.squeeze(1)
     ncols = int(np.ceil(np.sqrt(num_images)))
     nrows = int(np.ceil(num_images / ncols))
-    _, axes = plt.subplots(
+    fig, axes = plt.subplots(
         ncols, 2 * nrows, figsize=(ncols / nrows * fig_height, 2 * fig_height)
     )
 
@@ -89,6 +90,7 @@ def draw_batch_and_reconstructions(
     plt.savefig(path, bbox_inches="tight")
     if show:
         plt.show()
+    return fig
 
 
 def draw_batch_density(
