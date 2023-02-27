@@ -48,6 +48,7 @@ def draw_batch_grid(
     for ax, img in zip(axes.flat, images[:num_images]):
         ax.imshow(img, cmap="Greys_r", interpolation="nearest")
         ax.axis("off")
+    path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(path, bbox_inches="tight")
     if show:
         plt.show()
@@ -87,6 +88,7 @@ def draw_batch_and_reconstructions(
         ax = ax.twiny()
         ax.imshow(img, cmap="Greys_r", interpolation="nearest")
         ax.axis("off")
+    path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(path, bbox_inches="tight")
     if show:
         plt.show()
@@ -108,6 +110,7 @@ def draw_batch_density(
     _, ax = plt.subplots(figsize=(fig_height, fig_height))
     ax.imshow(images.mean(axis=0), interpolation="nearest", cmap="Greys_r")
     ax.axis("off")
+    path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(path, bbox_inches="tight", pad_inches=0)
     if show:
         plt.show()
