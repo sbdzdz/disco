@@ -25,7 +25,7 @@ def draw_batch_grid(
     images,
     path: Path = repo_root / "img/batch_grid.png",
     fig_height: float = 10,
-    n_max: int = 25,
+    n_max: int = 16,
     show=False,
 ):
     """Show a batch of images on a grid.
@@ -46,6 +46,44 @@ def draw_batch_grid(
     )
 
     for ax, img in zip(axes.flat, images[:num_images]):
+        ax.imshow(img, cmap="Greys_r", interpolation="nearest")
+        ax.axis("off")
+    plt.savefig(path, bbox_inches="tight")
+    if show:
+        plt.show()
+
+
+def draw_batch_and_reconstructions(
+    x,
+    x_hat,
+    path: Path = repo_root / "img/reconstructions.png",
+    fig_height: float = 10,
+    n_max: int = 16,
+    show=False,
+):
+    """Show a batch of images and their reconstructions on a grid.
+    Only the first n_max images are shown.
+    Args:
+        x: A tensor of shape (N, C, H, W) or (N, H, W).
+        x_hat: A tensor of shape (N, C, H, W) or (N, H, W).
+        n_max: The maximum number of images to show.
+    Returns:
+        None
+    """
+    num_images = min(x.shape[0], n_max)
+    if x.ndim == 4:
+        x = x.squeeze(1)
+        x_hat = x_hat.squeeze(1)
+    ncols = int(np.ceil(np.sqrt(num_images)))
+    nrows = int(np.ceil(num_images / ncols))
+    _, axes = plt.subplots(
+        ncols, 2 * nrows, figsize=(ncols / nrows * fig_height, 2 * fig_height)
+    )
+
+    for ax, img, img_hat in zip(axes.flat, x[:num_images], x_hat[:num_images]):
+        ax.imshow(img_hat, cmap="Greys_r", interpolation="nearest")
+        ax.axis("off")
+        ax = ax.twiny()
         ax.imshow(img, cmap="Greys_r", interpolation="nearest")
         ax.axis("off")
     plt.savefig(path, bbox_inches="tight")
