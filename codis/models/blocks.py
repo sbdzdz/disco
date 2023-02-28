@@ -59,6 +59,8 @@ class Decoder(nn.Module):
                     padding=1,
                     output_padding=1,
                 ),
+                nn.BatchNorm2d(out_channels),
+                nn.LeakyReLU(),
             )
             for in_channels, out_channels in zip(hidden_dims[:-1], hidden_dims[1:])
         ]
@@ -77,7 +79,7 @@ class Decoder(nn.Module):
                 nn.Conv2d(
                     hidden_dims[-1], out_channels=out_channels, kernel_size=3, padding=1
                 ),
-                nn.Tanh(),
+                nn.Sigmoid(),
             )
         )
         self.model = nn.Sequential(*modules)
