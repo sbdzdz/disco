@@ -17,18 +17,12 @@ class BetaVAE(BaseVAE):
         in_channels: int = 1,
         latent_dim: int = 64,
         hidden_dims: Optional[List] = None,
-        beta: int = 4,
-        gamma: float = 1000.0,
-        max_capacity: int = 25,
-        max_iter: int = int(1e5),
+        beta: float = 0.5,
     ) -> None:
         super().__init__()
 
         self.latent_dim = latent_dim
         self.beta = beta
-        self.gamma = gamma
-        self.max_capacity = torch.Tensor([max_capacity])
-        self.max_iter = max_iter
 
         if hidden_dims is None:
             hidden_dims = [32, 64, 128, 256, 512]
@@ -93,7 +87,6 @@ class BetaVAE(BaseVAE):
         x_hat: Tensor,
         mu: Tensor,
         log_var: Tensor,
-        kld_weight: float = 0.5,
     ) -> dict:
         """Compute the loss given ground truth images and their reconstructions.
         Args:
@@ -111,7 +104,7 @@ class BetaVAE(BaseVAE):
             -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp(), dim=1), dim=0
         )
 
-        loss = recons_loss + self.beta * kld_weight * kld_loss
+        loss = recons_loss + self.beta * kld_loss
 
         return {"loss": loss, "Reconstruction_Loss": recons_loss, "KLD": kld_loss}
 
