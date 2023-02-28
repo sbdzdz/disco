@@ -27,10 +27,10 @@ def train(args):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
     batch = next(iter(dsprites_loader)).to(device)
-    x_hat = model(batch.to(device))
+    x_hat, *_ = model(batch.to(device))
     draw_batch_and_reconstructions(
         batch.detach().cpu().numpy(), x_hat.detach().cpu().numpy()
-    )
+    )  # list has no attribute detach
 
     sys.exit(0)
 
