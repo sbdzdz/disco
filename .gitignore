@@ -17,3 +17,6 @@ __pycache__
 
 # wandb
 wandb
+
+# mypy
+.mypy_cache
