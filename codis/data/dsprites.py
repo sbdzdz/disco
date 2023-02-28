@@ -26,7 +26,6 @@ class DSprites(Dataset):
             idx = idx.tolist()
         img = self.data["imgs"][idx]
         img = img.astype(np.float32)
-        img = img / 255.0
         img = np.expand_dims(img, axis=0)
 
         return img
