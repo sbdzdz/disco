@@ -8,13 +8,14 @@ from typing import Optional
 
 import imageio.v2 as imageio
 import numpy as np
+import PIL
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
 from codis.data import (
     InfiniteDSprites,
-    InfiniteDSpritesTriplets,
     InfiniteDSpritesAnalogies,
+    InfiniteDSpritesTriplets,
     Latents,
 )
 
@@ -41,7 +42,7 @@ def draw_batch_grid(
         images = images.squeeze(1)
     ncols = int(np.ceil(np.sqrt(num_images)))
     nrows = int(np.ceil(num_images / ncols))
-    fig, axes = plt.subplots(
+    _, axes = plt.subplots(
         ncols, nrows, figsize=(ncols / nrows * fig_height, fig_height)
     )
 
@@ -52,7 +53,7 @@ def draw_batch_grid(
     plt.savefig(path, bbox_inches="tight")
     if show:
         plt.show()
-    return fig
+    plt.close()
 
 
 def draw_batch_and_reconstructions(
@@ -89,12 +90,13 @@ def draw_batch_and_reconstructions(
         concatenated = np.concatenate([img, img_hat], axis=1)
         ax.imshow(concatenated, cmap="Greys_r", interpolation="nearest")
         ax.axis("off")
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    plt.savefig(path, bbox_inches="tight")
     if show:
         plt.show()
-    return fig
+    path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(path, bbox_inches="tight")
+    plt.close()
+
+    return PIL.Image.open(path)
 
 
 def draw_batch_density(
@@ -116,6 +118,7 @@ def draw_batch_density(
     plt.savefig(path, bbox_inches="tight", pad_inches=0)
     if show:
         plt.show()
+    plt.close()
 
 
 def draw_shape(
