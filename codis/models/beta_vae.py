@@ -93,7 +93,7 @@ class BetaVAE(BaseVAE):
         x_hat: Tensor,
         mu: Tensor,
         log_var: Tensor,
-        kld_weight: float = 1,
+        kld_weight: float = 0.5,
     ) -> dict:
         """Compute the loss given ground truth images and their reconstructions.
         Args:
