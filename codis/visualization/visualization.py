@@ -72,6 +72,9 @@ def draw_batch_and_reconstructions(
     Returns:
         None
     """
+    print("X shape and min/max", x.shape, x.min(), x.max())
+    print("X_hat shape and min/max", x_hat.shape, x_hat.min(), x_hat.max()
+
     num_images = min(x.shape[0], n_max)
     if x.ndim == 4:
         x = x.squeeze(1)
