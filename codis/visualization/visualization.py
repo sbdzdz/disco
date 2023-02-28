@@ -78,16 +78,18 @@ def draw_batch_and_reconstructions(
         x_hat = x_hat.squeeze(1)
     ncols = int(np.ceil(np.sqrt(num_images)))
     nrows = int(np.ceil(num_images / ncols))
-    fig, axes = plt.subplots(
-        ncols, 2 * nrows, figsize=(ncols / nrows * fig_height, 2 * fig_height)
-    )
 
+    fig, axes = plt.subplots(
+        nrows,
+        ncols,
+        figsize=(2 * ncols / nrows * fig_height, fig_height),
+    )
+    fig.tight_layout()
     for ax, img, img_hat in zip(axes.flat, x[:num_images], x_hat[:num_images]):
-        ax.imshow(img_hat, cmap="Greys_r", interpolation="nearest")
+        concatenated = np.concatenate([img, img_hat], axis=1)
+        ax.imshow(concatenated, cmap="Greys_r", interpolation="nearest")
         ax.axis("off")
-        ax = ax.twiny()
-        ax.imshow(img, cmap="Greys_r", interpolation="nearest")
-        ax.axis("off")
+
     path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(path, bbox_inches="tight")
     if show:
