@@ -1,6 +1,5 @@
 """Training script."""
 import argparse
-import sys
 from itertools import islice
 from pathlib import Path
 
@@ -31,8 +30,6 @@ def train(args):
     draw_batch_and_reconstructions(
         batch.detach().cpu().numpy(), x_hat.detach().cpu().numpy()
     )  # list has no attribute detach
-
-    sys.exit(0)
 
     # train on dSprites
     running_loss = 0
