@@ -7,9 +7,8 @@ from torch.utils.data import Dataset
 class DSprites(Dataset):
     """DSprites dataset."""
 
-    def __init__(self, path, transform=None):
+    def __init__(self, path):
         self.data = self.load_data(path)
-        self.transform = transform
 
     def load_data(self, path):
         """Load the data from the given path."""
@@ -25,13 +24,9 @@ class DSprites(Dataset):
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
-
         img = self.data["imgs"][idx]
         img = img.astype(np.float32)
         img = img / 255.0
         img = np.expand_dims(img, axis=0)
-
-        if self.transform:
-            img = self.transform(img)
 
         return img
