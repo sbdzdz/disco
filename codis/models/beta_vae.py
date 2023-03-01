@@ -98,15 +98,19 @@ class BetaVAE(BaseVAE):
         Returns:
             Dictionary containing the loss value and the individual losses.
         """
-        recons_loss = F.mse_loss(x_hat, x)
+        reconstruction_loss = F.mse_loss(x_hat, x)
 
-        kld_loss = torch.mean(
+        kl_divergence = torch.mean(
             -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp(), dim=1), dim=0
         )
 
-        loss = recons_loss + self.beta * kld_loss
+        loss = reconstruction_loss + self.beta * kl_divergence
 
-        return {"loss": loss, "Reconstruction_Loss": recons_loss, "KLD": kld_loss}
+        return {
+            "loss": loss,
+            "reconstruction_loss": reconstruction_loss,
+            "kl_divergence": kl_divergence,
+        }
 
     def sample(self, num_samples: int, current_device: int) -> Tensor:
         """Sample a vector in the latent space and return the corresponding image.
