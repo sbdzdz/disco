@@ -17,7 +17,7 @@ class BetaVAE(BaseVAE):
         in_channels: int = 1,
         latent_dim: int = 64,
         hidden_dims: Optional[List] = None,
-        beta: float = 0.5,
+        beta: float = 1.0,
     ) -> None:
         super().__init__()
 
