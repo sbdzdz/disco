@@ -1,12 +1,13 @@
 """Training script."""
 import argparse
+from collections import defaultdict
 from itertools import islice
 from pathlib import Path
 
 import torch
+import wandb
 from torch.utils.data import DataLoader
 
-import wandb
 from codis.data import DSprites, InfiniteDSprites
 from codis.models import BetaVAE
 from codis.visualization import draw_batch_and_reconstructions
@@ -17,7 +18,8 @@ def train(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Cuda available:", torch.cuda.is_available())
 
-    wandb.init(project="codis")
+    run = wandb.init(project="codis")
+    run.log_code()
     dsprites = DSprites(args.dsprites_path).to(device)
     dsprites_loader = DataLoader(dsprites, batch_size=64, shuffle=True)
     infinite_dsprites = InfiniteDSprites()
@@ -26,15 +28,16 @@ def train(args):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
     # train on dsprites
-    running_loss = 0
-    for i in range(10):
+    running_losses = defaultdict(float)
+    for i in range(args.epochs):
         for i, batch in enumerate(dsprites_loader):
             optimizer.zero_grad()
             x_hat, mu, log_var = model(batch)
             losses = model.loss_function(batch, x_hat, mu, log_var)
             losses["loss"].backward()
             optimizer.step()
-            running_loss += losses["loss"].item()
+            for k, v in losses.items():
+                running_losses[k] += v.item()
             if i > 0 and i % args.log_every == 0:
                 with torch.no_grad():
                     x_hat, *_ = model(batch)
@@ -47,7 +50,10 @@ def train(args):
                                 x_hat.detach().cpu().numpy(),
                             ),
                         ),
-                        "training_loss": running_loss / args.log_every,
+                        **{
+                            loss_name: loss_value / args.log_every
+                            for loss_name, loss_value in running_losses.items()
+                        },
                     }
                 )
                 running_loss = 0
@@ -81,7 +87,15 @@ def _main():
         type=Path,
         default=repo_root / "codis/data/dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz",
     )
-    parser.add_argument("--log_every", type=int, default=10, help="Log every n batches")
+    parser.add_argument(
+        "--log_every",
+        type=int,
+        default=10,
+        help="Log images and metrics every n batches.",
+    )
+    parser.add_argument(
+        "--epochs", type=int, default=5, help="Number of training epochs."
+    )
     args = parser.parse_args()
     train(args)
 
