@@ -5,9 +5,9 @@ from itertools import islice
 from pathlib import Path
 
 import torch
-import wandb
 from torch.utils.data import DataLoader
 
+import wandb
 from codis.data import DSprites, InfiniteDSprites
 from codis.models import BetaVAE
 from codis.visualization import draw_batch_and_reconstructions
@@ -44,9 +44,6 @@ def train(args):
             if i > 0 and i % config.log_every == 0:
                 with torch.no_grad():
                     x_hat, *_ = model(batch)
-                print(
-                    f"Epoch: {i}, batch: {0}, loss: {running_loss/config.log_every:2f}"
-                )
                 wandb.log(
                     {
                         "reconstruction": wandb.Image(
@@ -56,29 +53,31 @@ def train(args):
                             ),
                         ),
                         **{
-                            loss_name: loss_value / config.log_every
+                            loss_name: (loss_value / config.log_every)
                             for loss_name, loss_value in running_losses.items()
                         },
                     }
                 )
-                running_loss = 0
 
     # evaluate on infinite dsprites
     model.eval()
     with torch.no_grad():
-        losses = []
-        for batch in islice(infinite_dsprites_loader, 1000):
+        running_losses = defaultdict(float)
+        for batch in islice(infinite_dsprites_loader, config.eval_on):
             x_hat, mu, log_var, _ = model(batch)
             loss = model.loss_function(batch, x_hat, mu, log_var)["loss"].item()
             losses.append(loss)
-        average_loss = sum(losses) / len(losses)
-        print(f"Average loss on the infinite dataset: {average_loss}")
+            for k, v in losses.items():
+                running_losses[k] += v.item()
         wandb.log(
             {
                 "idsprites_reconstruction": draw_batch_and_reconstructions(
                     batch.detach().cpu().numpy(), x_hat.detach().cpu().numpy()
                 ),
-                "idsprites_loss": average_loss,
+                **{
+                    loss_name + "_eval": loss_value / config.eval_on
+                    for loss_name, loss_value in running_losses.items()
+                },
             }
         )
     wandb.finish()
@@ -96,13 +95,16 @@ def _main():
         "--log_every",
         type=int,
         default=10,
-        help="Log images and metrics every n batches.",
+        help="How often to log training progress. The logs will be averaged over this number of batches.",
     )
     parser.add_argument(
         "--epochs", type=int, default=5, help="Number of training epochs."
     )
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size.")
     parser.add_argument("--beta", type=float, default=1.0, help="Beta parameter.")
+    parser.add_argument(
+        "--eval_on", type=int, default=100, help="Number of batches to evaluate on."
+    )
     args = parser.parse_args()
     train(args)
 
