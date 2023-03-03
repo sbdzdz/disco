@@ -15,12 +15,12 @@ from codis.visualization import draw_batch_and_reconstructions
 
 def train(args):
     """Train the model."""
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print("Cuda available:", torch.cuda.is_available())
-
     run = wandb.init(project="codis", config=args)
     run.log_code()
+    wandb.log({"cuda_available": torch.cuda.is_available()})
     config = wandb.config
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     dsprites = DSprites(config.dsprites_path).to(device)
     dsprites_loader = DataLoader(dsprites, batch_size=config.batch_size, shuffle=True)
     infinite_dsprites = InfiniteDSprites()
@@ -32,7 +32,7 @@ def train(args):
 
     # train on dsprites
     running_losses = defaultdict(float)
-    for i in range(config.epochs):
+    for epoch in range(config.epochs):
         for i, batch in enumerate(dsprites_loader):
             optimizer.zero_grad()
             x_hat, mu, log_var = model(batch)
@@ -46,6 +46,8 @@ def train(args):
                     x_hat, *_ = model(batch)
                 wandb.log(
                     {
+                        "epoch": epoch,
+                        "batch": epoch * len(dsprites_loader) + i,
                         "reconstruction": wandb.Image(
                             draw_batch_and_reconstructions(
                                 batch.detach().cpu().numpy(),
@@ -58,11 +60,13 @@ def train(args):
                         },
                     }
                 )
+                for k in running_losses:
+                    running_losses[k] = 0
 
     # evaluate on infinite dsprites
     model.eval()
+    running_losses = defaultdict(float)
     with torch.no_grad():
-        running_losses = defaultdict(float)
         for batch in islice(infinite_dsprites_loader, config.eval_on):
             x_hat, mu, log_var, _ = model(batch)
             loss = model.loss_function(batch, x_hat, mu, log_var)["loss"].item()
