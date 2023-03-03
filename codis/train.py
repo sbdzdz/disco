@@ -18,18 +18,21 @@ def train(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Cuda available:", torch.cuda.is_available())
 
-    run = wandb.init(project="codis")
+    run = wandb.init(project="codis", config=args)
     run.log_code()
-    dsprites = DSprites(args.dsprites_path).to(device)
-    dsprites_loader = DataLoader(dsprites, batch_size=64, shuffle=True)
+    config = wandb.config
+    dsprites = DSprites(config.dsprites_path).to(device)
+    dsprites_loader = DataLoader(dsprites, batch_size=config.batch_size, shuffle=True)
     infinite_dsprites = InfiniteDSprites()
-    infinite_dsprites_loader = DataLoader(infinite_dsprites, batch_size=16)
-    model = BetaVAE().to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    infinite_dsprites_loader = DataLoader(
+        infinite_dsprites, batch_size=config.batch_size
+    )
+    model = BetaVAE(beta=config.beta).to(device)
+    optimizer = torch.optim.Adam(model.parameters())
 
     # train on dsprites
     running_losses = defaultdict(float)
-    for i in range(args.epochs):
+    for i in range(config.epochs):
         for i, batch in enumerate(dsprites_loader):
             optimizer.zero_grad()
             x_hat, mu, log_var = model(batch)
@@ -38,10 +41,12 @@ def train(args):
             optimizer.step()
             for k, v in losses.items():
                 running_losses[k] += v.item()
-            if i > 0 and i % args.log_every == 0:
+            if i > 0 and i % config.log_every == 0:
                 with torch.no_grad():
                     x_hat, *_ = model(batch)
-                print(f"Epoch: {i}, batch: {0}, loss: {running_loss/args.log_every:2f}")
+                print(
+                    f"Epoch: {i}, batch: {0}, loss: {running_loss/config.log_every:2f}"
+                )
                 wandb.log(
                     {
                         "reconstruction": wandb.Image(
@@ -51,7 +56,7 @@ def train(args):
                             ),
                         ),
                         **{
-                            loss_name: loss_value / args.log_every
+                            loss_name: loss_value / config.log_every
                             for loss_name, loss_value in running_losses.items()
                         },
                     }
@@ -96,6 +101,8 @@ def _main():
     parser.add_argument(
         "--epochs", type=int, default=5, help="Number of training epochs."
     )
+    parser.add_argument("--batch_size", type=int, default=64, help="Batch size.")
+    parser.add_argument("--beta", type=float, default=1.0, help="Beta parameter.")
     args = parser.parse_args()
     train(args)
 
