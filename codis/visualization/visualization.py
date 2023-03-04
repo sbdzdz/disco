@@ -94,9 +94,11 @@ def draw_batch_and_reconstructions(
         plt.show()
     path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(path, bbox_inches="tight")
+    buffer = io.BytesIO()
+    plt.savefig(buffer, bbox_inches="tight")
     plt.close()
 
-    return PIL.Image.open(path)
+    return PIL.Image.open(buffer)
 
 
 def draw_batch_density(
