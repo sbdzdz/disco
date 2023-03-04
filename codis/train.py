@@ -29,6 +29,7 @@ def train(args):
     )
     model = BetaVAE(beta=config.beta).to(device)
     optimizer = torch.optim.Adam(model.parameters())
+    first_batch = next(iter(dsprites_loader))
 
     # train on dsprites
     running_losses = defaultdict(float)
@@ -43,14 +44,14 @@ def train(args):
                 running_losses[k] += v.item()
             if i > 0 and i % config.log_every == 0:
                 with torch.no_grad():
-                    x_hat, *_ = model(batch)
+                    x_hat, *_ = model(first_batch)
                 wandb.log(
                     {
                         "epoch": epoch,
                         "batch": epoch * len(dsprites_loader) + i,
                         "reconstruction": wandb.Image(
                             draw_batch_and_reconstructions(
-                                batch.detach().cpu().numpy(),
+                                first_batch.detach().cpu().numpy(),
                                 x_hat.detach().cpu().numpy(),
                             ),
                         ),
