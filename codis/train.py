@@ -27,7 +27,7 @@ def train(args):
     infinite_dsprites_loader = DataLoader(
         infinite_dsprites, batch_size=config.batch_size
     )
-    model = BetaVAE(beta=config.beta).to(device)
+    model = BetaVAE(beta=config.beta, latent_dim=config.latent_dim).to(device)
     optimizer = torch.optim.Adam(model.parameters())
     first_batch = next(iter(dsprites_loader))
 
@@ -109,6 +109,9 @@ def _main():
     parser.add_argument("--beta", type=float, default=1.0, help="Beta parameter.")
     parser.add_argument(
         "--eval_on", type=int, default=100, help="Number of batches to evaluate on."
+    )
+    parser.add_argument(
+        "--latent_dim", type=int, default=10, help="Dimensionality of the latent space."
     )
     args = parser.parse_args()
     train(args)
