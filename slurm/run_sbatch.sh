@@ -14,4 +14,4 @@
 scontrol show job $SLURM_JOB_ID
 
 # insert your commands here
-singularity exec --bind /mnt/qb/work/bethge/dziadzio08 $HOME/singularity/python_build_latest.sif $HOME/codis/slurm/command.sh
+singularity exec --nv --bind /mnt/qb/work/bethge/dziadzio08 $HOME/singularity/python_build_latest.sif $HOME/codis/slurm/command.sh
