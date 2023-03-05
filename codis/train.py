@@ -68,8 +68,8 @@ def train(args):
     model.eval()
     running_losses = defaultdict(float)
     with torch.no_grad():
-        for batch in islice(infinite_dsprites_loader, config.eval_on):
-            batch = torch.tensor(batch).to(device)
+        for batch, _ in islice(infinite_dsprites_loader, config.eval_on):
+            batch = (batch.float / 255.0).to(device)
             x_hat, mu, log_var, _ = model(batch)
             loss = model.loss_function(batch, x_hat, mu, log_var)["loss"].item()
             losses.append(loss)
