@@ -23,7 +23,7 @@ def train(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     dsprites = DSprites(config.dsprites_path).to(device)
     dsprites_loader = DataLoader(dsprites, batch_size=config.batch_size, shuffle=True)
-    infinite_dsprites = InfiniteDSprites()
+    infinite_dsprites = InfiniteDSprites(image_size=64)
     infinite_dsprites_loader = DataLoader(
         infinite_dsprites, batch_size=config.batch_size
     )
@@ -69,6 +69,7 @@ def train(args):
     running_losses = defaultdict(float)
     with torch.no_grad():
         for batch in islice(infinite_dsprites_loader, config.eval_on):
+            batch = torch.tensor(batch).to(device)
             x_hat, mu, log_var, _ = model(batch)
             loss = model.loss_function(batch, x_hat, mu, log_var)["loss"].item()
             losses.append(loss)
