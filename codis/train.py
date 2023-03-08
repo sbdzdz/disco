@@ -87,7 +87,9 @@ def log_metrics(loss, x, x_hat, suffix=""):
     wandb.log(
         {
             f"reconstruction{suffix}": wandb.Image(
-                draw_batch_and_reconstructions(x, x_hat)
+                draw_batch_and_reconstructions(
+                    x.detach().cpu().numpy(), x_hat.detach().cpu().numpy()
+                )
             ),
             **{
                 f"{name}{suffix}": sum(value) / len(value)
