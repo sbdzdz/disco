@@ -70,7 +70,7 @@ def evaluate_val(model, dataloader, device, config):
             loss = model.loss_function(batch, x_hat, mu, log_var)
             for k, v in loss.items():
                 running_loss[k].append(v.item())
-        first_batch = first_batch.to(device)
+        first_batch = first_batch.to(device).mean(dim=1, keepdim=True)
         x_hat, *_ = model(first_batch)
         log_metrics(running_loss, first_batch, x_hat, suffix="_val")
     model.train()
@@ -83,12 +83,22 @@ def evaluate_test(model, dataloader, device, config):
     first_batch = next(iter(dataloader))
     with torch.no_grad():
         for batch, _ in islice(dataloader, config.eval_on):
-            batch = (batch.float() / 255.0).permute(0, 3, 1, 2).to(device)
+            batch = (
+                (batch.float() / 255.0)
+                .permute(0, 3, 1, 2)
+                .mean(dim=1, keepdim=True)
+                .to(device)
+            )
             x_hat, mu, log_var = model(batch)
             loss = model.loss_function(batch, x_hat, mu, log_var)
             for k, v in loss.items():
                 running_loss[k].append(v.item())
-        first_batch = (first_batch.float() / 255.0).permute(0, 3, 1, 2).to(device)
+        first_batch = (
+            (first_batch.float() / 255.0)
+            .permute(0, 3, 1, 2)
+            .mean(dim=1, keepdim=True)
+            .to(device)
+        )
         x_hat, *_ = model(first_batch)
         log_metrics(running_loss, first_batch, x_hat, suffix="_test")
     model.train()
