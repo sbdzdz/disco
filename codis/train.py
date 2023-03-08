@@ -49,41 +49,51 @@ def train(args):
             if i > 0 and i % config.log_every == 0:
                 with torch.no_grad():
                     x_hat, *_ = model(first_batch)
-                log_metrics(running_loss, first_batch, x_hat, suffix="train")
+                log_metrics(running_loss, first_batch, x_hat, suffix="_train")
                 for k in running_loss:
                     running_loss[k] = []
-                evaluate(model, val_loader, device, config, suffix="val")
+                evaluate_val(model, val_loader, device, config)
 
-    evaluate(model, test_loader, device, config, suffix="test")
+    evaluate_test(model, test_loader, device, config)
     wandb.finish()
 
 
-def evaluate(model, dataloader, device, config, suffix):
-    """Evaluate the model on a given dataset."""
+def evaluate_val(model, dataloader, device, config):
+    """Evaluate the model on the validation set."""
     model.eval()
     running_loss = defaultdict(list)
     first_batch = next(iter(dataloader))
     with torch.no_grad():
-        for batch, _ in islice(dataloader, config.eval_on):
-            if suffix == "test":
-                batch = (batch.float() / 255.0).permute(
-                    0, 3, 1, 2
-                )  # TODO: fix this in the dataset
+        for batch in islice(dataloader, config.eval_on):
             batch = batch.to(device)
             x_hat, mu, log_var = model(batch)
             loss = model.loss_function(batch, x_hat, mu, log_var)
             for k, v in loss.items():
                 running_loss[k].append(v.item())
-        if suffix == "test":
-            first_batch = (first_batch.float() / 255.0).permute(0, 3, 1, 2)
         first_batch = first_batch.to(device)
         x_hat, *_ = model(first_batch)
-        log_metrics(running_loss, first_batch, x_hat, suffix=suffix)
+        log_metrics(running_loss, first_batch, x_hat, suffix="_val")
+
+
+def evaluate_test(model, dataloader, device, config):
+    """Evaluate the model on the test set (infinite dSprites)."""
+    model.eval()
+    running_loss = defaultdict(list)
+    first_batch = next(iter(dataloader))
+    with torch.no_grad():
+        for batch, _ in islice(dataloader, config.eval_on):
+            batch = (batch.float() / 255.0).permute(0, 3, 1, 2).to(device)
+            x_hat, mu, log_var = model(batch)
+            loss = model.loss_function(batch, x_hat, mu, log_var)
+            for k, v in loss.items():
+                running_loss[k].append(v.item())
+        first_batch = (first_batch.float() / 255.0).permute(0, 3, 1, 2).to(device)
+        x_hat, *_ = model(first_batch)
+        log_metrics(running_loss, first_batch, x_hat, suffix="_test")
 
 
 def log_metrics(loss, x, x_hat, suffix=""):
     """Log the loss and the reconstructions."""
-    suffix = f"_{suffix}" if suffix else ""
     wandb.log(
         {
             f"reconstruction{suffix}": wandb.Image(
