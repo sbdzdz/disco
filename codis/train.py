@@ -49,7 +49,7 @@ def train(args):
             if i > 0 and i % config.log_every == 0:
                 with torch.no_grad():
                     x_hat, *_ = model(first_batch)
-                log_metrics(loss, first_batch, x_hat, suffix="train")
+                log_metrics(running_loss, first_batch, x_hat, suffix="train")
                 for k in running_loss:
                     running_loss[k] = []
                 evaluate(model, val_loader, device, config, suffix="val")
@@ -78,7 +78,7 @@ def evaluate(model, dataloader, device, config, suffix):
             first_batch = (first_batch.float() / 255.0).permute(0, 3, 1, 2)
         first_batch = first_batch.to(device)
         x_hat, *_ = model(first_batch)
-        log_metrics(loss, first_batch, x_hat, suffix=suffix)
+        log_metrics(running_loss, first_batch, x_hat, suffix=suffix)
 
 
 def log_metrics(loss, x, x_hat, suffix=""):
