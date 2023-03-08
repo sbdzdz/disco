@@ -17,76 +17,84 @@ def train(args):
     """Train the model."""
     run = wandb.init(project="codis", config=args)
     run.log_code()
-    wandb.log({"cuda_available": torch.cuda.is_available()})
     config = wandb.config
+    wandb.log({"cuda_available": torch.cuda.is_available()})
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     dsprites = DSprites(config.dsprites_path).to(device)
-    dsprites_loader = DataLoader(dsprites, batch_size=config.batch_size, shuffle=True)
-    infinite_dsprites = InfiniteDSprites(image_size=64)
-    infinite_dsprites_loader = DataLoader(
-        infinite_dsprites, batch_size=config.batch_size
+    train_set, val_set = torch.utils.data.random_split(
+        dsprites, [0.8, 0.2], generator=torch.Generator().manual_seed(42)
     )
+    test_set = InfiniteDSprites(image_size=64)
+    train_loader = DataLoader(train_set, batch_size=config.batch_size, shuffle=True)
+    val_loader = DataLoader(val_set, batch_size=config.batch_size, shuffle=True)
+    test_loader = DataLoader(test_set, batch_size=config.batch_size)
+
     model = BetaVAE(beta=config.beta, latent_dim=config.latent_dim).to(device)
     optimizer = torch.optim.Adam(model.parameters())
-    first_batch = next(iter(dsprites_loader))
+    first_batch = next(iter(train_loader))
 
     # train on dsprites
-    running_losses = defaultdict(float)
-    for epoch in range(config.epochs):
-        for i, batch in enumerate(dsprites_loader):
+    running_loss = defaultdict(list)
+    for _ in range(config.epochs):
+        for i, batch in enumerate(train_loader):
             optimizer.zero_grad()
             x_hat, mu, log_var = model(batch)
-            losses = model.loss_function(batch, x_hat, mu, log_var)
-            losses["loss"].backward()
+            loss = model.loss_function(batch, x_hat, mu, log_var)
+            loss["loss"].backward()
             optimizer.step()
-            for k, v in losses.items():
-                running_losses[k] += v.item()
+            for k, v in loss.items():
+                running_loss[k].append(v.item())
             if i > 0 and i % config.log_every == 0:
                 with torch.no_grad():
                     x_hat, *_ = model(first_batch)
-                wandb.log(
-                    {
-                        "epoch": epoch,
-                        "batch": epoch * len(dsprites_loader) + i,
-                        "reconstruction": wandb.Image(
-                            draw_batch_and_reconstructions(
-                                first_batch.detach().cpu().numpy(),
-                                x_hat.detach().cpu().numpy(),
-                            ),
-                        ),
-                        **{
-                            loss_name: (loss_value / config.log_every)
-                            for loss_name, loss_value in running_losses.items()
-                        },
-                    }
-                )
-                for k in running_losses:
-                    running_losses[k] = 0
+                log_metrics(loss, first_batch, x_hat, suffix="train")
+                for k in running_loss:
+                    running_loss[k] = []
+                evaluate(model, val_loader, device, config, suffix="val")
 
-    # evaluate on infinite dsprites
-    model.eval()
-    running_losses = defaultdict(float)
-    with torch.no_grad():
-        for batch, _ in islice(infinite_dsprites_loader, config.eval_on):
-            batch = (batch.float() / 255.0).to(device)
-            x_hat, mu, log_var, _ = model(batch)
-            loss = model.loss_function(batch, x_hat, mu, log_var)["loss"].item()
-            losses.append(loss)
-            for k, v in losses.items():
-                running_losses[k] += v.item()
-        wandb.log(
-            {
-                "idsprites_reconstruction": draw_batch_and_reconstructions(
-                    batch.detach().cpu().numpy(), x_hat.detach().cpu().numpy()
-                ),
-                **{
-                    loss_name + "_eval": loss_value / config.eval_on
-                    for loss_name, loss_value in running_losses.items()
-                },
-            }
-        )
+    evaluate(model, test_loader, device, config, suffix="test")
     wandb.finish()
+
+
+def evaluate(model, dataloader, device, config, suffix):
+    """Evaluate the model on a given dataset."""
+    model.eval()
+    running_loss = defaultdict(list)
+    first_batch = next(iter(dataloader))
+    with torch.no_grad():
+        for batch, _ in islice(dataloader, config.eval_on):
+            if suffix == "test":
+                batch = (batch.float() / 255.0).permute(
+                    0, 3, 1, 2
+                )  # TODO: fix this in the dataset
+            batch = batch.to(device)
+            x_hat, mu, log_var = model(batch)
+            loss = model.loss_function(batch, x_hat, mu, log_var)
+            for k, v in loss.items():
+                running_loss[k].append(v.item())
+        if suffix == "test":
+            first_batch = (first_batch.float() / 255.0).permute(0, 3, 1, 2)
+        first_batch = first_batch.to(device)
+        x_hat, *_ = model(first_batch)
+        log_metrics(loss, first_batch, x_hat, suffix=suffix)
+
+
+def log_metrics(loss, x, x_hat, suffix=""):
+    """Log the loss and the reconstructions."""
+    suffix = f"_{suffix}" if suffix else ""
+    wandb.log(
+        {
+            f"reconstruction{suffix}": wandb.Image(
+                draw_batch_and_reconstructions(x, x_hat)
+            ),
+            **{
+                f"{name}{suffix}": sum(value) / len(value)
+                for name, value in loss.items()
+            },
+        }
+    )
 
 
 def _main():
