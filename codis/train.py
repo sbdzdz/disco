@@ -73,6 +73,7 @@ def evaluate_val(model, dataloader, device, config):
         first_batch = first_batch.to(device)
         x_hat, *_ = model(first_batch)
         log_metrics(running_loss, first_batch, x_hat, suffix="_val")
+    model.train()
 
 
 def evaluate_test(model, dataloader, device, config):
@@ -90,6 +91,7 @@ def evaluate_test(model, dataloader, device, config):
         first_batch = (first_batch.float() / 255.0).permute(0, 3, 1, 2).to(device)
         x_hat, *_ = model(first_batch)
         log_metrics(running_loss, first_batch, x_hat, suffix="_test")
+    model.train()
 
 
 def log_metrics(loss, x, x_hat, suffix=""):
