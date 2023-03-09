@@ -15,7 +15,7 @@ from codis.visualization import draw_batch_and_reconstructions
 
 def train(args):
     """Train the model."""
-    run = wandb.init(project="codis", config=args)
+    run = wandb.init(project="codis", config=args, dir=args.wandb_dir)
     run.log_code()
     config = wandb.config
     wandb.log({"cuda_available": torch.cuda.is_available()})
@@ -117,6 +117,12 @@ def _main():
     )
     parser.add_argument(
         "--latent_dim", type=int, default=10, help="Dimensionality of the latent space."
+    )
+    parser.add_argument(
+        "--wandb_dir",
+        type=Path,
+        default=repo_root / "wandb",
+        help="Wandb logging directory.",
     )
     args = parser.parse_args()
     train(args)
