@@ -228,6 +228,24 @@ class InfiniteDSprites(IterableDataset):
         )
 
 
+class InfiniteDSpritesRandom(InfiniteDSprites):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def __iter__(self):
+        """Generate an infinite stream of images.
+        Sample shapes and latents at random at every step.
+        Args:
+            None
+        Yields:
+            A tuple of (image, latents).
+        """
+        while True:
+            latents = self.sample_latents()
+            image = self.draw(latents)
+            yield image, latents
+
+
 class InfiniteDSpritesTriplets(InfiniteDSprites):
     """Infinite dataset of triplets of images.
     For details see the composition task proposed by Montero et al. (2020).
