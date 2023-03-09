@@ -80,7 +80,7 @@ def evaluate_test(model, dataloader, device, config):
     """Evaluate the model on the test set (infinite dSprites)."""
     model.eval()
     running_loss = defaultdict(list)
-    first_batch = next(iter(dataloader))
+    first_batch, _ = next(iter(dataloader))
     with torch.no_grad():
         for batch, _ in islice(dataloader, config.eval_on):
             batch = (
