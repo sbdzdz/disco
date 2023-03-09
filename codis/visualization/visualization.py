@@ -88,6 +88,9 @@ def draw_batch_and_reconstructions(
     fig.tight_layout()
     for ax, img, img_hat in zip(axes.flat, x[:num_images], x_hat[:num_images]):
         concatenated = np.concatenate([img, img_hat], axis=1)
+        border_width = concatenated.shape[1] // 128 or 1
+        mid = concatenated.shape[1] // 2
+        concatenated[:, mid - border_width : mid + border_width] = 255.0
         ax.imshow(concatenated, cmap="Greys_r", interpolation="nearest")
         ax.axis("off")
     if show:
