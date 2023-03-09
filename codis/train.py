@@ -76,7 +76,7 @@ def evaluate(model, dataloader, device, config, suffix=""):
         if type(first_batch) == list:
             first_batch = first_batch[0]
         x_hat, *_ = model(first_batch)
-        log_metrics(running_loss, first_batch, x_hat, suffix="_val")
+        log_metrics(running_loss, first_batch, x_hat, suffix=suffix)
     model.train()
 
 
