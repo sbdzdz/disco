@@ -27,7 +27,7 @@ def _main():
     repo_root = Path(__file__).parent.parent
     parser = ArgumentParser()
     parser.add_argument("--run_id", type=str, required=True)
-    parser.add_argument("--output_dir", type=Path, default=repo_root / "img/wandb")
+    parser.add_argument("--output_dir", type=Path, default=repo_root / "img/training")
     parser.add_argument("--metric_name", type=str, default="reconstruction_val")
     args = parser.parse_args()
     visualize_wandb_run(args)
