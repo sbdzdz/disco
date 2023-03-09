@@ -90,7 +90,7 @@ def draw_batch_and_reconstructions(
         concatenated = np.concatenate([img, img_hat], axis=1)
         border_width = concatenated.shape[1] // 128 or 1
         mid = concatenated.shape[1] // 2
-        concatenated[:, mid - border_width : mid + border_width] = 255.0
+        concatenated[:, mid - border_width : mid + border_width] = 1.0
         ax.imshow(concatenated, cmap="Greys_r", interpolation="nearest")
         ax.axis("off")
     if show:
