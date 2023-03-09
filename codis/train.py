@@ -65,12 +65,16 @@ def evaluate(model, dataloader, device, config, suffix=""):
     first_batch = next(iter(dataloader))
     with torch.no_grad():
         for batch in islice(dataloader, config.eval_on):
+            if type(batch) == list:
+                batch = batch[0]
             batch = batch.to(device)
             x_hat, mu, log_var = model(batch)
             loss = model.loss_function(batch, x_hat, mu, log_var)
             for k, v in loss.items():
                 running_loss[k].append(v.item())
         first_batch = first_batch.to(device).mean(dim=1, keepdim=True)
+        if type(first_batch) == list:
+            first_batch = first_batch[0]
         x_hat, *_ = model(first_batch)
         log_metrics(running_loss, first_batch, x_hat, suffix="_val")
     model.train()
