@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import DataLoader
 
 import wandb
-from codis.data import DSprites, InfiniteDSprites
+from codis.data import DSprites, InfiniteDSpritesRandom
 from codis.models import BetaVAE
 from codis.visualization import draw_batch_and_reconstructions
 
@@ -26,7 +26,7 @@ def train(args):
     train_set, val_set = torch.utils.data.random_split(
         dsprites, [0.8, 0.2], generator=torch.Generator().manual_seed(42)
     )
-    test_set = InfiniteDSprites(image_size=64)
+    test_set = InfiniteDSpritesRandom(image_size=64)
     train_loader = DataLoader(train_set, batch_size=config.batch_size, shuffle=True)
     val_loader = DataLoader(val_set, batch_size=config.batch_size, shuffle=True)
     test_loader = DataLoader(test_set, batch_size=config.batch_size)
