@@ -15,11 +15,12 @@ def visualize_wandb_run(args):
     args.output_dir.mkdir(parents=True, exist_ok=True)
     with imageio.get_writer(args.output_dir / "training.gif", mode="I") as writer:
         for row in run.history(pandas=False):
-            img_path = row[args.metric_name]["path"]
-            file = run.file(img_path)
-            file.download(root=args.output_dir, replace=True)
-            img = imageio.imread(args.output_dir / file.name)
-            writer.append_data(img)
+            if row.get(args.metric_name) is not None:
+                img_path = row[args.metric_name]["path"]
+                file = run.file(img_path)
+                file.download(root=args.output_dir, replace=True)
+                img = imageio.imread(args.output_dir / file.name)
+                writer.append_data(img)
 
 
 def _main():
