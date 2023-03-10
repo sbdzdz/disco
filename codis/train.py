@@ -5,7 +5,7 @@ from itertools import islice
 from pathlib import Path
 
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 
 import wandb
 from codis.data import DSprites, InfiniteDSpritesRandom
@@ -15,22 +15,20 @@ from codis.visualization import draw_batch_and_reconstructions
 
 def train(args):
     """Train the model."""
-    run = wandb.init(project="codis", config=args, dir=args.wandb_dir)
-    run.log_code()
+    wandb.init(project="codis", config=args, dir=args.wandb_dir)
     config = wandb.config
     wandb.log({"cuda_available": torch.cuda.is_available()})
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    dsprites = DSprites(config.dsprites_path).to(device)
-    train_set, val_set = torch.utils.data.random_split(
-        dsprites, [0.8, 0.2], generator=torch.Generator().manual_seed(42)
+    train_set, val_set = random_split(
+        DSprites(config.dsprites_path).to(device),
+        [0.8, 0.2],
+        generator=torch.Generator().manual_seed(42),
     )
     test_set = InfiniteDSpritesRandom(image_size=64)
-    train_loader = DataLoader(train_set, batch_size=config.batch_size, shuffle=True)
-    val_loader = DataLoader(val_set, batch_size=config.batch_size, shuffle=True)
-    test_loader = DataLoader(test_set, batch_size=config.batch_size)
 
+    train_loader = DataLoader(train_set, batch_size=config.batch_size, shuffle=True)
     model = BetaVAE(beta=config.beta, latent_dim=config.latent_dim).to(device)
     optimizer = torch.optim.Adam(model.parameters())
     first_batch = next(iter(train_loader))
@@ -40,7 +38,7 @@ def train(args):
     for _ in range(config.epochs):
         for i, batch in enumerate(train_loader):
             optimizer.zero_grad()
-            x_hat, mu, log_var = model(batch)
+            x_hat, mu, log_var = model(batch)  # pylint: disable=not-callable
             loss = model.loss_function(batch, x_hat, mu, log_var)
             loss["loss"].backward()
             optimizer.step()
@@ -48,24 +46,25 @@ def train(args):
                 running_loss[k].append(v.item())
             if i > 0 and i % config.log_every == 0:
                 with torch.no_grad():
-                    x_hat, *_ = model(first_batch)
+                    x_hat, *_ = model(first_batch)  # pylint: disable=not-callable
                 log_metrics(running_loss, first_batch, x_hat, suffix="_train")
                 for k in running_loss:
                     running_loss[k] = []
-                evaluate(model, val_loader, device, config, suffix="_val")
+                evaluate(model, val_set, device, config, suffix="_val")
 
-    evaluate(model, test_loader, device, config, suffix="_test")
+    evaluate(model, test_set, device, config, suffix="_test")
     wandb.finish()
 
 
-def evaluate(model, dataloader, device, config, suffix=""):
+def evaluate(model, dataset, device, config, suffix=""):
     """Evaluate the model on the validation set."""
     model.eval()
+    dataloader = DataLoader(dataset, batch_size=config.batch_size)
     running_loss = defaultdict(list)
     first_batch = next(iter(dataloader))
     with torch.no_grad():
         for batch in islice(dataloader, config.eval_on):
-            if type(batch) == list:
+            if isinstance(batch, list):
                 batch = batch[0]
             batch = batch.to(device)
             x_hat, mu, log_var = model(batch)
@@ -73,7 +72,7 @@ def evaluate(model, dataloader, device, config, suffix=""):
             for k, v in loss.items():
                 running_loss[k].append(v.item())
         first_batch = first_batch.to(device).mean(dim=1, keepdim=True)
-        if type(first_batch) == list:
+        if isinstance(first_batch, list):
             first_batch = first_batch[0]
         x_hat, *_ = model(first_batch)
         log_metrics(running_loss, first_batch, x_hat, suffix=suffix)
