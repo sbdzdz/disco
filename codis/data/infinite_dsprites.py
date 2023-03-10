@@ -35,7 +35,7 @@ class Latents(BaseLatents):
 
 # pylint: disable=abstract-method
 class InfiniteDSprites(IterableDataset):
-    """Infinite dataset of procedurally generated shapes."""
+    """Infinite dataset of procedurally generated shapes undergoing transformations."""
 
     def __init__(
         self,
@@ -174,7 +174,15 @@ class InfiniteDSprites(IterableDataset):
         )
         pygame.draw.polygon(self.window, pygame.Color(latents.color), shape.T.tolist())
         pygame.display.update()
-        return pygame.surfarray.array3d(self.window)
+        image = pygame.surfarray.array3d(self.window)
+        image = image.astype(np.float32) / 255.0
+        if not self.is_rgb():
+            image = image.mean(axis=2, keepdims=True)
+        return np.transpose(image, (2, 0, 1))
+
+    def is_rgb(self):
+        """Return whether the dataset is RGB or binary."""
+        return tuple(self.ranges["color"]) != ("white",)
 
     def apply_scale(self, shape: npt.NDArray, scale: float):
         """Apply a scale to a shape."""
@@ -226,6 +234,28 @@ class InfiniteDSprites(IterableDataset):
             position_x=np.random.choice(self.ranges["position_x"]),
             position_y=np.random.choice(self.ranges["position_y"]),
         )
+
+
+class InfiniteDSpritesRandom(InfiniteDSprites):
+    """Infinite dataset of procedurally generated shapes undergoing transformations.
+    The latents are sampled randomly at every step.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def __iter__(self):
+        """Generate an infinite stream of images.
+        Sample shapes and latents at random at every step.
+        Args:
+            None
+        Yields:
+            A tuple of (image, latents).
+        """
+        while True:
+            latents = self.sample_latents()
+            image = self.draw(latents)
+            yield image, latents
 
 
 class InfiniteDSpritesTriplets(InfiniteDSprites):

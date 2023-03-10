@@ -14,3 +14,9 @@ __pycache__
 
 # data
 *.npz
+
+# wandb
+wandb
+
+# mypy
+.mypy_cache

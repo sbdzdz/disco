@@ -8,13 +8,14 @@ from typing import Optional
 
 import imageio.v2 as imageio
 import numpy as np
+import PIL
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
 from codis.data import (
     InfiniteDSprites,
-    InfiniteDSpritesTriplets,
     InfiniteDSpritesAnalogies,
+    InfiniteDSpritesTriplets,
     Latents,
 )
 
@@ -25,7 +26,7 @@ def draw_batch_grid(
     images,
     path: Path = repo_root / "img/batch_grid.png",
     fig_height: float = 10,
-    n_max: int = 25,
+    n_max: int = 16,
     show=False,
 ):
     """Show a batch of images on a grid.
@@ -48,9 +49,59 @@ def draw_batch_grid(
     for ax, img in zip(axes.flat, images[:num_images]):
         ax.imshow(img, cmap="Greys_r", interpolation="nearest")
         ax.axis("off")
+    path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(path, bbox_inches="tight")
     if show:
         plt.show()
+    plt.close()
+
+
+def draw_batch_and_reconstructions(
+    x,
+    x_hat,
+    path: Path = repo_root / "img/reconstructions.png",
+    fig_height: float = 10,
+    n_max: int = 16,
+    show=False,
+):
+    """Show a batch of images and their reconstructions on a grid.
+    Only the first n_max images are shown.
+    Args:
+        x: A tensor of shape (N, C, H, W) or (N, H, W).
+        x_hat: A tensor of shape (N, C, H, W) or (N, H, W).
+        n_max: The maximum number of images to show.
+    Returns:
+        None
+    """
+    num_images = min(x.shape[0], n_max)
+    if x.ndim == 4:
+        x = x.squeeze(1)
+        x_hat = x_hat.squeeze(1)
+    ncols = int(np.ceil(np.sqrt(num_images)))
+    nrows = int(np.ceil(num_images / ncols))
+
+    fig, axes = plt.subplots(
+        nrows,
+        ncols,
+        figsize=(2 * ncols / nrows * fig_height, fig_height),
+    )
+    fig.tight_layout()
+    for ax, img, img_hat in zip(axes.flat, x[:num_images], x_hat[:num_images]):
+        concatenated = np.concatenate([img, img_hat], axis=1)
+        border_width = concatenated.shape[1] // 128 or 1
+        mid = concatenated.shape[1] // 2
+        concatenated[:, mid - border_width : mid + border_width] = 1.0
+        ax.imshow(concatenated, cmap="Greys_r", interpolation="nearest")
+        ax.axis("off")
+    if show:
+        plt.show()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(path, bbox_inches="tight")
+    buffer = io.BytesIO()
+    plt.savefig(buffer, bbox_inches="tight")
+    plt.close()
+
+    return PIL.Image.open(buffer)
 
 
 def draw_batch_density(
@@ -68,9 +119,11 @@ def draw_batch_density(
     _, ax = plt.subplots(figsize=(fig_height, fig_height))
     ax.imshow(images.mean(axis=0), interpolation="nearest", cmap="Greys_r")
     ax.axis("off")
+    path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(path, bbox_inches="tight", pad_inches=0)
     if show:
         plt.show()
+    plt.close()
 
 
 def draw_shape(

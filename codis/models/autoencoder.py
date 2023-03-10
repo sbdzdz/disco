@@ -3,7 +3,7 @@ from typing import Optional
 
 from torch import nn
 
-from codis.models.blocks import DecoderBlock, EncoderBlock
+from codis.models.blocks import Encoder, Decoder
 
 
 class AutoEncoder(nn.Module):
@@ -16,20 +16,10 @@ class AutoEncoder(nn.Module):
 
         if hidden_dims is None:
             hidden_dims = [32, 64, 128, 256, 512]
-
         hidden_dims = [in_channels] + hidden_dims
-        encoder_modules = [
-            EncoderBlock(in_channels, out_channels)
-            for in_channels, out_channels in zip(hidden_dims[:-1], hidden_dims[1:])
-        ]
-        self.encoder = nn.Sequential(*encoder_modules)
 
-        hidden_dims.reverse()
-        decoder_modules = [
-            DecoderBlock(in_channels, out_channels)
-            for in_channels, out_channels in zip(hidden_dims[:-1], hidden_dims[1:])
-        ]
-        self.decoder = nn.Sequential(*decoder_modules)
+        self.encoder = Encoder(hidden_dims=hidden_dims, in_channels=in_channels)
+        self.decoder = Decoder(reversed(hidden_dims), out_channels=in_channels)
 
     def forward(self, x):
         """Forward pass of the autoencoder."""

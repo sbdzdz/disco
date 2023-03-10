@@ -4,34 +4,23 @@ import torch
 from torch.utils.data import Dataset
 
 
-class DSpritesDataset(Dataset):
+class DSprites(Dataset):
     """DSprites dataset."""
 
-    def __init__(self, path, transform=None):
-        self.data = self.load_data(path)
-        self.transform = transform
-
-    def load_data(self, path):
-        """Load the data from the given path."""
-        return np.load(
-            path,
-            encoding="latin1",
-            allow_pickle=True,
+    def __init__(self, path):
+        self.imgs = torch.from_numpy(
+            np.load(path, encoding="latin1", allow_pickle=True)["imgs"]
         )
 
+    def to(self, device):
+        """Move the data to the given device."""
+        self.imgs = self.imgs.to(device)
+        return self
+
     def __len__(self):
-        return len(self.data["imgs"])
+        return len(self.imgs)
 
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
-
-        img = self.data["imgs"][idx]
-        img = img.astype(np.float32)
-        img = img / 255.0
-        img = np.expand_dims(img, axis=0)
-
-        if self.transform:
-            img = self.transform(img)
-
-        return img
+        return self.imgs[idx].float().unsqueeze(0)
