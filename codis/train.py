@@ -61,21 +61,15 @@ def evaluate(model, dataset, device, config, suffix=""):
     model.eval()
     dataloader = DataLoader(dataset, batch_size=config.batch_size)
     running_loss = defaultdict(list)
-    first_batch = next(iter(dataloader))
-    if isinstance(first_batch, list):
-        first_batch = first_batch[0]
-    first_batch = first_batch.to(device)
+    first_batch, _ = next(iter(dataloader))
 
     with torch.no_grad():
-        for batch in islice(dataloader, config.eval_on):
-            if isinstance(batch, list):
-                batch = batch[0]
-            batch = batch.to(device)
-            x_hat, mu, log_var = model(batch)
+        for batch, _ in islice(dataloader, config.eval_on):
+            x_hat, mu, log_var = model(batch.to(device))
             loss = model.loss_function(batch, x_hat, mu, log_var)
             for k, v in loss.items():
                 running_loss[k].append(v.item())
-        x_hat, *_ = model(first_batch)
+        x_hat, *_ = model(first_batch.to(device))
         log_metrics(running_loss, first_batch, x_hat, suffix=suffix)
     model.train()
 
