@@ -17,8 +17,7 @@ def train(args):
     """Train the model."""
     wandb.init(project="codis", config=args, dir=args.wandb_dir)
     config = wandb.config
-    wandb.log({"cuda_available": torch.cuda.is_available()})
-
+    print(f"Cuda available {torch.cuda.is_available()}")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     train_set, val_set = random_split(
@@ -29,14 +28,14 @@ def train(args):
     test_set = InfiniteDSpritesRandom(image_size=64)
 
     train_loader = DataLoader(train_set, batch_size=config.batch_size, shuffle=True)
+    first_batch, _ = next(iter(train_loader))
     model = BetaVAE(beta=config.beta, latent_dim=config.latent_dim).to(device)
     optimizer = torch.optim.Adam(model.parameters())
-    first_batch = next(iter(train_loader))
 
     # train on dsprites
     running_loss = defaultdict(list)
     for _ in range(config.epochs):
-        for i, batch in enumerate(train_loader):
+        for i, (batch, _) in enumerate(train_loader):
             optimizer.zero_grad()
             x_hat, mu, log_var = model(batch)  # pylint: disable=not-callable
             loss = model.loss_function(batch, x_hat, mu, log_var)
@@ -60,8 +59,8 @@ def evaluate(model, dataset, device, config, suffix=""):
     """Evaluate the model on the validation set."""
     model.eval()
     dataloader = DataLoader(dataset, batch_size=config.batch_size)
-    running_loss = defaultdict(list)
     first_batch, _ = next(iter(dataloader))
+    running_loss = defaultdict(list)
 
     with torch.no_grad():
         for batch, _ in islice(dataloader, config.eval_on):
