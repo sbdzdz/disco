@@ -26,4 +26,4 @@ class DSprites(Dataset):
             idx = idx.tolist()
         imgs = self.imgs[idx].float().unsqueeze(0)
         latents = self.latents[idx].float().unsqueeze(0)
-        yield (imgs, latents)
+        return (imgs, latents)
