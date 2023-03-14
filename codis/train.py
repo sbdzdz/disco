@@ -6,6 +6,7 @@ from pathlib import Path
 
 import torch
 from torch.utils.data import DataLoader, random_split
+import numpy as np
 
 import wandb
 from codis.data import DSprites, InfiniteDSpritesRandom
@@ -25,7 +26,11 @@ def train(args):
         [0.8, 0.2],
         generator=torch.Generator().manual_seed(42),
     )
-    test_set = InfiniteDSpritesRandom(image_size=64)
+    test_set = InfiniteDSpritesRandom(
+        image_size=64,
+        radius_std=0.8,
+        scale_range=np.linspace(0.5, 1.5, 10),
+    )
 
     train_loader = DataLoader(train_set, batch_size=config.batch_size, shuffle=True)
     first_batch, _ = next(iter(train_loader))
