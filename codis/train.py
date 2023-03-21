@@ -35,7 +35,7 @@ def train(args):
     train_loader = DataLoader(train_set, batch_size=config.batch_size, shuffle=True)
     first_batch, _ = next(iter(train_loader))
     model = BetaVAE(beta=config.beta, latent_dim=config.latent_dim).to(device)
-    optimizer = torch.optim.Adam(model.parameters())
+    optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
 
     # train on dsprites
     running_loss = defaultdict(list)
@@ -122,6 +122,7 @@ def _main():
     parser.add_argument(
         "--latent_dim", type=int, default=10, help="Dimensionality of the latent space."
     )
+    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
     parser.add_argument(
         "--wandb_dir",
         type=Path,
