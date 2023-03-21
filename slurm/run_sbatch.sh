@@ -13,6 +13,13 @@
 # print info about current job
 scontrol show job $SLURM_JOB_ID
 
-# insert your commands here
-export SINGULARITYENV_WANDB_API_KEY=$WANDB_API_KEY
-singularity exec --nv --bind $WORK $WORK/singularity/codis_latest.sif $HOME/codis/slurm/command.sh
+source $HOME/.bashrc
+source $WORK/virtualenvs/codis/bin/activate
+
+python -m pip install --user --upgrade pip setuptools
+python -m pip install --user -r $HOME/codis/requirements.txt
+python -m pip install --user -e $HOME/codis
+
+python $HOME/codis/codis/train.py \
+ --dsprites_path $WORK/datasets/dsprites/dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz \
+ --wandb_dir $WORK/projects/codis/wandb --beta 1 --epochs 20 --batch_size 64 --log_every 200
