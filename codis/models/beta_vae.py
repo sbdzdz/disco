@@ -98,7 +98,7 @@ class BetaVAE(BaseVAE):
         Returns:
             Dictionary containing the loss value and the individual losses.
         """
-        reconstruction_loss = F.mse_loss(x_hat, x, reduction="sum")
+        reconstruction_loss = F.mse_loss(x_hat, x, reduction="sum") / x.size(0)
 
         kl_divergence = torch.mean(
             -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp(), dim=1), dim=0
