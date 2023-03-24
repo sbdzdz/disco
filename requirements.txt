@@ -2,6 +2,7 @@ imageio
 matplotlib
 numpy
 pygame
+pytest
 pillow
 scipy
 torch

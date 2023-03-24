@@ -80,6 +80,18 @@ class InfiniteDSprites(IterableDataset):
             "position_y": position_y_range,
         }
 
+    @classmethod
+    def from_config(cls, config: dict):
+        """Create a dataset from a config."""
+        for key, value in config.items():
+            if isinstance(value, dict) and set(value.keys()) == {
+                "start",
+                "stop",
+                "num",
+            }:
+                config[key] = np.linspace(**value)
+        return cls(**config)
+
     def __iter__(self):
         """Generate an infinite stream of images and latent vectors.
         Args:
