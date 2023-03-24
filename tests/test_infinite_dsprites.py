@@ -31,7 +31,7 @@ def test_instantiation_from_config():
             "num": 10,
         },
         "position_x_range": np.linspace(0.1, 0.9, 3),
-        "positon_y_range": np.linspace(0.1, 0.9, 3),
+        "position_y_range": np.linspace(0.1, 0.9, 3),
     }
     dataset = InfiniteDSprites.from_config(config)
     assert dataset.image_size == 64
