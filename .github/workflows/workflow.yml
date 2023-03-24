@@ -29,3 +29,5 @@ jobs:
         pylint ./codis
     - name: Run black
       run: black --check --verbose --diff ./codis
+    - name: Run pytest
+      run: python -m pytest ./tests
