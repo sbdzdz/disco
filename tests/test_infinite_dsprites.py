@@ -1,17 +1,19 @@
 """Test the infinite dSprites dataset."""
+import pytest
 import numpy as np
 
-from codis.data import InfiniteDSprites
+from codis.data import InfiniteDSprites, InfiniteDSpritesAnalogies
 
 
-def test_instantiation_with_no_parameters():
+@pytest.mark.parametrize("dataset_class", [InfiniteDSprites, InfiniteDSpritesAnalogies])
+def test_idsprites_instantiation_with_no_parameters(dataset_class):
     """Test that the dataset can be instantiated with no parameters."""
-    dataset = InfiniteDSprites()
+    dataset = dataset_class()
     assert dataset.min_verts == 3
     assert dataset.max_verts == 10
     assert dataset.radius_std == 0.6
     assert dataset.angle_std == 0.8
-    assert dataset.image_size == 64
+    assert dataset.image_size == 256
     assert dataset.ranges["color"] == ("white",)
     assert np.allclose(dataset.ranges["scale"], np.linspace(0.5, 1.0, 6))
     assert np.allclose(dataset.ranges["orientation"], np.linspace(0.0, 2 * np.pi, 40))
@@ -19,7 +21,8 @@ def test_instantiation_with_no_parameters():
     assert np.allclose(dataset.ranges["position_y"], np.linspace(0.0, 1.0, 32))
 
 
-def test_instantiation_from_config():
+@pytest.mark.parametrize("dataset_class", [InfiniteDSprites, InfiniteDSpritesAnalogies])
+def test_instantiation_from_config(dataset_class):
     """Test that the dataset can be instantiated from a config."""
     config = {
         "image_size": 64,
@@ -33,7 +36,7 @@ def test_instantiation_from_config():
         "position_x_range": np.linspace(0.1, 0.9, 3),
         "position_y_range": np.linspace(0.1, 0.9, 3),
     }
-    dataset = InfiniteDSprites.from_config(config)
+    dataset = dataset_class.from_config(config)
     assert dataset.image_size == 64
     assert dataset.ranges["color"] == ["red", "green", "blue"]
     assert dataset.ranges["scale"] == [0.5, 1.0]
