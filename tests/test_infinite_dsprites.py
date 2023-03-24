@@ -25,7 +25,7 @@ def test_instantiation_from_config():
         "image_size": 64,
         "color_range": ["red", "green", "blue"],
         "scale_range": [0.5, 1.0],
-        "rotation_range": {
+        "orientation_range": {
             "start": 0.0,
             "stop": 2 * np.pi,
             "num": 10,
