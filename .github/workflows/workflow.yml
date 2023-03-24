@@ -1,4 +1,4 @@
-name: Linting and formatting
+name: Linting, formatting, and testing
 
 on:
   push:
@@ -24,7 +24,7 @@ jobs:
         python -m pip install black pylint pytest
         python -m pip install -r requirements.txt --upgrade
         python -m pip install -e .
-    - name: Lint with pylint
+    - name: Run pylint
       run: |
         pylint ./codis
     - name: Run black
