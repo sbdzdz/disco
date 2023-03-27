@@ -5,7 +5,7 @@ from torch import nn
 class Encoder(nn.Module):
     """A simple encoder model."""
 
-    def __init__(self, hidden_dims: list[int], in_channels=1) -> None:
+    def __init__(self, hidden_dims: list[int], in_channels: int = 1) -> None:
         """Initialize the encoder.
         Args:
             in_channels: The number of input channels.
