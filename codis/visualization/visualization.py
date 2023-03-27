@@ -39,7 +39,7 @@ def draw_batch_grid(
     """
     num_images = min(images.shape[0], n_max)
     if images.ndim == 4:
-        images = images.squeeze(1)
+        images = images.permute(0, 2, 3, 1)
     ncols = int(np.ceil(np.sqrt(num_images)))
     nrows = int(np.ceil(num_images / ncols))
     _, axes = plt.subplots(
@@ -75,8 +75,8 @@ def draw_batch_and_reconstructions(
     """
     num_images = min(x.shape[0], n_max)
     if x.ndim == 4:
-        x = x.squeeze(1)
-        x_hat = x_hat.squeeze(1)
+        x = x.permute(0, 2, 3, 1)
+        x_hat = x_hat.permute(0, 2, 3, 1)
     ncols = int(np.ceil(np.sqrt(num_images)))
     nrows = int(np.ceil(num_images / ncols))
 

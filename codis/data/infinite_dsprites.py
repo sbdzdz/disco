@@ -80,6 +80,18 @@ class InfiniteDSprites(IterableDataset):
             "position_y": position_y_range,
         }
 
+    @classmethod
+    def from_config(cls, config: dict):
+        """Create a dataset from a config."""
+        for key, value in config.items():
+            if isinstance(value, dict) and set(value.keys()) == {
+                "start",
+                "stop",
+                "num",
+            }:
+                config[key] = np.linspace(**value)
+        return cls(**config)
+
     def __iter__(self):
         """Generate an infinite stream of images and latent vectors.
         Args:
@@ -334,14 +346,16 @@ class InfiniteDSpritesAnalogies(InfiniteDSprites):
             )
             grid = np.concatenate(
                 [
-                    np.concatenate([reference_source, reference_target], axis=1),
-                    np.concatenate([query_source, query_target], axis=1),
+                    np.concatenate([reference_source, reference_target], axis=2),
+                    np.concatenate([query_source, query_target], axis=2),
                 ],
-                axis=0,
+                axis=1,
             )
+
+            # add horizontal and vertical borders
             border_width = self.image_size // 128 or 1
             mid = self.image_size // 2
-            grid[mid - border_width : mid + border_width, :] = 255  # horizontal border
-            grid[:, mid - border_width : mid + border_width] = 255  # vertical border
+            grid[:, mid - border_width : mid + border_width, :] = 1.0
+            grid[:, :, mid - border_width : mid + border_width] = 1.0
 
             yield grid
