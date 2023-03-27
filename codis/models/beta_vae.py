@@ -15,8 +15,8 @@ class BetaVAE(BaseVAE):
     def __init__(
         self,
         in_channels: int = 1,
-        latent_dim: int = 64,
-        hidden_dims: Optional[List] = None,
+        latent_dim: int = 10,
+        hidden_dims: Optional[list] = None,
         beta: float = 1.0,
     ) -> None:
         super().__init__()
@@ -25,14 +25,26 @@ class BetaVAE(BaseVAE):
         self.beta = beta
 
         if hidden_dims is None:
-            hidden_dims = [32, 64, 128, 256, 512]
+            hidden_dims = [32, 64, 128, 256]
+        self.hidden_dims = hidden_dims
 
         self.encoder = Encoder(hidden_dims, in_channels)
         self.fc_mu = nn.Linear(hidden_dims[-1] * 4, latent_dim)
         self.fc_var = nn.Linear(hidden_dims[-1] * 4, latent_dim)
-
-        self.decoder_input = nn.Linear(latent_dim, hidden_dims[-1] * 4)
+        self.fc_z = nn.Linear(latent_dim, hidden_dims[-1] * 4)
         self.decoder = Decoder(list(reversed(hidden_dims)), in_channels)
+
+    def forward(self, x: Tensor) -> List[Tensor]:
+        """Perform the forward pass.
+        Args:
+            x: Input tensor of shape (B x C x H x W)
+        Returns:
+            List of tensors [reconstructed input, latent mean, latent log variance]
+        """
+        mu, log_var = self.encode(x)
+        z = self.reparameterize(mu, log_var)
+        x_hat = self.decode(z)
+        return [x_hat, mu, log_var]
 
     def encode(self, x: Tensor) -> List[Tensor]:
         """Pass the input through the encoder network and return the latent code.
@@ -41,22 +53,10 @@ class BetaVAE(BaseVAE):
         Returns:
             List of latent codes
         """
-        result = self.encoder(x).flatten(start_dim=1)
-        mu = self.fc_mu(result)
-        log_var = self.fc_var(result)
+        x = self.encoder(x).flatten(start_dim=1)
+        mu = self.fc_mu(x)
+        log_var = self.fc_var(x)
         return [mu, log_var]
-
-    def decode(self, z: Tensor) -> Tensor:
-        """Pass the latent code through the decoder network and return the reconstructed input.
-        Args:
-            z: Latent code tensor of shape (B x D)
-        Returns:
-            Reconstructed input of shape (B x C x H x W)
-        """
-        result = self.decoder_input(z)
-        result = result.view(-1, 512, 2, 2)
-        result = self.decoder(result)
-        return result
 
     def reparameterize(self, mu: Tensor, logvar: Tensor) -> Tensor:
         """Perform the reparameterization trick.
@@ -70,16 +70,16 @@ class BetaVAE(BaseVAE):
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def forward(self, x: Tensor) -> List[Tensor]:
-        """Perform the forward pass.
+    def decode(self, z: Tensor) -> Tensor:
+        """Pass the latent code through the decoder network and return the reconstructed input.
         Args:
-            x: Input tensor of shape (B x C x H x W)
+            z: Latent code tensor of shape (B x D)
         Returns:
-            List of tensors [reconstructed input, latent mean, latent log variance]
+            Reconstructed input of shape (B x C x H x W)
         """
-        mu, log_var = self.encode(x)
-        z = self.reparameterize(mu, log_var)
-        return [self.decode(z), mu, log_var]
+        z = self.fc_z(z)
+        z = z.view(-1, self.hidden_dims[-1], 2, 2)
+        return self.decoder(z)
 
     def loss_function(
         self,
