@@ -84,11 +84,20 @@ class BetaVAEV2(BaseVAE):
         Args:
             x: Input tensor of shape (B x C x H x W)
         Returns:
-            List of tensors [reconstructed input, latent mean, latent std]
+            List of tensors [reconstructed input, latent mean, latent log_std]
         """
         mu, log_std = self.encode(x)
         z = self.reparameterize(mu, log_std)
-        return [self.decode(z), mu, self.transform(log_std)]
+        return [self.decode(z), mu, log_std]
+
+    def reconstruction_loss(self, x:Tensor, x_hat:Tensor):
+        return (x_hat-x).pow(2).sum() / x.shape[0]
+    
+    def kl_loss(self, mu, log_std):
+        std = self.transform(log_std)
+        q = Normal(mu,std)
+        p = Normal(torch.zeros_like(mu),torch.ones_like(std))
+        return kl(q,p).mean()
 
     def loss_function(
         self,
@@ -107,13 +116,8 @@ class BetaVAEV2(BaseVAE):
         Returns:
             Dictionary containing the loss value and the individual losses.
         """
-        reconstruction_loss = (x_hat-x).pow(2).sum() / x.shape[0]
-
-        std = self.transform(log_std)
-        q = Normal(mu,std)
-        p = Normal(torch.zeros_like(mu),torch.ones_like(std))
-        kl_divergence = kl(q,p).mean()
-
+        reconstruction_loss = self.reconstruction_loss(x,x_hat)
+        kl_divergence = self.kl_loss(mu,log_std)
         loss = reconstruction_loss + self.beta * kl_divergence
 
         return {
