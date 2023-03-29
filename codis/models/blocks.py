@@ -1,4 +1,4 @@
-"""Factory functions for common blocks used in models."""
+"""Common blocks used in models."""
 from torch import nn
 
 
@@ -13,8 +13,8 @@ class Encoder(nn.Module):
         Returns:
             None
         """
-        hidden_dims = [in_channels] + hidden_dims
         super().__init__()
+        hidden_dims = [in_channels] + hidden_dims
         module = [
             nn.Sequential(
                 nn.Conv2d(
@@ -40,7 +40,7 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     """A simple decoder model."""
 
-    def __init__(self, hidden_dims: list[int], out_channels=1) -> None:
+    def __init__(self, hidden_dims: list[int], out_channels: int = 1) -> None:
         """Initialize the decoder.
         Args:
             out_channels: The number of output channels.
@@ -88,3 +88,23 @@ class Decoder(nn.Module):
         """Forward pass of the decoder."""
         x = self.model(x)
         return x
+
+
+class MLP(nn.Module):
+    """A simple multi-layer perceptron."""
+
+    def __init__(self, dims):
+        super().__init__()
+        module = [
+            nn.Sequential(
+                nn.Linear(n_in, n_out),
+                nn.ReLU(),
+            )
+            for n_in, n_out in zip(dims[:-2], dims[1:-1])
+        ]
+        module.append(nn.Linear(dims[-2], dims[-1]))  # no activation on last layer
+        self.net = nn.Sequential(*module)
+
+    def forward(self, x):
+        """Forward pass of the MLP."""
+        return self.net(x)
