@@ -100,8 +100,8 @@ class MLP(nn.Module):
             for n_in, n_out in zip(dims[:-2], dims[1:-1])
         ]
         module.append(nn.Linear(dims[-2], dims[-1]))  # no activation on last layer
-        self.net = nn.Sequential(*module)
+        self.model = nn.Sequential(*module)
 
     def forward(self, x):
         """Forward pass of the MLP."""
-        return self.net(x)
+        return self.model(x)
