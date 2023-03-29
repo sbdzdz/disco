@@ -91,12 +91,18 @@ class Decoder(nn.Module):
 
 
 class MLP(nn.Module):
-    """A simple multi-layer perceptron."""
+    """A simple multi-layer perceptron.
+    Args:
+        dims: A list of dimensions for each layer, including input and output.
+        dropout_rate: The dropout rate.
+    """
 
     def __init__(self, dims, dropout_rate=0.0):
         super().__init__()
         module = [
-            nn.Sequential(nn.Linear(n_in, n_out), nn.ReLU(), nn.Dropout(dropout_rate))
+            nn.Sequential(
+                nn.Linear(n_in, n_out), nn.LeakyReLU(), nn.Dropout(dropout_rate)
+            )
             for n_in, n_out in zip(dims[:-2], dims[1:-1])
         ]
         module.append(nn.Linear(dims[-2], dims[-1]))  # no activation on last layer
