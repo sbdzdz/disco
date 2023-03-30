@@ -14,25 +14,37 @@ class BetaVAE(BaseVAE):
 
     def __init__(
         self,
+        img_size=64,
         in_channels: int = 1,
         latent_dim: int = 10,
-        hidden_dims: Optional[list] = None,
+        num_channels: Optional[list] = None,
         beta: float = 1.0,
     ) -> None:
+        """Initialize the model.
+        Args:
+            img_size: Size of the input image in pixels
+            in_channels: Number of input channels
+            latent_dim: Latent space dimensionality
+            num_channels: Number of channels in the encoder and decoder networks
+            beta: Weight of the KL divergence loss term
+        Returns:
+            None
+        """
         super().__init__()
 
         self.latent_dim = latent_dim
         self.beta = beta
 
-        if hidden_dims is None:
-            hidden_dims = [32, 32, 64, 64]
-        self.hidden_dims = hidden_dims
+        if num_channels is None:
+            num_channels = [32, 32, 64, 64]
+        self.num_channels = num_channels
+        enc_out_dim = (img_size // 2 ** len(num_channels)) ** 2 * num_channels[-1]
 
-        self.encoder = Encoder(hidden_dims, in_channels)
-        self.fc_mu = nn.Linear(256, latent_dim)  # TODO: 128 is hardcoded
-        self.fc_var = nn.Linear(256, latent_dim)
-        self.fc_z = nn.Linear(latent_dim, 256)
-        self.decoder = Decoder(list(reversed(hidden_dims)), in_channels)
+        self.encoder = Encoder(num_channels, in_channels)
+        self.fc_mu = nn.Linear(enc_out_dim, latent_dim)
+        self.fc_var = nn.Linear(enc_out_dim, latent_dim)
+        self.fc_z = nn.Linear(latent_dim, enc_out_dim)
+        self.decoder = Decoder(list(reversed(num_channels)), in_channels)
 
     def forward(self, x: Tensor) -> List[Tensor]:
         """Perform the forward pass.
@@ -78,7 +90,7 @@ class BetaVAE(BaseVAE):
             Reconstructed input of shape (B x C x H x W)
         """
         z = self.fc_z(z)
-        z = z.view(-1, self.hidden_dims[-1], 2, 2)
+        z = z.view(-1, self.num_channels[-1], 2, 2)
         return self.decoder(z)
 
     def loss_function(
