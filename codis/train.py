@@ -16,7 +16,7 @@ from codis.visualization import draw_batch_and_reconstructions
 
 def train(args):
     """Train the model."""
-    wandb.init(project="codis", config=args, dir=args.wandb_dir)
+    wandb.init(project="codis", group=args.wandb_group, dir=args.wandb_dir, config=args)
     config = wandb.config
     print(f"Cuda available {torch.cuda.is_available()}")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -128,6 +128,12 @@ def _main():
         type=Path,
         default=repo_root / "wandb",
         help="Wandb logging directory.",
+    )
+    parser.add_argument(
+        "--wandb_group",
+        type=str,
+        default=None,
+        help="Wandb group name. If not specified, a new group will be created.",
     )
     args = parser.parse_args()
     train(args)
