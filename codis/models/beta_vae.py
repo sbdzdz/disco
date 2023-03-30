@@ -38,12 +38,14 @@ class BetaVAE(BaseVAE):
         if num_channels is None:
             num_channels = [32, 32, 64, 64]
         self.num_channels = num_channels
-        enc_out_dim = (img_size // 2 ** len(num_channels)) ** 2 * num_channels[-1]
+
+        self.enc_out_width = img_size // 2 ** len(num_channels)
+        enc_out_dim = self.enc_out_width**2 * num_channels[-1]
 
         self.encoder = Encoder(num_channels, in_channels)
         self.fc_mu = nn.Linear(enc_out_dim, latent_dim)
         self.fc_var = nn.Linear(enc_out_dim, latent_dim)
-        self.fc_z = nn.Linear(latent_dim, enc_out_dim)
+        self.decoder_input = nn.Linear(latent_dim, self.enc_out_dim)
         self.decoder = Decoder(list(reversed(num_channels)), in_channels)
 
     def forward(self, x: Tensor) -> List[Tensor]:
@@ -89,8 +91,8 @@ class BetaVAE(BaseVAE):
         Returns:
             Reconstructed input of shape (B x C x H x W)
         """
-        z = self.fc_z(z)
-        z = z.view(-1, self.num_channels[-1], 2, 2)
+        z = self.decoder_input(z)
+        z = z.view(-1, self.num_channels[-1], self.enc_out_width, self.enc_out_width)
         return self.decoder(z)
 
     def loss_function(
@@ -110,7 +112,7 @@ class BetaVAE(BaseVAE):
         Returns:
             Dictionary containing the loss value and the individual losses.
         """
-        reconstruction_loss = F.mse_loss(x_hat, x, reduction="sum") / x.size(0)
+        reconstruction_loss = F.mse_loss(x_hat, x, reduction="sum") / x.shape[0]
 
         kl_divergence = torch.mean(
             -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp(), dim=1), dim=0
