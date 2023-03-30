@@ -39,13 +39,13 @@ class BetaVAE(BaseVAE):
             num_channels = [32, 32, 64, 64]
         self.num_channels = num_channels
 
-        self.enc_out_width = img_size // 2 ** len(num_channels)
-        enc_out_dim = self.enc_out_width**2 * num_channels[-1]
+        self.encoder_output_size = img_size // 2 ** len(num_channels)
+        encoder_output_dim = self.encoder_output_size**2 * num_channels[-1]
 
         self.encoder = Encoder(num_channels, in_channels)
-        self.fc_mu = nn.Linear(enc_out_dim, latent_dim)
-        self.fc_var = nn.Linear(enc_out_dim, latent_dim)
-        self.decoder_input = nn.Linear(latent_dim, self.enc_out_dim)
+        self.fc_mu = nn.Linear(encoder_output_dim, latent_dim)
+        self.fc_var = nn.Linear(encoder_output_dim, latent_dim)
+        self.decoder_input = nn.Linear(latent_dim, encoder_output_dim)
         self.decoder = Decoder(list(reversed(num_channels)), in_channels)
 
     def forward(self, x: Tensor) -> List[Tensor]:
@@ -92,7 +92,12 @@ class BetaVAE(BaseVAE):
             Reconstructed input of shape (B x C x H x W)
         """
         z = self.decoder_input(z)
-        z = z.view(-1, self.num_channels[-1], self.enc_out_width, self.enc_out_width)
+        z = z.view(
+            -1,
+            self.num_channels[-1],
+            self.encoder_output_size,
+            self.encoder_output_size,
+        )
         return self.decoder(z)
 
     def loss_function(
