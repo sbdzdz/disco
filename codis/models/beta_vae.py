@@ -25,13 +25,13 @@ class BetaVAE(BaseVAE):
         self.beta = beta
 
         if hidden_dims is None:
-            hidden_dims = [32, 64, 128, 256]
+            hidden_dims = [32, 32, 64, 64]
         self.hidden_dims = hidden_dims
 
         self.encoder = Encoder(hidden_dims, in_channels)
-        self.fc_mu = nn.Linear(hidden_dims[-1] * 4, latent_dim)
-        self.fc_var = nn.Linear(hidden_dims[-1] * 4, latent_dim)
-        self.fc_z = nn.Linear(latent_dim, hidden_dims[-1] * 4)
+        self.fc_mu = nn.Linear(256, latent_dim)  # TODO: 128 is hardcoded
+        self.fc_var = nn.Linear(256, latent_dim)
+        self.fc_z = nn.Linear(latent_dim, 256)
         self.decoder = Decoder(list(reversed(hidden_dims)), in_channels)
 
     def forward(self, x: Tensor) -> List[Tensor]:
