@@ -6,6 +6,7 @@ from pathlib import Path
 
 import torch
 from torch.utils.data import DataLoader, random_split
+import numpy as np
 
 import wandb
 from codis.data import DSprites, InfiniteDSpritesRandom
@@ -15,10 +16,9 @@ from codis.visualization import draw_batch_and_reconstructions
 
 def train(args):
     """Train the model."""
-    wandb.init(project="codis", config=args, dir=args.wandb_dir)
+    wandb.init(project="codis", group=args.wandb_group, dir=args.wandb_dir, config=args)
     config = wandb.config
-    wandb.log({"cuda_available": torch.cuda.is_available()})
-
+    print(f"Cuda available {torch.cuda.is_available()}")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     train_set, val_set = random_split(
@@ -26,17 +26,21 @@ def train(args):
         [0.8, 0.2],
         generator=torch.Generator().manual_seed(42),
     )
-    test_set = InfiniteDSpritesRandom(image_size=64)
+    test_set = InfiniteDSpritesRandom(
+        image_size=64,
+        radius_std=0.8,
+        scale_range=np.linspace(0.5, 1.5, 10),
+    )
 
     train_loader = DataLoader(train_set, batch_size=config.batch_size, shuffle=True)
+    first_batch, _ = next(iter(train_loader))
     model = BetaVAE(beta=config.beta, latent_dim=config.latent_dim).to(device)
-    optimizer = torch.optim.Adam(model.parameters())
-    first_batch = next(iter(train_loader))
+    optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
 
     # train on dsprites
     running_loss = defaultdict(list)
     for _ in range(config.epochs):
-        for i, batch in enumerate(train_loader):
+        for i, (batch, _) in enumerate(train_loader):
             optimizer.zero_grad()
             x_hat, mu, log_var = model(batch)  # pylint: disable=not-callable
             loss = model.loss_function(batch, x_hat, mu, log_var)
@@ -60,20 +64,17 @@ def evaluate(model, dataset, device, config, suffix=""):
     """Evaluate the model on the validation set."""
     model.eval()
     dataloader = DataLoader(dataset, batch_size=config.batch_size)
+    first_batch, _ = next(iter(dataloader))
     running_loss = defaultdict(list)
-    first_batch = next(iter(dataloader))
+    first_batch = first_batch.to(device)
+
     with torch.no_grad():
-        for batch in islice(dataloader, config.eval_on):
-            if isinstance(batch, list):
-                batch = batch[0]
+        for batch, _ in islice(dataloader, config.eval_on):
             batch = batch.to(device)
             x_hat, mu, log_var = model(batch)
             loss = model.loss_function(batch, x_hat, mu, log_var)
             for k, v in loss.items():
                 running_loss[k].append(v.item())
-        first_batch = first_batch.to(device).mean(dim=1, keepdim=True)
-        if isinstance(first_batch, list):
-            first_batch = first_batch[0]
         x_hat, *_ = model(first_batch)
         log_metrics(running_loss, first_batch, x_hat, suffix=suffix)
     model.train()
@@ -121,11 +122,18 @@ def _main():
     parser.add_argument(
         "--latent_dim", type=int, default=10, help="Dimensionality of the latent space."
     )
+    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
     parser.add_argument(
         "--wandb_dir",
         type=Path,
         default=repo_root / "wandb",
         help="Wandb logging directory.",
+    )
+    parser.add_argument(
+        "--wandb_group",
+        type=str,
+        default=None,
+        help="Wandb group name. If not specified, a new group will be created.",
     )
     args = parser.parse_args()
     train(args)

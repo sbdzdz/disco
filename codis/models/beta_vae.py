@@ -14,25 +14,51 @@ class BetaVAE(BaseVAE):
 
     def __init__(
         self,
+        img_size: int = 64,
         in_channels: int = 1,
-        latent_dim: int = 64,
-        hidden_dims: Optional[List] = None,
+        latent_dim: int = 10,
+        num_channels: Optional[list] = None,
         beta: float = 1.0,
     ) -> None:
+        """Initialize the model.
+        Args:
+            img_size: Size of the input image in pixels
+            in_channels: Number of input channels
+            latent_dim: Latent space dimensionality
+            num_channels: Number of channels in the encoder and decoder networks
+            beta: Weight of the KL divergence loss term
+        Returns:
+            None
+        """
         super().__init__()
 
         self.latent_dim = latent_dim
         self.beta = beta
 
-        if hidden_dims is None:
-            hidden_dims = [32, 64, 128, 256, 512]
+        if num_channels is None:
+            num_channels = [32, 32, 64, 64, 128]
+        self.num_channels = num_channels
 
-        self.encoder = Encoder(hidden_dims, in_channels)
-        self.fc_mu = nn.Linear(hidden_dims[-1] * 4, latent_dim)
-        self.fc_var = nn.Linear(hidden_dims[-1] * 4, latent_dim)
+        self.encoder_output_size = img_size // 2 ** len(num_channels)
+        encoder_output_dim = self.encoder_output_size**2 * num_channels[-1]
 
-        self.decoder_input = nn.Linear(latent_dim, hidden_dims[-1] * 4)
-        self.decoder = Decoder(list(reversed(hidden_dims)), in_channels)
+        self.encoder = Encoder(num_channels, in_channels)
+        self.fc_mu = nn.Linear(encoder_output_dim, latent_dim)
+        self.fc_var = nn.Linear(encoder_output_dim, latent_dim)
+        self.decoder_input = nn.Linear(latent_dim, encoder_output_dim)
+        self.decoder = Decoder(list(reversed(num_channels)), in_channels)
+
+    def forward(self, x: Tensor) -> List[Tensor]:
+        """Perform the forward pass.
+        Args:
+            x: Input tensor of shape (B x C x H x W)
+        Returns:
+            List of tensors [reconstructed input, latent mean, latent log variance]
+        """
+        mu, log_var = self.encode(x)
+        z = self.reparameterize(mu, log_var)
+        x_hat = self.decode(z)
+        return [x_hat, mu, log_var]
 
     def encode(self, x: Tensor) -> List[Tensor]:
         """Pass the input through the encoder network and return the latent code.
@@ -41,22 +67,10 @@ class BetaVAE(BaseVAE):
         Returns:
             List of latent codes
         """
-        result = self.encoder(x).flatten(start_dim=1)
-        mu = self.fc_mu(result)
-        log_var = self.fc_var(result)
+        x = self.encoder(x).flatten(start_dim=1)
+        mu = self.fc_mu(x)
+        log_var = self.fc_var(x)
         return [mu, log_var]
-
-    def decode(self, z: Tensor) -> Tensor:
-        """Pass the latent code through the decoder network and return the reconstructed input.
-        Args:
-            z: Latent code tensor of shape (B x D)
-        Returns:
-            Reconstructed input of shape (B x C x H x W)
-        """
-        result = self.decoder_input(z)
-        result = result.view(-1, 512, 2, 2)
-        result = self.decoder(result)
-        return result
 
     def reparameterize(self, mu: Tensor, logvar: Tensor) -> Tensor:
         """Perform the reparameterization trick.
@@ -70,16 +84,21 @@ class BetaVAE(BaseVAE):
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def forward(self, x: Tensor) -> List[Tensor]:
-        """Perform the forward pass.
+    def decode(self, z: Tensor) -> Tensor:
+        """Pass the latent code through the decoder network and return the reconstructed input.
         Args:
-            x: Input tensor of shape (B x C x H x W)
+            z: Latent code tensor of shape (B x D)
         Returns:
-            List of tensors [reconstructed input, latent mean, latent log variance]
+            Reconstructed input of shape (B x C x H x W)
         """
-        mu, log_var = self.encode(x)
-        z = self.reparameterize(mu, log_var)
-        return [self.decode(z), mu, log_var]
+        z = self.decoder_input(z)
+        z = z.view(
+            -1,
+            self.num_channels[-1],
+            self.encoder_output_size,
+            self.encoder_output_size,
+        )
+        return self.decoder(z)
 
     def loss_function(
         self,
@@ -98,7 +117,7 @@ class BetaVAE(BaseVAE):
         Returns:
             Dictionary containing the loss value and the individual losses.
         """
-        reconstruction_loss = F.mse_loss(x_hat, x, reduction="sum")
+        reconstruction_loss = F.mse_loss(x_hat, x, reduction="sum") / x.shape[0]
 
         kl_divergence = torch.mean(
             -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp(), dim=1), dim=0

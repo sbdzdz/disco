@@ -32,7 +32,7 @@ def draw_batch_grid(
     """Show a batch of images on a grid.
     Only the first n_max images are shown.
     Args:
-        images: A tensor of shape (N, C, H, W) or (N, H, W).
+        images: A numpy array of shape (N, C, H, W) or (N, H, W).
         n_max: The maximum number of images to show.
     Returns:
         None
@@ -59,24 +59,24 @@ def draw_batch_grid(
 def draw_batch_and_reconstructions(
     x,
     x_hat,
-    path: Path = repo_root / "img/reconstructions.png",
     fig_height: float = 10,
     n_max: int = 16,
+    path: Path = None,
     show=False,
 ):
     """Show a batch of images and their reconstructions on a grid.
     Only the first n_max images are shown.
     Args:
-        x: A tensor of shape (N, C, H, W) or (N, H, W).
-        x_hat: A tensor of shape (N, C, H, W) or (N, H, W).
+        x: A numpy array of shape (N, C, H, W) or (N, H, W).
+        x_hat: A numpy array of shape (N, C, H, W) or (N, H, W).
         n_max: The maximum number of images to show.
     Returns:
         None
     """
     num_images = min(x.shape[0], n_max)
     if x.ndim == 4:
-        x = x.permute(0, 2, 3, 1)
-        x_hat = x_hat.permute(0, 2, 3, 1)
+        x = np.transpose(x, (0, 2, 3, 1))
+        x_hat = np.transpose(x_hat, (0, 2, 3, 1))
     ncols = int(np.ceil(np.sqrt(num_images)))
     nrows = int(np.ceil(num_images / ncols))
 
@@ -95,8 +95,9 @@ def draw_batch_and_reconstructions(
         ax.axis("off")
     if show:
         plt.show()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    plt.savefig(path, bbox_inches="tight")
+    if path is not None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(path, bbox_inches="tight")
     buffer = io.BytesIO()
     plt.savefig(buffer, bbox_inches="tight")
     plt.close()
