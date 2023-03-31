@@ -14,7 +14,7 @@ class BetaVAE(BaseVAE):
 
     def __init__(
         self,
-        img_size=64,
+        img_size: int = 64,
         in_channels: int = 1,
         latent_dim: int = 10,
         num_channels: Optional[list] = None,
@@ -36,7 +36,7 @@ class BetaVAE(BaseVAE):
         self.beta = beta
 
         if num_channels is None:
-            num_channels = [32, 32, 64, 64]
+            num_channels = [32, 32, 64, 64, 128]
         self.num_channels = num_channels
 
         self.encoder_output_size = img_size // 2 ** len(num_channels)
