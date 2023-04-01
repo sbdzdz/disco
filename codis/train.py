@@ -10,7 +10,7 @@ import numpy as np
 
 import wandb
 from codis.data import DSprites, InfiniteDSpritesRandom
-from codis.models import BetaVAE
+from codis.models import BetaVAE, MLP
 from codis.visualization import draw_batch_and_reconstructions
 
 
@@ -33,31 +33,41 @@ def train(args):
     )
 
     train_loader = DataLoader(train_set, batch_size=config.batch_size, shuffle=True)
-    first_batch, _ = next(iter(train_loader))
-    model = BetaVAE(beta=config.beta, latent_dim=config.latent_dim).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
+    vae = BetaVAE(beta=config.beta, latent_dim=config.latent_dim).to(device)
+    mlp = MLP(dims=[config.latent_dim, 40, 40, 40, train_set.num_latents]).to(device)
+    optimizer = torch.optim.Adam(vae.parameters(), lr=config.lr)
 
-    # train on dsprites
-    running_loss = defaultdict(list)
-    for _ in range(config.epochs):
-        for i, (batch, _) in enumerate(train_loader):
-            optimizer.zero_grad()
-            x_hat, mu, log_var = model(batch)  # pylint: disable=not-callable
-            loss = model.loss_function(batch, x_hat, mu, log_var)
-            loss["loss"].backward()
-            optimizer.step()
-            for k, v in loss.items():
-                running_loss[k].append(v.item())
-            if i > 0 and i % config.log_every == 0:
-                with torch.no_grad():
-                    x_hat, *_ = model(first_batch)  # pylint: disable=not-callable
-                log_metrics(running_loss, first_batch, x_hat, suffix="_train")
-                for k in running_loss:
-                    running_loss[k] = []
-                evaluate(model, val_set, device, config, suffix="_val")
+    for _ in range(args.epochs):
+        vae = train_vae_one_epoch(vae, optimizer, train_loader, device, config)
+        evaluate(vae, val_set, device, config, suffix="_val")
 
-    evaluate(model, test_set, device, config, suffix="_test")
+    evaluate(vae, test_set, device, config, suffix="_test")
     wandb.finish()
+
+
+def train_vae_one_epoch(model, optimizer, dataset, device, config):
+    """Train the model for one epoch."""
+    model.train()
+    dataloader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
+    first_batch, _ = next(iter(dataloader))
+    first_batch = first_batch.to(device)
+
+    running_loss = defaultdict(list)
+    for i, (batch, _) in enumerate(dataloader):
+        optimizer.zero_grad()
+        x_hat, mu, log_var = model(batch)  # pylint: disable=not-callable
+        loss = model.loss_function(batch, x_hat, mu, log_var)
+        loss["loss"].backward()
+        optimizer.step()
+        for k, v in loss.items():
+            running_loss[k].append(v.item())
+        if i > 0 and i % config.log_every == 0:
+            with torch.no_grad():
+                x_hat, *_ = model(first_batch)  # pylint: disable=not-callable
+            log_metrics(running_loss, first_batch, x_hat, suffix="_train")
+            for k in running_loss:
+                running_loss[k] = []
+    return model
 
 
 def evaluate(model, dataset, device, config, suffix=""):
@@ -65,9 +75,9 @@ def evaluate(model, dataset, device, config, suffix=""):
     model.eval()
     dataloader = DataLoader(dataset, batch_size=config.batch_size)
     first_batch, _ = next(iter(dataloader))
-    running_loss = defaultdict(list)
     first_batch = first_batch.to(device)
 
+    running_loss = defaultdict(list)
     with torch.no_grad():
         for batch, _ in islice(dataloader, config.eval_on):
             batch = batch.to(device)
