@@ -1,9 +1,9 @@
 imageio
+lightning
 matplotlib
 numpy
 pillow
 pygame
-pytorch_lightning
 pytest
 scipy
 torch
