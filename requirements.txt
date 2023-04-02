@@ -1,9 +1,10 @@
 imageio
 matplotlib
 numpy
-pygame
-pytest
 pillow
+pygame
+pytorch_lightning
+pytest
 scipy
 torch
 tqdm
