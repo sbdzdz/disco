@@ -13,8 +13,8 @@ from codis.visualization import draw_batch_and_reconstructions
 # pylint: disable=arguments-differ,unused-argument
 
 
-class ContinualDisentanglementModel(pl.LightningModule):
-    """A model that combines a pre-trained feature extractor and a latent regressor."""
+class CodisModel(pl.LightningModule):
+    """A continual disentanglement model that combines a pre-trained feature extractor and a latent regressor."""
 
     def __init__(
         self,
@@ -69,6 +69,7 @@ class LightningBetaVAE(pl.LightningModule):
         in_channels: int = 1,
         latent_dim: int = 10,
         num_channels: Optional[list] = None,
+        beta: float = 1.0,
     ):
         super().__init__()
         self.model = BetaVAE(
@@ -76,6 +77,7 @@ class LightningBetaVAE(pl.LightningModule):
             in_channels,
             latent_dim,
             num_channels,
+            beta,
         )
         self.save_hyperparameters()
 
@@ -120,7 +122,7 @@ class LightningBetaVAE(pl.LightningModule):
         return torch.optim.Adam(self.parameters(), lr=1e-3)
 
 
-class LigthningMLP(pl.LightningModule):
+class LightningMLP(pl.LightningModule):
     """The MLP Lightning module."""
 
     def __init__(self, dims: List[int], dropout_rate: float = 0.0):
