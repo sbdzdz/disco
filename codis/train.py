@@ -7,7 +7,7 @@ import torch
 
 import wandb
 from codis.data import InfiniteDSprites
-from codis.models import CodisModel, LightningBetaVAE, LightningMLP
+from codis.lightning_modules import CodisModel, LightningBetaVAE, LightningMLP
 
 
 def train(args):
