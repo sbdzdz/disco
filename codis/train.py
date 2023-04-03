@@ -1,141 +1,38 @@
 """Training script."""
 import argparse
-from collections import defaultdict
-from itertools import islice
 from pathlib import Path
 
+import lightning.pytorch as pl
 import torch
-from torch.utils.data import DataLoader, random_split
-import numpy as np
 
 import wandb
-from codis.data import DSprites, InfiniteDSpritesRandom
-from codis.models import BetaVAE, MLP
-from codis.visualization import draw_batch_and_reconstructions
+from codis.data import InfiniteDSprites
+from codis.models import CodisModel, LightningBetaVAE, LightningMLP
 
 
 def train(args):
     """Train the model."""
+    print(f"Cuda available {torch.cuda.is_available()}")
     wandb.init(project="codis", group=args.wandb_group, dir=args.wandb_dir, config=args)
     config = wandb.config
-    print(f"Cuda available {torch.cuda.is_available()}")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    train_set, val_set = random_split(
-        DSprites(config.dsprites_path).to(device),
-        [0.8, 0.2],
-        generator=torch.Generator().manual_seed(42),
+    train_set = InfiniteDSprites()
+    val_set = InfiniteDSprites()
+    test_set = InfiniteDSprites()
+
+    backbone = LightningBetaVAE(
+        img_size=train_set.img_size, latent_dim=config.latent_dim, beta=config.beta
     )
-    test_set = InfiniteDSpritesRandom(
-        image_size=64,
-        radius_std=0.8,
-        scale_range=np.linspace(0.5, 1.5, 10),
-    )
+    regressor = LightningMLP(dims=[config.latent_dim, 64, 64, train_set.num_latents])
+    model = CodisModel(backbone, regressor)
+    trainer = pl.Trainer(default_root_dir=args.wandb_dir, accelerator="auto", devices=1)
 
-    vae = BetaVAE(beta=config.beta, latent_dim=config.latent_dim).to(device)
-    mlp = MLP(dims=[config.latent_dim, 40, 40, 40, train_set.num_latents]).to(device)
+    for _ in range(10):
+        trainer.fit(backbone, train_set, val_set)
+        trainer.fit(model, val_set)
+        trainer.test(model, test_set)
 
-    optimizer = torch.optim.Adam(vae.parameters(), lr=config.lr)
-
-    for _ in range(args.epochs):
-        vae = train_vae_one_epoch(vae, optimizer, train_set, device, config)
-        mlp = train_mlp_one_epoch(mlp, vae, optimizer, val_set, device, config)
-        evaluate(vae, val_set, device, config, suffix="_val")
-
-    evaluate(vae, test_set, device, config, suffix="_test")
     wandb.finish()
-
-
-def train_vae_one_epoch(model, optimizer, dataset, device, config):
-    """Train the model for one epoch."""
-    model.train()
-    dataloader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
-    first_batch, _ = next(iter(dataloader))
-    first_batch = first_batch.to(device)
-
-    running_loss = defaultdict(list)
-    for i, (batch, _) in enumerate(dataloader):
-        optimizer.zero_grad()
-        x_hat, mu, log_var = model(batch)  # pylint: disable=not-callable
-        loss = model.loss_function(batch, x_hat, mu, log_var)
-        loss["loss"].backward()
-        optimizer.step()
-        for k, v in loss.items():
-            running_loss[k].append(v.item())
-        if i > 0 and i % config.log_every == 0:
-            with torch.no_grad():
-                x_hat, *_ = model(first_batch)  # pylint: disable=not-callable
-            log_metrics(running_loss, suffix="vae_train")
-            log_reconstructions(first_batch, x_hat, suffix="vae_train")
-            for k in running_loss:
-                running_loss[k] = []
-    return model
-
-
-def train_mlp_one_epoch(mlp, feature_extractor, optimizer, dataset, device, config):
-    """Train the model for one epoch."""
-    mlp.train()
-    feature_extractor.eval()
-    dataloader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
-    first_batch, _ = next(iter(dataloader))
-    first_batch = first_batch.to(device)
-
-    running_loss = defaultdict(list)
-    for i, (img_batch, latent_batch) in enumerate(dataloader):
-        optimizer.zero_grad()
-        with torch.no_grad():
-            x_hat = feature_extractor(img_batch)
-        x_hat = mlp(x_hat)
-        loss = mlp.loss_function(latent_batch, x_hat)
-        loss["loss"].backward()
-        optimizer.step()
-        for k, v in loss.items():
-            running_loss[k].append(v.item())
-        if i > 0 and i % config.log_every == 0:
-            with torch.no_grad():
-                x_hat, *_ = mlp(first_batch)  # pylint: disable=not-callable
-            log_metrics(running_loss, suffix="_train")
-            for k in running_loss:
-                running_loss[k] = []
-    return mlp
-
-
-def evaluate(model, dataset, device, config, suffix=""):
-    """Evaluate the model on the validation set."""
-    model.eval()
-    dataloader = DataLoader(dataset, batch_size=config.batch_size)
-    first_batch, _ = next(iter(dataloader))
-    first_batch = first_batch.to(device)
-
-    running_loss = defaultdict(list)
-    with torch.no_grad():
-        for batch, _ in islice(dataloader, config.eval_on):
-            batch = batch.to(device)
-            x_hat, mu, log_var = model(batch)
-            loss = model.loss_function(batch, x_hat, mu, log_var)
-            for k, v in loss.items():
-                running_loss[k].append(v.item())
-        x_hat, *_ = model(first_batch)
-        log_metrics(running_loss, first_batch, x_hat, suffix=suffix)
-    model.train()
-
-
-def log_metrics(loss, suffix=""):
-    """Log the loss."""
-    wandb.log(
-        {f"{name}{suffix}": sum(value) / len(value) for name, value in loss.items()}
-    )
-
-
-def log_reconstructions(x, x_hat, suffix=""):
-    """Log the original and reconstructed images."""
-    wandb.log(
-        {
-            f"reconstruction{suffix}": wandb.Image(
-                draw_batch_and_reconstructions(x, x_hat)
-            ),
-        }
-    )
 
 
 def _main():
