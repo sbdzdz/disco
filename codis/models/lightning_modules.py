@@ -42,10 +42,18 @@ class CodisModel(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         """Perform a validation step."""
+        return self._step_val_test(batch, "val")
+
+    def test_step(self, batch, batch_idx):
+        """Perform a test step."""
+        return self._step_val_test(batch, "test")
+
+    def _step_val_test(self, batch, suffix):
+        y = batch[1]
         loss, y_hat = self._step(batch)
-        self.log_dict({f"{k}_val": v for k, v in loss.items()})
-        self.r2_score(to_numpy(y_hat), to_numpy(batch[1]))
-        self.log("R2_score", self.r2_score)
+        self.log_dict({f"{k}_{suffix}": v for k, v in loss.items()}, on_epoch=True)
+        self.r2_score(to_numpy(y), to_numpy(y_hat))
+        self.log(f"r2_score_{suffix}", self.r2_score, on_epoch=True)
         return loss["loss"]
 
     def _step(self, batch):
