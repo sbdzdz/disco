@@ -1,33 +1,12 @@
 """The β-VAE model. See https://openreview.net/forum?id=Sy2fzU9gl for details."""
 from typing import List, Optional
 
-import lightning.pytorch as pl
 import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
 
 from codis.models.base_vae import BaseVAE
 from codis.models.blocks import Decoder, Encoder
-
-
-class LigthningBetaVAE(pl.LightningModule):
-    """The β-VAE Lightning module."""
-
-    def __init__(self):
-        super().__init__()
-        self.model = BetaVAE()
-
-    def training_step(self, batch, batch_idx):
-        """Perform a training step."""
-        x, _ = batch
-        x_hat, mu, log_var = self.model(x)
-        loss = self.model.loss_function(x, x_hat, mu, log_var)
-        self.log(**{f"{k}_vae_train": v for k, v in loss.items()})
-        return loss["loss"]
-
-    def configure_optimizers(self):
-        """Initialize the optimizer."""
-        return torch.optim.Adam(self.parameters(), lr=1e-3)
 
 
 class BetaVAE(BaseVAE):
