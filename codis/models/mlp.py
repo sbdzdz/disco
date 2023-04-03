@@ -1,5 +1,27 @@
 """A simple multi-layer perceptron.""" ""
+import lightning.pytorch as pl
+import torch
 from torch import nn
+
+
+class LigthningMLP(pl.LightningModule):
+    """The MLP Lightning module."""
+
+    def __init__(self):
+        super().__init__()
+        self.model = MLP()
+
+    def training_step(self, batch, batch_idx):
+        """Perform a training step."""
+        _, x = batch
+        x_hat = self.model(x)
+        loss = self.model.loss_function(x, x_hat)
+        self.log(**{f"{k}_mlp_train": v for k, v in loss.items()})
+        return loss["loss"]
+
+    def configure_optimizers(self):
+        """Initialize the optimizer."""
+        return torch.optim.Adam(self.parameters(), lr=1e-3)
 
 
 class MLP(nn.Module):
