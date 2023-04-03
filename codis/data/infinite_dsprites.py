@@ -39,7 +39,7 @@ class InfiniteDSprites(IterableDataset):
 
     def __init__(
         self,
-        image_size: int = 256,
+        img_size: int = 256,
         min_verts: int = 3,
         max_verts: int = 10,
         radius_std: float = 0.6,
@@ -52,7 +52,7 @@ class InfiniteDSprites(IterableDataset):
     ):
         """Create a dataset of images of random shapes.
         Args:
-            image_size: The size of the images in pixels.
+            img_size: The size of the images in pixels.
             scale_range: The range of scales to use.
             orientation_range: The range of orientations to use.
             position_x_range: The range of x positions to use.
@@ -66,12 +66,12 @@ class InfiniteDSprites(IterableDataset):
         """
         os.environ["SDL_VIDEODRIVER"] = "dummy"
         pygame.display.init()
-        self.image_size = image_size
+        self.img_size = img_size
         self.min_verts = min_verts
         self.max_verts = max_verts
         self.radius_std = radius_std
         self.angle_std = angle_std
-        self.window = pygame.display.set_mode((self.image_size, self.image_size))
+        self.window = pygame.display.set_mode((self.img_size, self.img_size))
         self.ranges = {
             "color": color_range,
             "scale": scale_range,
@@ -79,6 +79,7 @@ class InfiniteDSprites(IterableDataset):
             "position_x": position_x_range,
             "position_y": position_y_range,
         }
+        self.num_latents = len(self.ranges) + 1
 
     @classmethod
     def from_config(cls, config: dict):
@@ -308,9 +309,7 @@ class InfiniteDSpritesAnalogies(InfiniteDSprites):
 
     def __init__(self, *args, reference_shape=None, query_shape=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.window = pygame.display.set_mode(
-            (self.image_size // 2, self.image_size // 2)
-        )
+        self.window = pygame.display.set_mode((self.img_size // 2, self.img_size // 2))
         self.reference_shape = reference_shape
         self.query_shape = query_shape
 
@@ -353,8 +352,8 @@ class InfiniteDSpritesAnalogies(InfiniteDSprites):
             )
 
             # add horizontal and vertical borders
-            border_width = self.image_size // 128 or 1
-            mid = self.image_size // 2
+            border_width = self.img_size // 128 or 1
+            mid = self.img_size // 2
             grid[:, mid - border_width : mid + border_width, :] = 1.0
             grid[:, :, mid - border_width : mid + border_width] = 1.0
 

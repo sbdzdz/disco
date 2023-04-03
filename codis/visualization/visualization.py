@@ -137,7 +137,7 @@ def draw_shape(
     Returns:
         None
     """
-    dataset = InfiniteDSprites(image_size=512)
+    dataset = InfiniteDSprites(img_size=512)
     if latents is None:
         latents = dataset.sample_latents()
     image = dataset.draw(latents)
@@ -186,7 +186,7 @@ def draw_shape_animated(
     Returns:
         None
     """
-    dataset = InfiniteDSprites(image_size=512)
+    dataset = InfiniteDSprites(img_size=512)
     shape = dataset.generate_shape()
     scales, orientations, positions_x, positions_y = generate_latent_progression(
         dataset
@@ -226,7 +226,7 @@ def draw_shapes_animated(
     Returns:
         None
     """
-    dataset = InfiniteDSprites(image_size=256)
+    dataset = InfiniteDSprites(img_size=256)
     shapes = [dataset.generate_shape() for _ in range(nrows * ncols)]
     colors = np.random.choice(dataset.ranges["color"], size=nrows * ncols)
     scales, orientations, positions_x, positions_y = generate_latent_progression(
@@ -320,7 +320,7 @@ def draw_triplet(path: Path = repo_root / "img/triplet.png", fig_height: float =
     Returns:
         None
     """
-    dataset = InfiniteDSpritesTriplets(image_size=256)
+    dataset = InfiniteDSpritesTriplets(img_size=256)
     (images, action) = next(iter(dataset))
     _, axes = plt.subplots(
         nrows=1,
@@ -347,7 +347,7 @@ def draw_classification_task(
     Returns:
         None
     """
-    dataset = InfiniteDSprites(image_size=256)
+    dataset = InfiniteDSprites(img_size=256)
     latents_reference = dataset.sample_latents()
     latents_same = dataset.sample_latents()
     latents_different = dataset.sample_latents()
@@ -388,7 +388,7 @@ def draw_analogy_task(
     Returns:
         None
     """
-    dataset = InfiniteDSpritesAnalogies(image_size=512)
+    dataset = InfiniteDSpritesAnalogies(img_size=512)
     image = next(iter(dataset))
     _, axes = plt.subplots(
         nrows=1,
@@ -412,7 +412,7 @@ def draw_hard_analogy_task(
     Returns:
         None
     """
-    dataset = InfiniteDSprites(image_size=256)
+    dataset = InfiniteDSprites(img_size=256)
     latents_reference_source = dataset.sample_latents()
     latents_reference_target = dataset.sample_latents()._replace(
         shape=latents_reference_source.shape
