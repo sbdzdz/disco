@@ -32,13 +32,14 @@ def train(args):
         scale_range=np.linspace(0.5, 1.5, 10),
     )
 
-    train_loader = DataLoader(train_set, batch_size=config.batch_size, shuffle=True)
     vae = BetaVAE(beta=config.beta, latent_dim=config.latent_dim).to(device)
     mlp = MLP(dims=[config.latent_dim, 40, 40, 40, train_set.num_latents]).to(device)
+
     optimizer = torch.optim.Adam(vae.parameters(), lr=config.lr)
 
     for _ in range(args.epochs):
-        vae = train_vae_one_epoch(vae, optimizer, train_loader, device, config)
+        vae = train_vae_one_epoch(vae, optimizer, train_set, device, config)
+        mlp = train_mlp_one_epoch(mlp, vae, optimizer, val_set, device, config)
         evaluate(vae, val_set, device, config, suffix="_val")
 
     evaluate(vae, test_set, device, config, suffix="_test")
@@ -64,10 +65,39 @@ def train_vae_one_epoch(model, optimizer, dataset, device, config):
         if i > 0 and i % config.log_every == 0:
             with torch.no_grad():
                 x_hat, *_ = model(first_batch)  # pylint: disable=not-callable
-            log_metrics(running_loss, first_batch, x_hat, suffix="_train")
+            log_metrics(running_loss, suffix="vae_train")
+            log_reconstructions(first_batch, x_hat, suffix="vae_train")
             for k in running_loss:
                 running_loss[k] = []
     return model
+
+
+def train_mlp_one_epoch(mlp, feature_extractor, optimizer, dataset, device, config):
+    """Train the model for one epoch."""
+    mlp.train()
+    feature_extractor.eval()
+    dataloader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
+    first_batch, _ = next(iter(dataloader))
+    first_batch = first_batch.to(device)
+
+    running_loss = defaultdict(list)
+    for i, (img_batch, latent_batch) in enumerate(dataloader):
+        optimizer.zero_grad()
+        with torch.no_grad():
+            x_hat = feature_extractor(img_batch)
+        x_hat = mlp(x_hat)
+        loss = mlp.loss_function(latent_batch, x_hat)
+        loss["loss"].backward()
+        optimizer.step()
+        for k, v in loss.items():
+            running_loss[k].append(v.item())
+        if i > 0 and i % config.log_every == 0:
+            with torch.no_grad():
+                x_hat, *_ = mlp(first_batch)  # pylint: disable=not-callable
+            log_metrics(running_loss, suffix="_train")
+            for k in running_loss:
+                running_loss[k] = []
+    return mlp
 
 
 def evaluate(model, dataset, device, config, suffix=""):
@@ -90,19 +120,20 @@ def evaluate(model, dataset, device, config, suffix=""):
     model.train()
 
 
-def log_metrics(loss, x, x_hat, suffix=""):
-    """Log the loss and the reconstructions."""
+def log_metrics(loss, suffix=""):
+    """Log the loss."""
+    wandb.log(
+        {f"{name}{suffix}": sum(value) / len(value) for name, value in loss.items()}
+    )
+
+
+def log_reconstructions(x, x_hat, suffix=""):
+    """Log the original and reconstructed images."""
     wandb.log(
         {
             f"reconstruction{suffix}": wandb.Image(
-                draw_batch_and_reconstructions(
-                    x.detach().cpu().numpy(), x_hat.detach().cpu().numpy()
-                )
+                draw_batch_and_reconstructions(x, x_hat)
             ),
-            **{
-                f"{name}{suffix}": sum(value) / len(value)
-                for name, value in loss.items()
-            },
         }
     )
 
