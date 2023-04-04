@@ -59,7 +59,7 @@ class CodisModel(pl.LightningModule):
     def _step(self, batch):
         """Perform a training or validation step."""
         x, y = batch
-        y_hat = self(x)
+        y_hat = self.forward(x)
         loss = self.regressor.loss_function(y, y_hat)
         return loss, y_hat
 
@@ -105,25 +105,21 @@ class LightningBetaVAE(pl.LightningModule):
         loss = self._step(batch)
         self.log_dict({f"{k}_vae_val": v for k, v in loss.items()})
         if batch_idx == 0:
-            self._log_reconstructions(batch)
+            x, _ = batch
+            self._log_reconstructions(x)
         return loss["loss"]
 
     def _step(self, batch):
         """Perform a training or validation step."""
         x, _ = batch
-        x_hat, mu, log_var = self(x)
+        x_hat, mu, log_var = self.forward(x)
         return self.model.loss_function(x, x_hat, mu, log_var)
 
     def _log_reconstructions(self, x):
         """Log reconstructions alongside original images."""
-        x_hat, _, _ = self(x)
-        self.logger.log_image(
-            {
-                "reconstruction": wandb.Image(
-                    draw_batch_and_reconstructions(to_numpy(x), to_numpy(x_hat))
-                )
-            },
-        )
+        x_hat, _, _ = self.forward(x)
+        reconstructions = draw_batch_and_reconstructions(to_numpy(x), to_numpy(x_hat))
+        self.logger.log_image("reconstructions", images=[reconstructions])
 
     def configure_optimizers(self):
         """Initialize the optimizer."""
@@ -137,11 +133,14 @@ class LightningMLP(pl.LightningModule):
         super().__init__()
         self.model = MLP(dims, dropout_rate)
 
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Perform the forward pass."""
+        return self.model(x)
+
     def training_step(self, batch, batch_idx):
         """Perform a training step."""
-        _, x = batch
-        x_hat = self.model(x)
-        loss = self.model.loss_function(x, x_hat)
+        x_hat = self.forward(batch)
+        loss = self.model.loss_function(batch, x_hat)
         self.log(**{f"{k}_mlp_train": v for k, v in loss.items()})
         return loss["loss"]
 
