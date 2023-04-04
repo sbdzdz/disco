@@ -4,6 +4,7 @@ from pathlib import Path
 
 import lightning.pytorch as pl
 import torch
+from lightning.pytorch.loggers import WandbLogger
 
 import wandb
 from codis.data import InfiniteDSprites
@@ -13,24 +14,47 @@ from codis.lightning_modules import CodisModel, LightningBetaVAE, LightningMLP
 def train(args):
     """Train the model."""
     print(f"Cuda available {torch.cuda.is_available()}")
-    wandb.init(project="codis", group=args.wandb_group, dir=args.wandb_dir, config=args)
+    wandb_logger = WandbLogger(
+        project="codis", save_dir=args.wandb_dir, group=args.wandb_group
+    )
+    wandb_logger.experiment.config.update(args)
     config = wandb.config
 
     train_set = InfiniteDSprites()
     val_set = InfiniteDSprites()
     test_set = InfiniteDSprites()
 
+    train_loader = torch.utils.data.DataLoader(
+        train_set,
+        batch_size=config.batch_size,
+    )
+    val_loader = torch.utils.data.DataLoader(
+        val_set,
+        batch_size=config.batch_size,
+    )
+    test_set = torch.utils.data.DataLoader(
+        test_set,
+        batch_size=config.batch_size,
+    )
+
     backbone = LightningBetaVAE(
         img_size=train_set.img_size, latent_dim=config.latent_dim, beta=config.beta
     )
-    regressor = LightningMLP(dims=[config.latent_dim, 64, 64, train_set.num_latents])
-    model = CodisModel(backbone, regressor)
-    trainer = pl.Trainer(default_root_dir=args.wandb_dir, accelerator="auto", devices=1)
+    trainer = pl.Trainer(
+        default_root_dir=args.wandb_dir,
+        accelerator="auto",
+        devices=1,
+        logger=wandb_logger,
+    )
 
     for _ in range(10):
-        trainer.fit(backbone, train_set, val_set)
-        trainer.fit(model, val_set)
-        trainer.test(model, test_set)
+        trainer.fit(backbone, train_loader, val_loader)
+        regressor = LightningMLP(
+            dims=[config.latent_dim, 64, 64, train_set.num_latents]
+        )
+        model = CodisModel(backbone, regressor)
+        trainer.fit(model, val_loader)
+        trainer.test(model, val_loader)
 
     wandb.finish()
 
