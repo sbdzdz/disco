@@ -18,17 +18,6 @@ BaseLatents = namedtuple(
 class Latents(BaseLatents):
     """Latent variables defining a single image."""
 
-    def to(self, device):
-        """Move the latents to a device."""
-        return Latents(
-            self.color.to(device),
-            self.shape.to(device),
-            self.scale.to(device),
-            self.orientation.to(device),
-            self.position_x.to(device),
-            self.position_y.to(device),
-        )
-
     def __getitem__(self, key):
         return getattr(self, key)
 
@@ -36,6 +25,13 @@ class Latents(BaseLatents):
 # pylint: disable=abstract-method
 class InfiniteDSprites(IterableDataset):
     """Infinite dataset of procedurally generated shapes undergoing transformations."""
+
+    colors = {
+        "white": np.array([1.0, 1.0, 1.0]),
+        "red": np.array([1.0, 0.0, 0.0]),
+        "green": np.array([0.0, 1.0, 0.0]),
+        "blue": np.array([0.0, 0.0, 1.0]),
+    }
 
     def __init__(
         self,
@@ -104,6 +100,7 @@ class InfiniteDSprites(IterableDataset):
             for color, scale, orientation, position_x, position_y in product(
                 *self.ranges.values()
             ):
+                color = self.colors[color]
                 latents = Latents(
                     color, shape, scale, orientation, position_x, position_y
                 )
@@ -182,10 +179,9 @@ class InfiniteDSprites(IterableDataset):
         shape = self.apply_scale(latents.shape, latents.scale)
         shape = self.apply_orientation(shape, latents.orientation)
         shape = self.apply_position(shape, latents.position_x, latents.position_y)
-        pygame.gfxdraw.aapolygon(
-            self.window, shape.T.tolist(), pygame.Color(latents.color)
-        )
-        pygame.draw.polygon(self.window, pygame.Color(latents.color), shape.T.tolist())
+        color = tuple(int(255 * c) for c in latents.color)
+        pygame.gfxdraw.aapolygon(self.window, shape.T.tolist(), color)
+        pygame.draw.polygon(self.window, color, shape.T.tolist())
         pygame.display.update()
         image = pygame.surfarray.array3d(self.window)
         image = image.astype(np.float32) / 255.0
@@ -240,7 +236,7 @@ class InfiniteDSprites(IterableDataset):
     def sample_latents(self):
         """Sample a random set of latents."""
         return Latents(
-            color=np.random.choice(self.ranges["color"]),
+            color=self.colors[np.random.choice(self.ranges["color"])],
             shape=self.generate_shape(),
             scale=np.random.choice(self.ranges["scale"]),
             orientation=np.random.choice(self.ranges["orientation"]),
