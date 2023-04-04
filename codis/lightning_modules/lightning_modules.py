@@ -36,7 +36,7 @@ class CodisModel(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         """Perform a training step."""
-        loss, _ = self._step(batch)
+        loss, _, _ = self._step(batch)
         self.log_dict({f"{k}_train": v for k, v in loss.items()})
         return loss["loss"]
 
@@ -49,8 +49,7 @@ class CodisModel(pl.LightningModule):
         return self._step_val_test(batch, "test")
 
     def _step_val_test(self, batch, suffix):
-        y = batch[1]
-        loss, y_hat = self._step(batch)
+        loss, y, y_hat = self._step(batch)
         self.log_dict({f"{k}_{suffix}": v for k, v in loss.items()}, on_epoch=True)
         self.r2_score(to_numpy(y), to_numpy(y_hat))
         self.log(f"r2_score_{suffix}", self.r2_score, on_epoch=True)
@@ -59,9 +58,23 @@ class CodisModel(pl.LightningModule):
     def _step(self, batch):
         """Perform a training or validation step."""
         x, y = batch
+        y = self._stack_latents(y)
         y_hat = self.forward(x)
         loss = self.regressor.loss_function(y, y_hat)
-        return loss, y_hat
+        return loss, y, y_hat
+
+    def _stack_latents(self, latents):
+        """Stack the latents."""
+        return torch.stack(
+            [
+                latents.color,
+                latents.scale,
+                latents.orientation,
+                latents.position_x,
+                latents.position_y,
+            ],
+            dim=-1,
+        )
 
     def configure_optimizers(self):
         """Configure the optimizers."""
