@@ -46,7 +46,7 @@ def train(args):
         devices=1,
         logger=wandb_logger,
         limit_train_batches=args.train_on,
-        limit_validation_batches=args.eval_on,
+        limit_val_batches=args.eval_on,
         log_every_n_steps=args.log_every_n_steps,
     )
 
