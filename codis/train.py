@@ -32,7 +32,7 @@ def train(args):
         val_set,
         batch_size=config.batch_size,
     )
-    test_set = torch.utils.data.DataLoader(
+    test_loader = torch.utils.data.DataLoader(
         test_set,
         batch_size=config.batch_size,
     )
@@ -45,16 +45,19 @@ def train(args):
         accelerator="auto",
         devices=1,
         logger=wandb_logger,
+        limit_train_batches=args.train_on,
+        limit_validation_batches=args.eval_on,
+        log_every_n_steps=args.log_every_n_steps,
     )
 
-    for _ in range(10):
+    for _ in range(args.epochs):
         trainer.fit(backbone, train_loader, val_loader)
         regressor = LightningMLP(
-            dims=[config.latent_dim, 64, 64, train_set.num_latents]
-        )
+            dims=[config.latent_dim, 64, 64, 7]
+        )  # 7 is the number of stacked latent values
         model = CodisModel(backbone, regressor)
-        trainer.fit(model, val_loader)
-        trainer.test(model, val_loader)
+        trainer.fit(model, train_loader, val_loader)
+        trainer.test(model, test_loader)
 
     wandb.finish()
 
@@ -68,18 +71,21 @@ def _main():
         default=repo_root / "codis/data/dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz",
     )
     parser.add_argument(
-        "--log_every",
+        "--log_every_n_steps",
         type=int,
-        default=10,
+        default=50,
         help="How often to log training progress. The logs will be averaged over this number of batches.",
     )
     parser.add_argument(
         "--epochs", type=int, default=5, help="Number of training epochs."
     )
-    parser.add_argument("--batch_size", type=int, default=64, help="Batch size.")
+    parser.add_argument("--batch_size", type=int, default=128, help="Batch size.")
     parser.add_argument("--beta", type=float, default=1.0, help="Beta parameter.")
     parser.add_argument(
-        "--eval_on", type=int, default=100, help="Number of batches to evaluate on."
+        "--train_on", type=int, default=10000, help="Number of batches to train on."
+    )
+    parser.add_argument(
+        "--eval_on", type=int, default=1000, help="Number of batches to evaluate on."
     )
     parser.add_argument(
         "--latent_dim", type=int, default=10, help="Dimensionality of the latent space."
