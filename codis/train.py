@@ -146,9 +146,14 @@ def _main():
         default=None,
         help="Wandb group name. If not specified, a new group will be created.",
     )
+    parser.add_argument(
+        "--experiment", type=str, choices=["codis", "vae"], default="vae"
+    )
     args = parser.parse_args()
-    # train(args)
-    train_vae(args)
+    if args.experiment == "codis":
+        train(args)
+    elif args.experiment == "vae":
+        train_vae(args)
 
 
 if __name__ == "__main__":
