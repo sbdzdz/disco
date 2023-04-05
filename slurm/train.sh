@@ -22,4 +22,4 @@ python -m pip install --user -e $HOME/codis
 
 python $HOME/codis/codis/train.py \
  --dsprites_path $WORK/datasets/dsprites/dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz \
- --wandb_dir $WORK/projects/codis/wandb --beta 1 --epochs 10 --log_every 200
+ --wandb_dir $WORK/projects/codis/wandb --beta 1.5 --tasks 10 --log_every_n_steps 1000 --wandb_group vae_idsprites --epochs 10 --experiment vae
