@@ -117,6 +117,9 @@ def _main():
     parser.add_argument(
         "--tasks", type=int, default=5, help="Number of continual learning tasks."
     )
+    parser.add_argument(
+        "--epochs", type=int, default=10, help="Number of epochs to train for."
+    )
     parser.add_argument("--batch_size", type=int, default=128, help="Batch size.")
     parser.add_argument("--beta", type=float, default=1.0, help="Beta parameter.")
     parser.add_argument(
