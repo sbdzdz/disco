@@ -5,7 +5,6 @@ import lightning.pytorch as pl
 import torch
 from torchmetrics import R2Score
 
-import wandb
 from codis.models import MLP, BaseVAE, BetaVAE
 from codis.utils import to_numpy
 from codis.visualization import draw_batch_and_reconstructions
@@ -91,6 +90,7 @@ class LightningBetaVAE(pl.LightningModule):
         latent_dim: int = 10,
         num_channels: Optional[list] = None,
         beta: float = 1.0,
+        lr: float = 1e-3,
     ):
         super().__init__()
         self.model = BetaVAE(
@@ -101,6 +101,7 @@ class LightningBetaVAE(pl.LightningModule):
             beta,
         )
         self.save_hyperparameters()
+        self.lr = lr
 
     def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
         """Perform the forward pass."""
@@ -136,15 +137,16 @@ class LightningBetaVAE(pl.LightningModule):
 
     def configure_optimizers(self):
         """Initialize the optimizer."""
-        return torch.optim.Adam(self.parameters(), lr=1e-3)
+        return torch.optim.Adam(self.parameters(), lr=self.lr)
 
 
 class LightningMLP(pl.LightningModule):
     """The MLP Lightning module."""
 
-    def __init__(self, dims: List[int], dropout_rate: float = 0.0):
+    def __init__(self, dims: List[int], dropout_rate: float = 0.0, lr: float = 1e-3):
         super().__init__()
         self.model = MLP(dims, dropout_rate)
+        self.lr = lr
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Perform the forward pass."""
@@ -159,4 +161,4 @@ class LightningMLP(pl.LightningModule):
 
     def configure_optimizers(self):
         """Initialize the optimizer."""
-        return torch.optim.Adam(self.parameters(), lr=1e-3)
+        return torch.optim.Adam(self.parameters(), lr=self.lr)
