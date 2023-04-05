@@ -11,6 +11,8 @@ from lightning.pytorch.tuner import Tuner
 from codis.data import InfiniteDSprites
 from codis.lightning_modules import CodisModel, LightningBetaVAE, LightningMLP
 
+torch.set_float32_matmul_precision("medium")
+
 
 def train(args):
     """Train the model."""
