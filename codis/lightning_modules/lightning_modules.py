@@ -19,10 +19,12 @@ class CodisModel(pl.LightningModule):
         self,
         backbone: pl.LightningModule,
         regressor: pl.LightningModule,
+        freeze_backbone: bool = True,
     ):
         super().__init__()
         self.backbone = backbone
-        self.backbone.freeze()
+        if freeze_backbone:
+            self.backbone.freeze()
         self.regressor = regressor
         self.r2_score = R2Score()
 
