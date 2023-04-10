@@ -253,17 +253,18 @@ class InfiniteDSprites(IterableDataset):
         )
 
 
-class ContinualInfiniteDSprites(InfiniteDSprites):
-    """Infinite dataset of procedurally generated shapes undergoing transformations.
-    The latents are sampled randomly at every step.
+class ContinualDSprites(InfiniteDSprites):
+    """Infinite dataset of randomly transformed shapes.
+    The shape is sampled from a given list or generated procedurally.
+    The transformations are sampled randomly at every step.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, shapes=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.shapes = shapes
 
     def __iter__(self):
         """Generate an infinite stream of images.
-        Sample shapes and latents at random at every step.
         Args:
             None
         Yields:
@@ -271,7 +272,11 @@ class ContinualInfiniteDSprites(InfiniteDSprites):
         """
         while self.counter < self.dataset_size:
             self.counter += 1
-            latents = self.sample_latents()
+            if self.shapes is not None:
+                shape = np.random.choice(self.shapes)
+            else:
+                shape = self.generate_shape()
+            latents = self.sample_latents()._replace(shape=shape)
             image = self.draw(latents)
             yield image, latents
 
