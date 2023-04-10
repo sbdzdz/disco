@@ -13,27 +13,29 @@ from codis.visualization import draw_batch_and_reconstructions
 
 
 class CodisModel(pl.LightningModule):
-    """A continual disentanglement model that combines a pre-trained feature extractor and a latent regressor."""
+    """A model that combines a backbone and a latent regressor."""
 
     def __init__(
         self,
         backbone: pl.LightningModule,
         regressor: pl.LightningModule,
-        freeze_backbone: bool = True,
+        freeze_backbone: bool = False,
+        gamma: float = 1.0,
     ):
         super().__init__()
         self.backbone = backbone
         if freeze_backbone:
             self.backbone.freeze()
         self.regressor = regressor
+        self.gamma = gamma
         self.r2_score = R2Score()
 
     def forward(self, x):
         """Perform the forward pass."""
         if not isinstance(self.backbone, BaseVAE):
             return self.regressor(self.backbone(x))
-        _, mu, _ = self.backbone(x)
-        return self.regressor(mu)
+        x_hat, mu, log_var = self.backbone(x)
+        return self.regressor(mu), x_hat, mu, log_var
 
     def training_step(self, batch, batch_idx):
         """Perform a training step."""
@@ -60,8 +62,12 @@ class CodisModel(pl.LightningModule):
         """Perform a training or validation step."""
         x, y = batch
         y = self._stack_latents(y)
-        y_hat = self.forward(x)
+        y_hat, x_hat, mu, log_var = self.forward(x)
         loss = self.regressor.loss_function(y, y_hat)
+        backbone_loss = self.backbone.loss_function(x, x_hat, mu, log_var)
+        loss["backbone_loss"] = backbone_loss["loss"]
+        if not self.freeze_backbone:
+            loss["loss"] += self.gamma * backbone_loss["loss"]
         return loss, y, y_hat
 
     def _stack_latents(self, latents):
@@ -109,6 +115,10 @@ class LightningBetaVAE(pl.LightningModule):
         """Perform the forward pass."""
         return self.model(x)
 
+    def loss_function(self, *args, **kwargs):
+        """Calculate the loss."""
+        return self.model.loss_function(*args, **kwargs)
+
     def training_step(self, batch, batch_idx):
         # sourcery skip: class-extract-method
         """Perform a training step."""
@@ -153,6 +163,10 @@ class LightningMLP(pl.LightningModule):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Perform the forward pass."""
         return self.model(x)
+
+    def loss_function(self, *args, **kwargs):
+        """Calculate the loss."""
+        return self.model.loss_function(*args, **kwargs)
 
     def training_step(self, batch, batch_idx):
         """Perform a training step."""
