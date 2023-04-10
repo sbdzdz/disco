@@ -25,13 +25,13 @@ def train(args):
         dims=[args.latent_dim, 64, 64, 7]
     )  # 7 is the number of stacked latent values
     model = CodisModel(backbone, regressor)
-    trainer = configure_trainer(args)
 
     dataset = ContinualDSprites(args.img_size)
     shapes = [dataset.generate_shape() for _ in range(args.tasks)]
 
     for i in range(args.tasks):
         train_loader, val_loader, test_loader = get_continual_loaders(args, shapes, i)
+        trainer = configure_trainer(args)
         trainer.fit(model, train_loader, val_loader)
         trainer.test(model, test_loader)
     wandb.finish()
