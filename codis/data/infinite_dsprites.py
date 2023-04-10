@@ -45,6 +45,7 @@ class InfiniteDSprites(IterableDataset):
         orientation_range=np.linspace(0, 2 * np.pi, 40),
         position_x_range=np.linspace(0, 1, 32),
         position_y_range=np.linspace(0, 1, 32),
+        dataset_size: int = float("inf"),
     ):
         """Create a dataset of images of random shapes.
         Args:
@@ -76,6 +77,8 @@ class InfiniteDSprites(IterableDataset):
             "position_y": position_y_range,
         }
         self.num_latents = len(self.ranges) + 1
+        self.dataset_size = dataset_size
+        self.counter = 0
 
     @classmethod
     def from_config(cls, config: dict):
@@ -95,7 +98,8 @@ class InfiniteDSprites(IterableDataset):
             None
         Returns:
             An infinite stream of (image, latents) tuples."""
-        while True:
+        while self.counter < self.dataset_size:
+            self.counter += 1
             shape = self.generate_shape()
             for color, scale, orientation, position_x, position_y in product(
                 *self.ranges.values()
@@ -106,6 +110,10 @@ class InfiniteDSprites(IterableDataset):
                 )
                 img = self.draw(latents)
                 yield img, latents
+
+    def __len__(self):
+        """Return the length of the dataset."""
+        return self.dataset_size
 
     def generate_shape(self):
         """Generate random vertices and connect them with straight lines or a smooth curve.
@@ -245,7 +253,7 @@ class InfiniteDSprites(IterableDataset):
         )
 
 
-class InfiniteDSpritesRandom(InfiniteDSprites):
+class ContinualInfiniteDSprites(InfiniteDSprites):
     """Infinite dataset of procedurally generated shapes undergoing transformations.
     The latents are sampled randomly at every step.
     """
@@ -261,7 +269,8 @@ class InfiniteDSpritesRandom(InfiniteDSprites):
         Yields:
             A tuple of (image, latents).
         """
-        while True:
+        while self.counter < self.dataset_size:
+            self.counter += 1
             latents = self.sample_latents()
             image = self.draw(latents)
             yield image, latents
@@ -282,7 +291,8 @@ class InfiniteDSpritesTriplets(InfiniteDSprites):
         Yields:
             A tuple of ((image_original, image_transform, image_target), action).
         """
-        while True:
+        while self.counter < self.dataset_size:
+            self.counter += 1
             action = np.random.choice(list(self.ranges.keys()))
             latents_original = self.sample_latents()
             latents_transform = self.sample_latents()
@@ -311,33 +321,52 @@ class InfiniteDSpritesAnalogies(InfiniteDSprites):
 
     def __iter__(self):
         """Generate an infinite stream of images representing an analogy task.
-        Each output array represents a 2x2 grid of images. Top row: reference source, reference target.
-        Bottom row: query source, query target. The task is to infer a transformation between reference
-        source and reference target and apply it to query source to obtain query target. Reference source
-        and query source differ only in shape.
+        Each output array represents a 2x2 grid of images. Top row: reference
+        source, reference target. Bottom row: query source, query target. The task
+        is to infer a transformation between reference source and reference target
+        and apply it to query source to obtain query target. Reference source and
+        query source differ only in shape.
         Args:
             None
         Yields:
             An image grid as a single numpy array.
         """
-        while True:
+        while self.counter < self.dataset_size:
+            self.counter += 1
             source_latents = self.sample_latents()
             target_latents = self.sample_latents()
+
+            reference_color = np.random.choice(self.ranges["color"])
             reference_shape = (
                 self.reference_shape
                 if self.reference_shape is not None
                 else self.generate_shape()
             )
+
+            query_color = np.random.choice(self.ranges["color"])
             query_shape = (
                 self.query_shape
                 if self.query_shape is not None
                 else self.generate_shape()
             )
+
             reference_source, reference_target, query_source, query_target = (
-                self.draw(source_latents._replace(shape=reference_shape)),
-                self.draw(target_latents._replace(shape=reference_shape)),
-                self.draw(source_latents._replace(shape=query_shape)),
-                self.draw(target_latents._replace(shape=query_shape)),
+                self.draw(
+                    source_latents._replace(
+                        shape=reference_shape, color=reference_color
+                    )
+                ),
+                self.draw(
+                    target_latents._replace(
+                        shape=reference_shape, color=reference_color
+                    )
+                ),
+                self.draw(
+                    source_latents._replace(shape=query_shape, color=query_color)
+                ),
+                self.draw(
+                    target_latents._replace(shape=query_shape, color=query_color)
+                ),
             )
             grid = np.concatenate(
                 [
