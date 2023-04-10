@@ -26,13 +26,14 @@ class CodisModel(pl.LightningModule):
         self.backbone = backbone
         if freeze_backbone:
             self.backbone.freeze()
+        self.freeze_backbone = freeze_backbone
         self.regressor = regressor
         self.gamma = gamma
-        self.r2_score = R2Score()
+        self.r2_score = R2Score(num_outputs=7)
 
     def forward(self, x):
         """Perform the forward pass."""
-        if not isinstance(self.backbone, BaseVAE):
+        if not isinstance(self.backbone.model, BaseVAE):
             return self.regressor(self.backbone(x))
         x_hat, mu, log_var = self.backbone(x)
         return self.regressor(mu), x_hat, mu, log_var
@@ -54,7 +55,7 @@ class CodisModel(pl.LightningModule):
     def _step_val_test(self, batch, suffix):
         loss, y, y_hat = self._step(batch)
         self.log_dict({f"{k}_{suffix}": v for k, v in loss.items()}, on_epoch=True)
-        self.r2_score(to_numpy(y), to_numpy(y_hat))
+        self.r2_score(y, y_hat)
         self.log(f"r2_score_{suffix}", self.r2_score, on_epoch=True)
         return loss["loss"]
 
@@ -72,16 +73,16 @@ class CodisModel(pl.LightningModule):
 
     def _stack_latents(self, latents):
         """Stack the latents."""
-        return torch.stack(
+        return torch.cat(
             [
                 latents.color,
-                latents.scale,
-                latents.orientation,
-                latents.position_x,
-                latents.position_y,
+                latents.scale.unsqueeze(-1),
+                latents.orientation.unsqueeze(-1),
+                latents.position_x.unsqueeze(-1),
+                latents.position_y.unsqueeze(-1),
             ],
             dim=-1,
-        )
+        ).float()
 
     def configure_optimizers(self):
         """Configure the optimizers."""
