@@ -32,7 +32,7 @@ def train(args):
 
     for i in range(args.tasks):
         train_loader, val_loader, test_loader = get_continual_loaders(args, shapes, i)
-        trainer.fit(backbone, train_loader, val_loader)
+        trainer.fit(model, train_loader, val_loader)
         trainer.test(model, test_loader)
     wandb.finish()
 
