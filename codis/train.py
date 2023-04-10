@@ -42,9 +42,15 @@ def get_continual_loaders(args, shapes: list, task: int = 0):
     train_set = ContinualDSprites(img_size=args.img_size, shapes=[shapes[task]])
     val_set = ContinualDSprites(img_size=args.img_size, shapes=[shapes[task]])
     test_set = ContinualDSprites(img_size=args.img_size, shapes=[shapes[: task + 1]])
-    train_loader = DataLoader(train_set, batch_size=args.batch_size)
-    val_loader = DataLoader(val_set, batch_size=args.batch_size)
-    test_loader = DataLoader(test_set, batch_size=args.batch_size)
+    train_loader = DataLoader(
+        train_set, batch_size=args.batch_size, num_workers=args.num_workers
+    )
+    val_loader = DataLoader(
+        val_set, batch_size=args.batch_size, num_workers=args.num_workers
+    )
+    test_loader = DataLoader(
+        test_set, batch_size=args.batch_size, num_workers=args.num_workers
+    )
     return train_loader, val_loader, test_loader
 
 
@@ -93,17 +99,17 @@ def get_idsprites_loaders(args):
     train_loader = torch.utils.data.DataLoader(
         train_set,
         batch_size=args.batch_size,
-        num_workers=16,
+        num_workers=args.num_workers,
     )
     val_loader = torch.utils.data.DataLoader(
         val_set,
         batch_size=args.batch_size,
-        num_workers=16,
+        num_workers=args.num_workers,
     )
     test_loader = torch.utils.data.DataLoader(
         test_set,
         batch_size=args.batch_size,
-        num_workers=16,
+        num_workers=args.num_workers,
     )
     return train_loader, val_loader, test_loader
 
@@ -129,6 +135,9 @@ def _main():
         "--epochs", type=int, default=10, help="Number of epochs to train for."
     )
     parser.add_argument("--batch_size", type=int, default=128, help="Batch size.")
+    parser.add_argument(
+        "--num_workers", type=int, default=4, help="Number of dataloader workers."
+    )
     parser.add_argument(
         "--img_size", type=int, default=512, help="Size of the images in the dataset."
     )
