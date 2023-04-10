@@ -273,7 +273,7 @@ class ContinualDSprites(InfiniteDSprites):
         while self.counter < self.dataset_size:
             self.counter += 1
             if self.shapes is not None:
-                shape = np.random.choice(self.shapes)
+                shape = self.shapes[np.random.choice(len(self.shapes))]
             else:
                 shape = self.generate_shape()
             latents = self.sample_latents()._replace(shape=shape)
