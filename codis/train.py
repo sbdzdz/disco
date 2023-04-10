@@ -41,7 +41,7 @@ def get_continual_loaders(args, shapes: list, task: int = 0):
     """Get the data loaders for continual learning on dSprites."""
     train_set = ContinualDSprites(img_size=args.img_size, shapes=[shapes[task]])
     val_set = ContinualDSprites(img_size=args.img_size, shapes=[shapes[task]])
-    test_set = ContinualDSprites(img_size=args.img_size, shapes=[shapes[: task + 1]])
+    test_set = ContinualDSprites(img_size=args.img_size, shapes=shapes[: task + 1])
     train_loader = DataLoader(
         train_set, batch_size=args.batch_size, num_workers=args.num_workers
     )
