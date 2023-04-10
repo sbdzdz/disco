@@ -14,33 +14,19 @@ torch.set_float32_matmul_precision("medium")
 
 
 def train(args):
-    """Train the model."""
+    """Train the model in a continual learning setting."""
     print(f"Cuda available {torch.cuda.is_available()}")
-    wandb_logger = WandbLogger(
-        project="codis", save_dir=args.wandb_dir, group=args.wandb_group
-    )
-    wandb_logger.experiment.config.update(args)
-    config = wandb.config
-
     train_loader, val_loader, test_loader = get_idsprites_loaders(args)
 
     backbone = LightningBetaVAE(
-        img_size=args.img_size, latent_dim=config.latent_dim, beta=config.beta
+        img_size=args.img_size, latent_dim=args.latent_dim, beta=args.beta
     )
-    trainer = Trainer(
-        default_root_dir=args.wandb_dir,
-        accelerator="auto",
-        devices=1,
-        logger=wandb_logger,
-        limit_train_batches=args.train_on,
-        limit_val_batches=args.eval_on,
-        log_every_n_steps=args.log_every_n_steps,
-    )
+    trainer = configure_trainer(args)
 
     for _ in range(args.tasks):
         trainer.fit(backbone, train_loader, val_loader)
         regressor = LightningMLP(
-            dims=[config.latent_dim, 64, 64, 7]
+            dims=[args.latent_dim, 64, 64, 7]
         )  # 7 is the number of stacked latent values
         model = CodisModel(backbone, regressor)
         trainer.fit(model, train_loader, val_loader)
@@ -52,20 +38,25 @@ def train(args):
 def train_vae(args):
     """Train the VAE on dSprites or idSprites."""
     print(f"Cuda available {torch.cuda.is_available()}")
+    vae = LightningBetaVAE(
+        img_size=args.img_size,
+        latent_dim=args.latent_dim,
+        beta=args.beta,
+        lr=args.lr,
+    )
+    trainer = configure_trainer(args)
+    train_loader, val_loader, test_loader = get_idsprites_loaders(args)
+    trainer.fit(vae, train_loader, val_loader)
+    trainer.test(vae, test_loader)
+
+
+def configure_trainer(args):
+    """Configure the model trainer."""
     wandb_logger = WandbLogger(
         project="codis", save_dir=args.wandb_dir, group=args.wandb_group
     )
     wandb_logger.experiment.config.update(args)
-    config = wandb.config
-
-    train_loader, val_loader, test_loader = get_idsprites_loaders(args)
-    vae = LightningBetaVAE(
-        img_size=args.img_size,
-        latent_dim=config.latent_dim,
-        beta=config.beta,
-        lr=args.lr,
-    )
-    trainer = Trainer(
+    return Trainer(
         accelerator="auto",
         default_root_dir=args.wandb_dir,
         devices=1,
@@ -78,8 +69,6 @@ def train_vae(args):
         logger=wandb_logger,
         max_epochs=args.epochs,
     )
-    trainer.fit(vae, train_loader, val_loader)
-    trainer.test(vae, test_loader)
 
 
 def get_idsprites_loaders(args):
