@@ -6,8 +6,9 @@ import torch
 import wandb
 from lightning.pytorch import Trainer
 from lightning.pytorch.loggers import WandbLogger
+from torch.utils.data import DataLoader
 
-from codis.data import InfiniteDSpritesRandom
+from codis.data import ContinualDSprites
 from codis.lightning_modules import CodisModel, LightningBetaVAE, LightningMLP
 
 torch.set_float32_matmul_precision("medium")
@@ -16,23 +17,35 @@ torch.set_float32_matmul_precision("medium")
 def train(args):
     """Train the model in a continual learning setting."""
     print(f"Cuda available {torch.cuda.is_available()}")
-    train_loader, val_loader, test_loader = get_idsprites_loaders(args)
 
     backbone = LightningBetaVAE(
         img_size=args.img_size, latent_dim=args.latent_dim, beta=args.beta
     )
+    regressor = LightningMLP(
+        dims=[args.latent_dim, 64, 64, 7]
+    )  # 7 is the number of stacked latent values
+    model = CodisModel(backbone, regressor)
     trainer = configure_trainer(args)
 
-    for _ in range(args.tasks):
-        trainer.fit(backbone, train_loader, val_loader)
-        regressor = LightningMLP(
-            dims=[args.latent_dim, 64, 64, 7]
-        )  # 7 is the number of stacked latent values
-        model = CodisModel(backbone, regressor)
-        trainer.fit(model, train_loader, val_loader)
-        trainer.test(model, test_loader)
+    dataset = ContinualDSprites(args.img_size)
+    shapes = [dataset.generate_shape() for _ in range(args.tasks)]
 
+    for i in range(args.tasks):
+        train_loader, val_loader, test_loader = get_continual_loaders(args, shapes, i)
+        trainer.fit(backbone, train_loader, val_loader)
+        trainer.test(model, test_loader)
     wandb.finish()
+
+
+def get_continual_loaders(args, shapes: list, task: int = 0):
+    """Get the data loaders for continual learning on dSprites."""
+    train_set = ContinualDSprites(shapes[task])
+    val_set = ContinualDSprites(shapes[task])
+    test_set = ContinualDSprites(shapes[: task + 1])
+    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
+    val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False)
+    test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False)
+    return train_loader, val_loader, test_loader
 
 
 def train_vae(args):
