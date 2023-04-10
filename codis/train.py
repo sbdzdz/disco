@@ -86,9 +86,9 @@ def configure_trainer(args):
 
 def get_idsprites_loaders(args):
     """Get the data loaders for idSprites."""
-    train_set = InfiniteDSpritesRandom(args.img_size)
-    val_set = InfiniteDSpritesRandom(args.img_size)
-    test_set = InfiniteDSpritesRandom(args.img_size)
+    train_set = ContinualDSprites(args.img_size)
+    val_set = ContinualDSprites(args.img_size)
+    test_set = ContinualDSprites(args.img_size)
 
     train_loader = torch.utils.data.DataLoader(
         train_set,
