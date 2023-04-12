@@ -8,7 +8,7 @@ import numpy.typing as npt
 import pygame
 import pygame.gfxdraw
 from scipy.interpolate import splev, splprep
-from torch.utils.data import IterableDataset
+from torch.utils.data import Dataset, IterableDataset
 
 BaseLatents = namedtuple(
     "BaseLatents", "color shape scale orientation position_x, position_y"
@@ -119,10 +119,6 @@ class InfiniteDSprites(IterableDataset):
                 )
                 img = self.draw(latents)
                 yield img, latents
-
-    def __len__(self):
-        """Return the length of the dataset."""
-        return self.dataset_size
 
     def generate_shape(self):
         """Generate random vertices and connect them with straight lines or a smooth curve.
@@ -262,12 +258,24 @@ class InfiniteDSprites(IterableDataset):
         )
 
 
-class ContinualDSprites(InfiniteDSprites):
-    """Map-style continual learning infinite dsprites dataset."""
+class ContinualDSprites(Dataset):
+    """Map-style (finite) continual learning dsprites dataset."""
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.imgs, self.latents = zip(*list(self))
+        self.dataset = InfiniteDSprites(*args, **kwargs)
+        assert (
+            self.dataset.dataset_size != float("inf") or self.dataset.shapes is not None
+        ), "Dataset size must be finite. Please set dataset_size or pass a list of shapes."
+        self.imgs, self.latents = zip(*list(self.dataset))
+        self.imgs = list(self.imgs)
+        self.latents = list(self.latents)
+
+    def __len__(self):
+        if self.dataset.dataset_size != float("inf"):
+            return self.dataset.dataset_size
+        return len(list(product(*self.dataset.ranges.values()))) * len(
+            self.dataset.shapes
+        )
 
     def __getitem__(self, index):
         return self.imgs[index], self.latents[index]
