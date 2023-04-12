@@ -26,10 +26,12 @@ def train(args):
     )  # 7 is the number of stacked latent values
     model = CodisModel(backbone, regressor)
 
+    print("Configuring datasets...")
     shapes = [InfiniteDSprites.generate_shape() for _ in range(args.tasks)]
     datasets = [
         ContinualDSprites(img_size=args.img_size, shapes=[shape]) for shape in shapes
     ]
+    print("Done.")
     train_datasets, test_datasets = zip(
         *[random_split(d, [0.8, 0.2]) for d in datasets]
     )
@@ -44,7 +46,7 @@ def train(args):
     trainer = configure_trainer(args)
 
     for i, train_loader in enumerate(train_loaders):
-        print(f"Starting task {i}.")
+        print(f"Starting task {i}...")
         trainer.fit(model, train_loader)
         for test_loader in test_loaders:
             trainer.test(model, test_loader)
@@ -122,7 +124,7 @@ def _main():
     parser.add_argument(
         "--log_every_n_steps",
         type=int,
-        default=100,
+        default=50,
         help="How often to log training progress. The metrics will be averaged.",
     )
     parser.add_argument(
