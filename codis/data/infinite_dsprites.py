@@ -101,11 +101,11 @@ class InfiniteDSprites(IterableDataset):
             None
         Returns:
             An infinite stream of (image, latents) tuples."""
-        while self.counter <= self.dataset_size and self.current_shape_index < len(
-            self.shapes
-        ):
+        while self.counter <= self.dataset_size:
             self.counter += 1
             if self.shapes is not None:
+                if self.current_shape_index == len(self.shapes):
+                    break
                 shape = self.shapes[self.current_shape_index]
                 self.current_shape_index += 1
             else:
