@@ -262,7 +262,9 @@ class InfiniteDSprites(IterableDataset):
         )
 
 
-class ContinualDSPrites(InfiniteDSprites):
+class ContinualDSprites(InfiniteDSprites):
+    """Map-style continual learning infinite dsprites dataset."""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.counter = 0
