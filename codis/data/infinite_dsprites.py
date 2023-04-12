@@ -267,7 +267,10 @@ class ContinualDSprites(InfiniteDSprites):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.counter = 0
+        self.imgs, self.latents = zip(*list(self))
+
+    def __getitem__(self, index):
+        return self.imgs[index], self.latents[index]
 
 
 class InfiniteDSpritesRandom(InfiniteDSprites):
