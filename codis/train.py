@@ -30,6 +30,7 @@ def train(args):
     shapes = [dataset.generate_shape() for _ in range(args.tasks)]
 
     for i in range(args.tasks):
+        print(f"Starting task {i}.")
         train_loader, val_loader, test_loader = get_continual_loaders(args, shapes, i)
         trainer = configure_trainer(args)
         trainer.fit(model, train_loader, val_loader)
