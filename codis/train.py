@@ -6,9 +6,9 @@ import torch
 import wandb
 from lightning.pytorch import Trainer
 from lightning.pytorch.loggers import WandbLogger
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 
-from codis.data import ContinualDSprites
+from codis.data import InfiniteDSprites, ContinualDSprites
 from codis.lightning_modules import CodisModel, LightningBetaVAE, LightningMLP
 
 torch.set_float32_matmul_precision("medium")
@@ -26,33 +26,29 @@ def train(args):
     )  # 7 is the number of stacked latent values
     model = CodisModel(backbone, regressor)
 
-    dataset = ContinualDSprites(args.img_size)
-    shapes = [dataset.generate_shape() for _ in range(args.tasks)]
+    shapes = [InfiniteDSprites.generate_shape() for _ in range(args.tasks)]
+    datasets = [
+        ContinualDSprites(img_size=args.img_size, shapes=[shape]) for shape in shapes
+    ]
+    train_datasets, test_datasets = zip(
+        *[random_split(d, [0.8, 0.2]) for d in datasets]
+    )
+    train_loaders = [
+        DataLoader(d, batch_size=args.batch_size, num_workers=args.num_workers)
+        for d in train_datasets
+    ]
+    test_loaders = [
+        DataLoader(d, batch_size=args.batch_size, num_workers=args.num_workers)
+        for d in test_datasets
+    ]
+    trainer = configure_trainer(args)
 
-    for i in range(args.tasks):
+    for i, train_loader in enumerate(train_loaders):
         print(f"Starting task {i}.")
-        train_loader, val_loader, test_loader = get_continual_loaders(args, shapes, i)
-        trainer = configure_trainer(args)
-        trainer.fit(model, train_loader, val_loader)
-        trainer.test(model, test_loader)
+        trainer.fit(model, train_loader)
+        for test_loader in test_loaders:
+            trainer.test(model, test_loader)
     wandb.finish()
-
-
-def get_continual_loaders(args, shapes: list, task: int = 0):
-    """Get the data loaders for continual learning on dSprites."""
-    train_set = ContinualDSprites(img_size=args.img_size, shapes=[shapes[task]])
-    val_set = ContinualDSprites(img_size=args.img_size, shapes=[shapes[task]])
-    test_set = ContinualDSprites(img_size=args.img_size, shapes=shapes[: task + 1])
-    train_loader = DataLoader(
-        train_set, batch_size=args.batch_size, num_workers=args.num_workers
-    )
-    val_loader = DataLoader(
-        val_set, batch_size=args.batch_size, num_workers=args.num_workers
-    )
-    test_loader = DataLoader(
-        test_set, batch_size=args.batch_size, num_workers=args.num_workers
-    )
-    return train_loader, val_loader, test_loader
 
 
 def train_vae(args):
