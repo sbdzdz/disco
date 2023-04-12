@@ -80,6 +80,7 @@ class InfiniteDSprites(IterableDataset):
         self.num_latents = len(self.ranges) + 1
         self.dataset_size = dataset_size
         self.counter = 0
+        self.current_shape_index = 0
         self.shapes = shapes
 
     @classmethod
@@ -100,10 +101,13 @@ class InfiniteDSprites(IterableDataset):
             None
         Returns:
             An infinite stream of (image, latents) tuples."""
-        while self.counter <= self.dataset_size:
+        while self.counter <= self.dataset_size and self.current_shape_index < len(
+            self.shapes
+        ):
             self.counter += 1
             if self.shapes is not None:
-                shape = self.shapes[np.random.choice(len(self.shapes))]
+                shape = self.shapes[self.current_shape_index]
+                self.current_shape_index += 1
             else:
                 shape = self.generate_shape()
             for color, scale, orientation, position_x, position_y in product(
@@ -256,6 +260,12 @@ class InfiniteDSprites(IterableDataset):
             position_x=np.random.choice(self.ranges["position_x"]),
             position_y=np.random.choice(self.ranges["position_y"]),
         )
+
+
+class ContinualDSPrites(InfiniteDSprites):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.counter = 0
 
 
 class InfiniteDSpritesRandom(InfiniteDSprites):
