@@ -20,6 +20,4 @@ python -m pip install --upgrade pip setuptools
 python -m pip install -r $HOME/codis/requirements.txt
 python -m pip install -e $HOME/codis
 
-python $HOME/codis/codis/train.py \
- --dsprites_path $WORK/datasets/dsprites/dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz \
- --wandb_dir $WORK/projects/codis/wandb --beta 1.5 --tasks 1 --log_every_n_steps 50 --wandb_group continual_dsprites --epochs 20 --num_workers 16 --experiment codis
+python $HOME/codis/codis/train.py --wandb_dir $WORK/projects/codis/wandb --beta 1.5 --tasks 1 --log_every_n_steps 50 --wandb_group continual_dsprites --epochs 20 --num_workers 16 --experiment codis
