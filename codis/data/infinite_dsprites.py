@@ -94,10 +94,9 @@ class InfiniteDSprites(IterableDataset):
         Returns:
             An infinite stream of (image, latents) tuples."""
         while self.counter <= self.dataset_size:
-            self.counter += 1
             if self.shapes is not None:
                 if self.current_shape_index == len(self.shapes):
-                    break
+                    return
                 shape = self.shapes[self.current_shape_index]
                 self.current_shape_index += 1
             else:
@@ -105,6 +104,7 @@ class InfiniteDSprites(IterableDataset):
             for color, scale, orientation, position_x, position_y in product(
                 *self.ranges.values()
             ):
+                self.counter += 1
                 color = self.colors[color]
                 latents = Latents(
                     color, shape, scale, orientation, position_x, position_y
