@@ -2,13 +2,14 @@
 import argparse
 from pathlib import Path
 
+import numpy as np
 import torch
-import wandb
 from lightning.pytorch import Trainer
 from lightning.pytorch.loggers import WandbLogger
 from torch.utils.data import DataLoader, random_split
 
-from codis.data import InfiniteDSprites, ContinualDSprites
+import wandb
+from codis.data import ContinualDSprites, InfiniteDSprites
 from codis.lightning_modules import CodisModel, LightningBetaVAE, LightningMLP
 
 torch.set_float32_matmul_precision("medium")
@@ -17,7 +18,6 @@ torch.set_float32_matmul_precision("medium")
 def train(args):
     """Train the model in a continual learning setting."""
     print(f"Cuda available {torch.cuda.is_available()}")
-
     backbone = LightningBetaVAE(
         img_size=args.img_size, latent_dim=args.latent_dim, beta=args.beta
     )
@@ -25,11 +25,23 @@ def train(args):
         dims=[args.latent_dim, 64, 64, 7]
     )  # 7 is the number of stacked latent values
     model = CodisModel(backbone, regressor)
+    scale_range = np.linspace(0.5, 1.5, 16)
+    orientation_range = np.linspace(0, 2 * np.pi, 16)
+    position_x_range = np.linspace(0, 1, 16)
+    position_y_range = np.linspace(0, 1, 16)
 
     print("Configuring datasets...")
     shapes = [InfiniteDSprites.generate_shape() for _ in range(args.tasks)]
     datasets = [
-        ContinualDSprites(img_size=args.img_size, shapes=[shape]) for shape in shapes
+        ContinualDSprites(
+            img_size=args.img_size,
+            shapes=[shape],
+            scale_range=scale_range,
+            orientation_range=orientation_range,
+            position_x_range=position_x_range,
+            position_y_range=position_y_range,
+        )
+        for shape in shapes
     ]
     print("Done.")
     train_datasets, test_datasets = zip(
