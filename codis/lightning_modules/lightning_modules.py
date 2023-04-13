@@ -64,9 +64,13 @@ class CodisModel(pl.LightningModule):
         x, y = batch
         y = self._stack_latents(y)
         y_hat, x_hat, mu, log_var = self.forward(x)
-        loss = self.regressor.loss_function(y, y_hat)
+        regressor_loss = self.regressor.loss_function(y, y_hat)
         backbone_loss = self.backbone.loss_function(x, x_hat, mu, log_var)
-        loss["backbone_loss"] = backbone_loss["loss"]
+        loss = {
+            "loss": regressor_loss["loss"],
+            "regressor_loss": regressor_loss["loss"],
+            "backbone_loss": backbone_loss["loss"],
+        }
         if not self.freeze_backbone:
             loss["loss"] += self.gamma * backbone_loss["loss"]
         return loss, y, y_hat
