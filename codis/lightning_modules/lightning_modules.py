@@ -67,12 +67,16 @@ class CodisModel(pl.LightningModule):
         regressor_loss = self.regressor.loss_function(y, y_hat)
         backbone_loss = self.backbone.loss_function(x, x_hat, mu, log_var)
         loss = {
-            "loss": regressor_loss["loss"],
             "regressor_loss": regressor_loss["loss"],
             "backbone_loss": backbone_loss["loss"],
         }
-        if not self.freeze_backbone:
-            loss["loss"] += self.gamma * backbone_loss["loss"]
+        if self.freeze_backbone:
+            loss["loss"] = loss["regressor_loss"]
+        else:
+            loss["loss"] = (
+                self.gamma * loss["regressor_loss"]
+                + (1 - self.gamma) * loss["backbone_loss"]
+            )
         return loss, y, y_hat
 
     def _stack_latents(self, latents):
