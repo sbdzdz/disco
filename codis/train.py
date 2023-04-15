@@ -29,7 +29,7 @@ def train(args):
     trainer = configure_trainer(args)
     trainer.logger.watch(model)
 
-    for i, train_loader, val_loader in enumerate(zip(train_loaders, val_loaders)):
+    for i, (train_loader, val_loader) in enumerate(zip(train_loaders, val_loaders)):
         print(f"Starting task {i}...")
         trainer.fit(model, train_loader, val_loader)
         for test_loader in test_loaders:
