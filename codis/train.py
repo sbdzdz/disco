@@ -25,41 +25,13 @@ def train(args):
         dims=[args.latent_dim, 64, 64, 7]
     )  # 7 is the number of stacked latent values
     model = CodisModel(backbone, regressor)
-    scale_range = np.linspace(0.5, 1.5, 16)
-    orientation_range = np.linspace(0, 2 * np.pi, 16)
-    position_x_range = np.linspace(0, 1, 16)
-    position_y_range = np.linspace(0, 1, 16)
-
-    print("Configuring datasets...")
-    shapes = [InfiniteDSprites.generate_shape() for _ in range(args.tasks)]
-    datasets = [
-        ContinualDSprites(
-            img_size=args.img_size,
-            shapes=[shape],
-            scale_range=scale_range,
-            orientation_range=orientation_range,
-            position_x_range=position_x_range,
-            position_y_range=position_y_range,
-        )
-        for shape in shapes
-    ]
-    print("Done.")
-    train_datasets, test_datasets = zip(
-        *[random_split(d, [0.8, 0.2]) for d in datasets]
-    )
-    train_loaders = [
-        DataLoader(d, batch_size=args.batch_size, num_workers=args.num_workers)
-        for d in train_datasets
-    ]
-    test_loaders = [
-        DataLoader(d, batch_size=args.batch_size, num_workers=args.num_workers)
-        for d in test_datasets
-    ]
+    train_loaders, val_loaders, test_loaders = configure_ci_loaders(args)
     trainer = configure_trainer(args)
+    trainer.logger.watch(model)
 
-    for i, train_loader in enumerate(train_loaders):
+    for i, train_loader, val_loader in enumerate(zip(train_loaders, val_loaders)):
         print(f"Starting task {i}...")
-        trainer.fit(model, train_loader)
+        trainer.fit(model, train_loader, val_loader)
         for test_loader in test_loaders:
             trainer.test(model, test_loader)
     wandb.finish()
@@ -99,6 +71,47 @@ def configure_trainer(args):
         logger=wandb_logger,
         max_epochs=args.epochs,
     )
+
+
+def configure_ci_loaders(args):
+    """Configure data loaders for a class-incremental continual learning scenario."""
+    scale_range = np.linspace(0.5, 1.5, 16)
+    orientation_range = np.linspace(0, 2 * np.pi, 16)
+    position_x_range = np.linspace(0, 1, 16)
+    position_y_range = np.linspace(0, 1, 16)
+
+    shapes = [InfiniteDSprites.generate_shape() for _ in range(args.tasks)]
+    datasets = [
+        ContinualDSprites(
+            img_size=args.img_size,
+            shapes=[shape],
+            scale_range=scale_range,
+            orientation_range=orientation_range,
+            position_x_range=position_x_range,
+            position_y_range=position_y_range,
+        )
+        for shape in shapes
+    ]
+    train_datasets, test_datasets = zip(
+        *[random_split(d, [0.8, 0.2]) for d in datasets]
+    )
+    val_datasets, test_datasets = zip(
+        *[random_split(d, [0.5, 0.5]) for d in test_datasets]
+    )
+    train_loaders = [
+        DataLoader(d, batch_size=args.batch_size, num_workers=args.num_workers)
+        for d in train_datasets
+    ]
+    val_loaders = [
+        DataLoader(d, batch_size=args.batch_size, num_workers=args.num_workers)
+        for d in val_datasets
+    ]
+    test_loaders = [
+        DataLoader(d, batch_size=args.batch_size, num_workers=args.num_workers)
+        for d in test_datasets
+    ]
+
+    return train_loaders, val_loaders, test_loaders
 
 
 def get_idsprites_loaders(args):
