@@ -24,7 +24,7 @@ def train(args):
     regressor = LightningMLP(
         dims=[args.latent_dim, 64, 64, 7]
     )  # 7 is the number of stacked latent values
-    model = CodisModel(backbone, regressor)
+    model = CodisModel(backbone, regressor, gamma=args.gamma)
     train_loaders, val_loaders, test_loaders = configure_ci_loaders(args)
     trainer = configure_trainer(args)
     trainer.logger.watch(model)
@@ -177,7 +177,15 @@ def _main():
     parser.add_argument(
         "--latent_dim", type=int, default=10, help="Dimensionality of the latent space."
     )
-    parser.add_argument("--beta", type=float, default=1.0, help="Beta parameter.")
+    parser.add_argument(
+        "--beta", type=float, default=1.0, help="Beta parameter for the beta-VAE."
+    )
+    parser.add_argument(
+        "--gamma",
+        type=float,
+        default=1.0,
+        help="Gamma parameter (relative weight of the backbone and regressor loss).",
+    )
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
     parser.add_argument(
         "--wandb_dir",
