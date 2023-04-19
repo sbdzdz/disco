@@ -174,12 +174,12 @@ class InfiniteDSprites(IterableDataset):
         x, y = splev(u_new, spline_params, der=0)
         return np.array([x, y])
 
-    def draw(self, latents: Latents, channel_first=True):
+    def draw(self, latents: Latents, channels_first=True):
         """Draw an image based on the values of the latents.
         Args:
             window: The pygame window to draw on.
             latents: The latents to use for drawing.
-            channel_first: Whether to return the image with the channel dimension first.
+            channels_first: Whether to return the image with the channel dimension first.
         Returns:
             The image as a numpy array.
         """
@@ -195,7 +195,7 @@ class InfiniteDSprites(IterableDataset):
         image = image.astype(np.float32) / 255.0
         if not self.is_rgb():
             image = image.mean(axis=2, keepdims=True)
-        if channel_first:
+        if channels_first:
             image = np.transpose(image, (2, 0, 1))
         return image
 
