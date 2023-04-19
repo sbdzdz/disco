@@ -7,6 +7,7 @@ import numpy as np
 import numpy.typing as npt
 import pygame
 import pygame.gfxdraw
+from matplotlib import colors
 from scipy.interpolate import splev, splprep
 from torch.utils.data import Dataset, IterableDataset
 
@@ -25,13 +26,6 @@ class Latents(BaseLatents):
 # pylint: disable=abstract-method
 class InfiniteDSprites(IterableDataset):
     """Infinite dataset of procedurally generated shapes undergoing transformations."""
-
-    colors = {
-        "white": np.array([1.0, 1.0, 1.0]),
-        "red": np.array([1.0, 0.0, 0.0]),
-        "green": np.array([0.0, 1.0, 0.0]),
-        "blue": np.array([0.0, 0.0, 1.0]),
-    }
 
     def __init__(
         self,
@@ -105,7 +99,7 @@ class InfiniteDSprites(IterableDataset):
                 *self.ranges.values()
             ):
                 self.counter += 1
-                color = self.colors[color]
+                color = colors.to_rgb(color)
                 latents = Latents(
                     color, shape, scale, orientation, position_x, position_y
                 )
@@ -180,11 +174,12 @@ class InfiniteDSprites(IterableDataset):
         x, y = splev(u_new, spline_params, der=0)
         return np.array([x, y])
 
-    def draw(self, latents: Latents):
+    def draw(self, latents: Latents, channel_first=True):
         """Draw an image based on the values of the latents.
         Args:
             window: The pygame window to draw on.
             latents: The latents to use for drawing.
+            channel_first: Whether to return the image with the channel dimension first.
         Returns:
             The image as a numpy array.
         """
@@ -200,7 +195,9 @@ class InfiniteDSprites(IterableDataset):
         image = image.astype(np.float32) / 255.0
         if not self.is_rgb():
             image = image.mean(axis=2, keepdims=True)
-        return np.transpose(image, (2, 0, 1))
+        if channel_first:
+            image = np.transpose(image, (2, 0, 1))
+        return image
 
     def is_rgb(self):
         """Return whether the dataset is RGB or binary."""
@@ -249,7 +246,7 @@ class InfiniteDSprites(IterableDataset):
     def sample_latents(self):
         """Sample a random set of latents."""
         return Latents(
-            color=self.colors[np.random.choice(self.ranges["color"])],
+            color=colors.to_rgb(np.random.choice(self.ranges["color"])),
             shape=self.generate_shape(),
             scale=np.random.choice(self.ranges["scale"]),
             orientation=np.random.choice(self.ranges["orientation"]),
