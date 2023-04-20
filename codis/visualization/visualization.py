@@ -270,11 +270,11 @@ def draw_shapes_animated(
                 figsize=(ncols / nrows * fig_height, fig_height),
                 layout="tight",
                 subplot_kw={"aspect": 1.0},
+                facecolor=bg_color,
             )
             buffer = io.BytesIO()
             for ax, image in zip(axes.flat, frame):
                 ax.axis("off")
-                ax.set_facecolor(bg_color)
                 ax.imshow(image)
             plt.savefig(buffer, format="png")
             plt.close()
