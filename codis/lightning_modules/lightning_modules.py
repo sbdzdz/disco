@@ -20,7 +20,7 @@ class CodisModel(pl.LightningModule):
         backbone: pl.LightningModule,
         regressor: pl.LightningModule,
         freeze_backbone: bool = False,
-        gamma: float = 1.0,
+        gamma: float = 0.5,
     ):
         super().__init__()
         self.backbone = backbone
