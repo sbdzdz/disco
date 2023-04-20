@@ -163,7 +163,7 @@ def _main():
         "--num_workers", type=int, default=4, help="Number of dataloader workers."
     )
     parser.add_argument(
-        "--img_size", type=int, default=512, help="Size of the images in the dataset."
+        "--img_size", type=int, default=128, help="Size of the images in the dataset."
     )
     parser.add_argument(
         "--train_on", type=int, default=1000, help="Number of batches to train on."
@@ -200,7 +200,7 @@ def _main():
         help="Wandb group name. If not specified, a new group will be created.",
     )
     parser.add_argument(
-        "--experiment", type=str, choices=["codis", "vae"], default="vae"
+        "--experiment", type=str, choices=["codis", "vae"], default="codis"
     )
     args = parser.parse_args()
     if args.experiment == "codis":
