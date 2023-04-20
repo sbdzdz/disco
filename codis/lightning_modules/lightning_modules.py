@@ -94,7 +94,12 @@ class CodisModel(pl.LightningModule):
 
     def configure_optimizers(self):
         """Configure the optimizers."""
-        return self.regressor.configure_optimizers()
+        return torch.optim.Adam(
+            [
+                {"params": self.backbone.parameters(), "lr": self.backbone.lr},
+                {"params": self.regressor.parameters(), "lr": self.regressor.lr},
+            ]
+        )
 
 
 class LightningBetaVAE(pl.LightningModule):
