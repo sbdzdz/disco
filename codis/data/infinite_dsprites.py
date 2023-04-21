@@ -99,7 +99,7 @@ class InfiniteDSprites(IterableDataset):
                 *self.ranges.values()
             ):
                 self.counter += 1
-                color = colors.to_rgb(color)
+                color = np.array(colors.to_rgb(color))
                 latents = Latents(
                     color, shape, scale, orientation, position_x, position_y
                 )
@@ -246,7 +246,7 @@ class InfiniteDSprites(IterableDataset):
     def sample_latents(self):
         """Sample a random set of latents."""
         return Latents(
-            color=colors.to_rgb(np.random.choice(self.ranges["color"])),
+            color=np.array(colors.to_rgb(np.random.choice(self.ranges["color"]))),
             shape=self.generate_shape(),
             scale=np.random.choice(self.ranges["scale"]),
             orientation=np.random.choice(self.ranges["orientation"]),
