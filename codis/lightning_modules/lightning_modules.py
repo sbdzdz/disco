@@ -31,6 +31,16 @@ class CodisModel(pl.LightningModule):
         self.gamma = gamma
         self.r2_score = R2Score(num_outputs=7)
 
+    @property
+    def task_id(self):
+        """Get the current task id."""
+        return self._task_id
+
+    @task_id.setter
+    def task_id(self, value):
+        """Set the current task id."""
+        self._task_id = value
+
     def forward(self, x):
         """Perform the forward pass."""
         if not isinstance(self.backbone.model, BaseVAE):
@@ -41,7 +51,7 @@ class CodisModel(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         """Perform a training step."""
         loss, _, _ = self._step(batch)
-        self.log_dict({f"{k}_train": v for k, v in loss.items()})
+        self.log_dict({f"{k}_train_task_{self.task_id}": v for k, v in loss.items()})
         return loss["loss"]
 
     def validation_step(self, batch, batch_idx):
@@ -54,9 +64,12 @@ class CodisModel(pl.LightningModule):
 
     def _step_val_test(self, batch, suffix):
         loss, y, y_hat = self._step(batch)
-        self.log_dict({f"{k}_{suffix}": v for k, v in loss.items()}, on_epoch=True)
+        self.log_dict(
+            {f"{k}_{suffix}_task_{self.task_id}": v for k, v in loss.items()},
+            on_epoch=True,
+        )
         self.r2_score(y, y_hat)
-        self.log(f"r2_score_{suffix}", self.r2_score, on_epoch=True)
+        self.log(f"r2_score_{suffix}_task_{self.task_id}", self.r2_score, on_epoch=True)
         return loss["loss"]
 
     def _step(self, batch):
