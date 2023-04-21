@@ -196,7 +196,6 @@ def _main():
     )
     parser.add_argument(
         "--watch_gradients",
-        type=bool,
         help="Whether to log gradients in wandb.",
         action="store_true",
     )
