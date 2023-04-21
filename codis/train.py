@@ -68,9 +68,6 @@ def configure_trainer(args):
         devices=1,
         enable_checkpointing=False,
         enable_progress_bar=False,
-        limit_train_batches=args.train_on,
-        limit_val_batches=args.eval_on,
-        limit_test_batches=args.test_on,
         log_every_n_steps=args.log_every_n_steps,
         logger=wandb_logger,
         max_epochs=args.epochs,
@@ -168,15 +165,6 @@ def _main():
     )
     parser.add_argument(
         "--img_size", type=int, default=128, help="Size of the images in the dataset."
-    )
-    parser.add_argument(
-        "--train_on", type=int, default=1000, help="Number of batches to train on."
-    )
-    parser.add_argument(
-        "--eval_on", type=int, default=100, help="Number of batches to evaluate on."
-    )
-    parser.add_argument(
-        "--test_on", type=int, default=100, help="Number of batches to test on."
     )
     parser.add_argument(
         "--latent_dim", type=int, default=10, help="Dimensionality of the latent space."
