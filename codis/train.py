@@ -27,11 +27,14 @@ def train(args):
     model = CodisModel(backbone, regressor, gamma=args.gamma)
     train_loaders, val_loaders, test_loaders = configure_ci_loaders(args)
 
-    for task_id, (train_loader, val_loader) in enumerate(zip(train_loaders, val_loaders)):
+    for task_id, (train_loader, val_loader) in enumerate(
+        zip(train_loaders, val_loaders)
+    ):
         print(f"Starting task {task_id}...")
         model.task_id = task_id
         trainer = configure_trainer(args)
-        trainer.logger.watch(model)
+        if args.watch_gradients:
+            trainer.logger.watch(model)
         trainer.fit(model, train_loader, val_loader)
         for test_loader in test_loaders:
             trainer.test(model, test_loader)
@@ -202,6 +205,12 @@ def _main():
     )
     parser.add_argument(
         "--experiment", type=str, choices=["codis", "vae"], default="codis"
+    )
+    parser.add_argument(
+        "--watch_gradients",
+        type=bool,
+        help="Whether to log gradients in wandb.",
+        action="store_true",
     )
     args = parser.parse_args()
     if args.experiment == "codis":
