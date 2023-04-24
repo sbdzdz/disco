@@ -70,7 +70,7 @@ def configure_trainer(args):
         enable_progress_bar=False,
         log_every_n_steps=args.log_every_n_steps,
         logger=wandb_logger,
-        max_epochs=args.epochs,
+        max_epochs=args.max_epochs,
     )
 
 
@@ -157,7 +157,10 @@ def _main():
         "--tasks", type=int, default=5, help="Number of continual learning tasks."
     )
     parser.add_argument(
-        "--epochs", type=int, default=10, help="Number of epochs to train for."
+        "--max_epochs",
+        type=int,
+        default=10,
+        help="Maximum number of epochs to train for.",
     )
     parser.add_argument("--batch_size", type=int, default=128, help="Batch size.")
     parser.add_argument(
