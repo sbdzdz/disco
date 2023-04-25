@@ -26,4 +26,4 @@ class MLP(nn.Module):
 
     def loss_function(self, x, x_hat):
         """Loss function for the MLP."""
-        return {"loss": nn.functional.mse_loss(x_hat, x, reduction="sum")}
+        return {"loss": nn.functional.mse_loss(x_hat, x, reduction="sum") / x.shape[0]}
