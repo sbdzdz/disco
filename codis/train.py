@@ -26,15 +26,15 @@ def train(args):
     )  # 7 is the number of stacked latent values
     model = CodisModel(backbone, regressor, gamma=args.gamma)
     train_loaders, val_loaders, test_loaders = configure_ci_loaders(args)
+    trainer = configure_trainer(args)
+    if args.watch_gradients:
+        trainer.logger.watch(model)
 
     for task_id, (train_loader, val_loader) in enumerate(
         zip(train_loaders, val_loaders)
     ):
         print(f"Starting task {task_id}...")
         model.task_id = task_id
-        trainer = configure_trainer(args)
-        if args.watch_gradients:
-            trainer.logger.watch(model)
         trainer.fit(model, train_loader, val_loader)
         for test_loader in test_loaders:
             trainer.test(model, test_loader)
