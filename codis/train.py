@@ -36,6 +36,7 @@ def train(args):
         print(f"Starting task {task_id}...")
         model.task_id = task_id
         trainer.fit(model, train_loader, val_loader)
+        trainer.fit_loop.max_epochs += args.max_epochs
         for test_loader in test_loaders:
             trainer.test(model, test_loader)
     wandb.finish()

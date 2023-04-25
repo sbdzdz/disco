@@ -20,4 +20,4 @@ python -m pip install --upgrade pip setuptools
 python -m pip install -r $HOME/codis/requirements.txt
 python -m pip install -e $HOME/codis
 
-python $HOME/codis/codis/train.py --wandb_dir $WORK/projects/codis/wandb --beta 1.5 --gamma 0.3 --tasks 1 --log_every_n_steps 50 --wandb_group continual_dsprites --max_epochs 3000 --num_workers 16 --experiment codis --img_size 128 --batch_size 512
+python $HOME/codis/codis/train.py --wandb_dir $WORK/projects/codis/wandb --beta 1.5 --gamma 0.3 --tasks 1 --log_every_n_steps 50 --wandb_group continual_dsprites --max_epochs 10 --num_workers 16 --experiment codis --img_size 128 --batch_size 512
