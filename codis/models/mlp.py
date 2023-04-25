@@ -19,6 +19,7 @@ class MLP(nn.Module):
         ]
         module.append(nn.Linear(dims[-2], dims[-1]))  # no activation on last layer
         self.model = nn.Sequential(*module)
+        self.dims = dims
 
     def forward(self, x):
         """Forward pass of the MLP."""
