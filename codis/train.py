@@ -178,7 +178,7 @@ def _main():
     parser.add_argument(
         "--gamma",
         type=float,
-        default=0.6,
+        default=0.5,
         help="Relative weight of the backbone and regressor loss. 0 is only backbone loss, 1 is only regressor loss.",
     )
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
