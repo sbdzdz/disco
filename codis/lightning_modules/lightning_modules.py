@@ -70,7 +70,7 @@ class CodisModel(pl.LightningModule):
             on_epoch=True,
         )
         self.r2_score(y, y_hat)
-        self.log(f"r2_score_{suffix}_task_{self.task_id}", self.r2_score, on_epoch=True)
+        self.log(f"r2_score_{suffix}", self.r2_score, on_epoch=True)
         self.log("task_id", float(self.task_id), on_epoch=True)
         return loss["loss"]
 
