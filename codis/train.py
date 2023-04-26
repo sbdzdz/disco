@@ -22,8 +22,8 @@ def train(args):
         img_size=args.img_size, latent_dim=args.latent_dim, beta=args.beta
     )
     regressor = LightningMLP(
-        dims=[args.latent_dim, 64, 64, 7]
-    )  # 7 is the number of stacked latent values
+        dims=[args.latent_dim, 64, 64, 4]
+    )  # 4 is the number of stacked latent values
     model = CodisModel(backbone, regressor, gamma=args.gamma)
     train_loaders, val_loaders, test_loaders = configure_ci_loaders(args)
     trainer = configure_trainer(args)
