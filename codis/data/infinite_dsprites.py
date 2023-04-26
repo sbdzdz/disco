@@ -45,10 +45,8 @@ class InfiniteDSprites(IterableDataset):
             orientation_range: The range of orientations to use.
             position_x_range: The range of x positions to use.
             position_y_range: The range of y positions to use.
-            min_verts: The minimum number of vertices in the shape.
-            max_verts: The maximum number of vertices in the shape.
-            radius_std: The standard deviation of the radius of the vertices.
-            angle_std: The standard deviation of the angle of the vertices.
+            dataset_size: The number of images to generate.
+            shapes: The shapes to use. If None, generate random shapes.
         Returns:
             None
         """
