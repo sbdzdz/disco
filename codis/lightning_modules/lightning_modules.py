@@ -98,7 +98,6 @@ class CodisModel(pl.LightningModule):
         """Stack the latents."""
         return torch.cat(
             [
-                latents.color,
                 latents.scale.unsqueeze(-1),
                 latents.orientation.unsqueeze(-1),
                 latents.position_x.unsqueeze(-1),
