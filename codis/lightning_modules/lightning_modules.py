@@ -29,7 +29,7 @@ class CodisModel(pl.LightningModule):
         self.freeze_backbone = freeze_backbone
         self.regressor = regressor
         self.gamma = gamma
-        self.r2_score = R2Score(num_outputs=7)
+        self.r2_score = R2Score(num_outputs=self.regressor.model.dims[-1])
 
     @property
     def task_id(self):
