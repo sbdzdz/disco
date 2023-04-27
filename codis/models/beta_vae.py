@@ -36,7 +36,7 @@ class BetaVAE(BaseVAE):
         self.beta = beta
 
         if num_channels is None:
-            num_channels = [32, 32, 64, 64, 128]
+            num_channels = [4, 4, 8, 8, 16]
         self.num_channels = num_channels
 
         self.encoder_output_size = img_size // 2 ** len(num_channels)
