@@ -50,28 +50,23 @@ class CodisModel(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         """Perform a training step."""
-        loss, _, _ = self._step(batch)
+        loss = self._step(batch)
         self.log_dict({f"{k}_train": v for k, v in loss.items()})
         self.log("task_id", float(self.task_id))
         return loss["loss"]
 
     def validation_step(self, batch, batch_idx):
         """Perform a validation step."""
-        return self._step_val_test(batch, "val")
+        loss = self._step(batch)
+        self.log_dict({f"{k}_val": v for k, v in loss.items()}, on_epoch=True)
+        self.log("r2_score_val", self.r2_score, on_epoch=True)
+        return loss["loss"]
 
     def test_step(self, batch, batch_idx):
         """Perform a test step."""
-        return self._step_val_test(batch, "test")
-
-    def _step_val_test(self, batch, suffix):
-        loss, y, y_hat = self._step(batch)
-        self.log_dict(
-            {f"{k}_{suffix}": v for k, v in loss.items()},
-            on_epoch=True,
-        )
-        self.r2_score(y, y_hat)
-        self.log(f"r2_score_{suffix}", self.r2_score, on_epoch=True)
-        self.log("task_id", float(self.task_id), on_epoch=True)
+        loss = self._step(batch)
+        self.log_dict({f"{k}_test_task_{self.task_id}": v for k, v in loss.items()}, on_epoch=True)
+        self.log(f"r2_score_test_task_{self.task_id}", self.r2_score, on_epoch=True)
         return loss["loss"]
 
     def _step(self, batch):
@@ -79,6 +74,7 @@ class CodisModel(pl.LightningModule):
         x, y = batch
         y = self._stack_latents(y)
         y_hat, x_hat, mu, log_var = self.forward(x)
+        self.r2_score(y, y_hat)
         regressor_loss = self.regressor.loss_function(y, y_hat)
         backbone_loss = self.backbone.loss_function(x, x_hat, mu, log_var)
         loss = {
@@ -92,7 +88,7 @@ class CodisModel(pl.LightningModule):
                 self.gamma * loss["regressor_loss"]
                 + (1 - self.gamma) * loss["backbone_loss"]
             )
-        return loss, y, y_hat
+        return loss
 
     def _stack_latents(self, latents):
         """Stack the latents."""
