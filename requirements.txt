@@ -1,10 +1,12 @@
 imageio
+lightning
 matplotlib
 numpy
+pillow
 pygame
 pytest
-pillow
 scipy
 torch
+torchmetrics
 tqdm
 wandb

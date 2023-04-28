@@ -137,10 +137,10 @@ def draw_shape(
     Returns:
         None
     """
-    dataset = InfiniteDSprites(image_size=512)
+    dataset = InfiniteDSprites(img_size=512)
     if latents is None:
         latents = dataset.sample_latents()
-    image = dataset.draw(latents)
+    image = dataset.draw(latents, channels_first=False)
     plt.imshow(image, aspect=1.0, cmap="gray")
     plt.axis("off")
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -186,14 +186,17 @@ def draw_shape_animated(
     Returns:
         None
     """
-    dataset = InfiniteDSprites(image_size=512)
+    dataset = InfiniteDSprites(img_size=512)
     shape = dataset.generate_shape()
     scales, orientations, positions_x, positions_y = generate_latent_progression(
         dataset
     )
     color = np.random.choice(dataset.ranges["color"])
     frames = [
-        dataset.draw(Latents(color, shape, scale, orientation, position_x, position_y))
+        dataset.draw(
+            Latents(color, shape, scale, orientation, position_x, position_y),
+            channels_first=False,
+        )
         for scale, orientation, position_x, position_y in zip(
             scales, orientations, positions_x, positions_y
         )
@@ -217,6 +220,7 @@ def draw_shapes_animated(
     nrows: int = 5,
     ncols: int = 11,
     fig_height: float = 10,
+    bg_color: str = "#FFFFFF",
 ):
     """Create an animated GIF showing a grid of shapes undergoing transformations.
     Args:
@@ -226,9 +230,20 @@ def draw_shapes_animated(
     Returns:
         None
     """
-    dataset = InfiniteDSprites(image_size=256)
+    dataset = InfiniteDSprites(
+        img_size=256,
+        color_range=[
+            "purple",
+            "maroon",
+            "darkblue",
+            "teal",
+            "peachpuff",
+            "white",
+            "darkgreen",
+        ],
+    )
     shapes = [dataset.generate_shape() for _ in range(nrows * ncols)]
-    colors = np.random.choice(dataset.ranges["color"], size=nrows * ncols)
+    colors = [dataset.sample_latents().color for _ in range(nrows * ncols)]
     scales, orientations, positions_x, positions_y = generate_latent_progression(
         dataset
     )
@@ -236,7 +251,8 @@ def draw_shapes_animated(
     frames = [
         [
             dataset.draw(
-                Latents(color, shape, scale, orientation, position_x, position_y)
+                Latents(color, shape, scale, orientation, position_x, position_y),
+                channels_first=False,
             )
             for shape, color in zip(shapes, colors)
         ]
@@ -254,6 +270,7 @@ def draw_shapes_animated(
                 figsize=(ncols / nrows * fig_height, fig_height),
                 layout="tight",
                 subplot_kw={"aspect": 1.0},
+                facecolor=bg_color,
             )
             buffer = io.BytesIO()
             for ax, image in zip(axes.flat, frame):
@@ -320,7 +337,7 @@ def draw_triplet(path: Path = repo_root / "img/triplet.png", fig_height: float =
     Returns:
         None
     """
-    dataset = InfiniteDSpritesTriplets(image_size=256)
+    dataset = InfiniteDSpritesTriplets(img_size=256)
     (images, action) = next(iter(dataset))
     _, axes = plt.subplots(
         nrows=1,
@@ -347,17 +364,18 @@ def draw_classification_task(
     Returns:
         None
     """
-    dataset = InfiniteDSprites(image_size=256)
+    dataset = InfiniteDSprites(img_size=256)
     latents_reference = dataset.sample_latents()
     latents_same = dataset.sample_latents()
     latents_different = dataset.sample_latents()
 
-    reference = dataset.draw(latents_reference)
+    reference = dataset.draw(latents_reference, channels_first=False)
     for latent in ["shape", "scale", "orientation", "position_x", "position_y"]:
         same = dataset.draw(
-            latents_same._replace(**{latent: latents_reference[latent]})
+            latents_same._replace(**{latent: latents_reference[latent]}),
+            channels_first=False,
         )
-        different = dataset.draw(latents_different)
+        different = dataset.draw(latents_different, channels_first=False)
         pairs = [(reference, same), (reference, different)]
         path.parent.mkdir(parents=True, exist_ok=True)
         for pair, label in zip(pairs, ["same", "different"]):
@@ -388,7 +406,7 @@ def draw_analogy_task(
     Returns:
         None
     """
-    dataset = InfiniteDSpritesAnalogies(image_size=512)
+    dataset = InfiniteDSpritesAnalogies(img_size=512)
     image = next(iter(dataset))
     _, axes = plt.subplots(
         nrows=1,
@@ -412,7 +430,7 @@ def draw_hard_analogy_task(
     Returns:
         None
     """
-    dataset = InfiniteDSprites(image_size=256)
+    dataset = InfiniteDSprites(img_size=256)
     latents_reference_source = dataset.sample_latents()
     latents_reference_target = dataset.sample_latents()._replace(
         shape=latents_reference_source.shape

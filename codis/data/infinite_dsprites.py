@@ -7,8 +7,9 @@ import numpy as np
 import numpy.typing as npt
 import pygame
 import pygame.gfxdraw
+from matplotlib import colors
 from scipy.interpolate import splev, splprep
-from torch.utils.data import IterableDataset
+from torch.utils.data import Dataset, IterableDataset
 
 BaseLatents = namedtuple(
     "BaseLatents", "color shape scale orientation position_x, position_y"
@@ -17,17 +18,6 @@ BaseLatents = namedtuple(
 
 class Latents(BaseLatents):
     """Latent variables defining a single image."""
-
-    def to(self, device):
-        """Move the latents to a device."""
-        return Latents(
-            self.color.to(device),
-            self.shape.to(device),
-            self.scale.to(device),
-            self.orientation.to(device),
-            self.position_x.to(device),
-            self.position_y.to(device),
-        )
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -39,39 +29,31 @@ class InfiniteDSprites(IterableDataset):
 
     def __init__(
         self,
-        image_size: int = 256,
-        min_verts: int = 3,
-        max_verts: int = 10,
-        radius_std: float = 0.6,
-        angle_std: float = 0.8,
+        img_size: int = 256,
         color_range=("white",),
         scale_range=np.linspace(0.5, 1, 6),
         orientation_range=np.linspace(0, 2 * np.pi, 40),
         position_x_range=np.linspace(0, 1, 32),
         position_y_range=np.linspace(0, 1, 32),
+        dataset_size: int = float("inf"),
+        shapes: list = None,
     ):
         """Create a dataset of images of random shapes.
         Args:
-            image_size: The size of the images in pixels.
+            img_size: The size of the images in pixels.
             scale_range: The range of scales to use.
             orientation_range: The range of orientations to use.
             position_x_range: The range of x positions to use.
             position_y_range: The range of y positions to use.
-            min_verts: The minimum number of vertices in the shape.
-            max_verts: The maximum number of vertices in the shape.
-            radius_std: The standard deviation of the radius of the vertices.
-            angle_std: The standard deviation of the angle of the vertices.
+            dataset_size: The number of images to generate.
+            shapes: The shapes to use. If None, generate random shapes.
         Returns:
             None
         """
         os.environ["SDL_VIDEODRIVER"] = "dummy"
         pygame.display.init()
-        self.image_size = image_size
-        self.min_verts = min_verts
-        self.max_verts = max_verts
-        self.radius_std = radius_std
-        self.angle_std = angle_std
-        self.window = pygame.display.set_mode((self.image_size, self.image_size))
+        self.img_size = img_size
+        self.window = pygame.display.set_mode((self.img_size, self.img_size))
         self.ranges = {
             "color": color_range,
             "scale": scale_range,
@@ -79,6 +61,11 @@ class InfiniteDSprites(IterableDataset):
             "position_x": position_x_range,
             "position_y": position_y_range,
         }
+        self.num_latents = len(self.ranges) + 1
+        self.dataset_size = dataset_size
+        self.counter = 0
+        self.current_shape_index = 0
+        self.shapes = shapes
 
     @classmethod
     def from_config(cls, config: dict):
@@ -98,18 +85,27 @@ class InfiniteDSprites(IterableDataset):
             None
         Returns:
             An infinite stream of (image, latents) tuples."""
-        while True:
-            shape = self.generate_shape()
+        while self.counter <= self.dataset_size:
+            if self.shapes is not None:
+                if self.current_shape_index == len(self.shapes):
+                    return
+                shape = self.shapes[self.current_shape_index]
+                self.current_shape_index += 1
+            else:
+                shape = self.generate_shape()
             for color, scale, orientation, position_x, position_y in product(
                 *self.ranges.values()
             ):
+                self.counter += 1
+                color = np.array(colors.to_rgb(color))
                 latents = Latents(
                     color, shape, scale, orientation, position_x, position_y
                 )
                 img = self.draw(latents)
                 yield img, latents
 
-    def generate_shape(self):
+    @classmethod
+    def generate_shape(cls):
         """Generate random vertices and connect them with straight lines or a smooth curve.
         Args:
             min_verts: Minimum number of vertices (inclusive).
@@ -120,17 +116,24 @@ class InfiniteDSprites(IterableDataset):
             A tuple of (points, spline), where points is an array of points of shape (2, num_verts)
             and spline is an array of shape (2, num_spline_points).
         """
-        verts = self.sample_vertex_positions()
+        verts = cls.sample_vertex_positions()
         shape = (
-            self.interpolate(verts)
+            cls.interpolate(verts)
             if np.random.rand() < 0.5
-            else self.interpolate(verts, k=1)
+            else cls.interpolate(verts, k=1)
         )
         shape = shape / np.max(np.linalg.norm(shape, axis=0))  # normalize scale
         shape = shape - np.mean(shape, axis=1, keepdims=True)  # center shape
         return shape
 
-    def sample_vertex_positions(self):
+    @classmethod
+    def sample_vertex_positions(
+        cls,
+        min_verts: int = 3,
+        max_verts: int = 7,
+        radius_std: float = 0.6,
+        angle_std: float = 0.8,
+    ):
         """Sample the positions of the vertices of a polygon.
         Args:
             radius_std: Standard deviation of the polar radius when sampling the vertices.
@@ -139,22 +142,22 @@ class InfiniteDSprites(IterableDataset):
         Returns:
             An array of shape (2, num_verts).
         """
-        num_verts = np.random.randint(self.min_verts, self.max_verts + 1)
-        rs = np.random.normal(1.0, self.radius_std, num_verts)
+        num_verts = np.random.randint(min_verts, max_verts + 1)
+        rs = np.random.normal(1.0, radius_std, num_verts)
         rs = np.clip(rs, 0.1, 1.9)
 
         epsilon = 1e-6
         circle_sector = np.pi / num_verts - epsilon
         intervals = np.linspace(0, 2 * np.pi, num_verts, endpoint=False)
-        thetas = np.random.normal(0.0, circle_sector * self.angle_std, num_verts)
+        thetas = np.random.normal(0.0, circle_sector * angle_std, num_verts)
         thetas = np.clip(thetas, -circle_sector, circle_sector) + intervals
 
         verts = [[r * np.cos(theta), r * np.sin(theta)] for r, theta in zip(rs, thetas)]
         verts = np.array(verts).T
         return verts
 
-    @staticmethod
-    def interpolate(verts: npt.NDArray, k: int = 3, num_spline_points: int = 1000):
+    @classmethod
+    def interpolate(cls, verts: npt.NDArray, k: int = 3, num_spline_points: int = 1000):
         """Interpolate a set of vertices with a spline.
         Args:
             verts: An array of shape (2, num_verts).
@@ -169,11 +172,12 @@ class InfiniteDSprites(IterableDataset):
         x, y = splev(u_new, spline_params, der=0)
         return np.array([x, y])
 
-    def draw(self, latents: Latents):
+    def draw(self, latents: Latents, channels_first=True):
         """Draw an image based on the values of the latents.
         Args:
             window: The pygame window to draw on.
             latents: The latents to use for drawing.
+            channels_first: Whether to return the image with the channel dimension first.
         Returns:
             The image as a numpy array.
         """
@@ -181,16 +185,17 @@ class InfiniteDSprites(IterableDataset):
         shape = self.apply_scale(latents.shape, latents.scale)
         shape = self.apply_orientation(shape, latents.orientation)
         shape = self.apply_position(shape, latents.position_x, latents.position_y)
-        pygame.gfxdraw.aapolygon(
-            self.window, shape.T.tolist(), pygame.Color(latents.color)
-        )
-        pygame.draw.polygon(self.window, pygame.Color(latents.color), shape.T.tolist())
+        color = tuple(int(255 * c) for c in latents.color)
+        pygame.gfxdraw.aapolygon(self.window, shape.T.tolist(), color)
+        pygame.draw.polygon(self.window, color, shape.T.tolist())
         pygame.display.update()
         image = pygame.surfarray.array3d(self.window)
         image = image.astype(np.float32) / 255.0
         if not self.is_rgb():
             image = image.mean(axis=2, keepdims=True)
-        return np.transpose(image, (2, 0, 1))
+        if channels_first:
+            image = np.transpose(image, (2, 0, 1))
+        return image
 
     def is_rgb(self):
         """Return whether the dataset is RGB or binary."""
@@ -239,7 +244,7 @@ class InfiniteDSprites(IterableDataset):
     def sample_latents(self):
         """Sample a random set of latents."""
         return Latents(
-            color=np.random.choice(self.ranges["color"]),
+            color=np.array(colors.to_rgb(np.random.choice(self.ranges["color"]))),
             shape=self.generate_shape(),
             scale=np.random.choice(self.ranges["scale"]),
             orientation=np.random.choice(self.ranges["orientation"]),
@@ -248,9 +253,33 @@ class InfiniteDSprites(IterableDataset):
         )
 
 
+class ContinualDSprites(Dataset):
+    """Map-style (finite) continual learning dsprites dataset."""
+
+    def __init__(self, *args, **kwargs):
+        self.dataset = InfiniteDSprites(*args, **kwargs)
+        assert (
+            self.dataset.dataset_size != float("inf") or self.dataset.shapes is not None
+        ), "Dataset size must be finite. Please set dataset_size or pass a list of shapes."
+        self.imgs, self.latents = zip(*list(self.dataset))
+        self.imgs = list(self.imgs)
+        self.latents = list(self.latents)
+
+    def __len__(self):
+        if self.dataset.dataset_size != float("inf"):
+            return self.dataset.dataset_size
+        return len(list(product(*self.dataset.ranges.values()))) * len(
+            self.dataset.shapes
+        )
+
+    def __getitem__(self, index):
+        return self.imgs[index], self.latents[index]
+
+
 class InfiniteDSpritesRandom(InfiniteDSprites):
-    """Infinite dataset of procedurally generated shapes undergoing transformations.
-    The latents are sampled randomly at every step.
+    """Infinite dataset of randomly transformed shapes.
+    The shape is sampled from a given list or generated procedurally.
+    The transformations are sampled randomly at every step.
     """
 
     def __init__(self, *args, **kwargs):
@@ -258,14 +287,18 @@ class InfiniteDSpritesRandom(InfiniteDSprites):
 
     def __iter__(self):
         """Generate an infinite stream of images.
-        Sample shapes and latents at random at every step.
         Args:
             None
         Yields:
             A tuple of (image, latents).
         """
-        while True:
-            latents = self.sample_latents()
+        while self.counter <= self.dataset_size:
+            self.counter += 1
+            if self.shapes is not None:
+                shape = self.shapes[np.random.choice(len(self.shapes))]
+            else:
+                shape = self.generate_shape()
+            latents = self.sample_latents()._replace(shape=shape)
             image = self.draw(latents)
             yield image, latents
 
@@ -285,7 +318,8 @@ class InfiniteDSpritesTriplets(InfiniteDSprites):
         Yields:
             A tuple of ((image_original, image_transform, image_target), action).
         """
-        while True:
+        while self.counter <= self.dataset_size:
+            self.counter += 1
             action = np.random.choice(list(self.ranges.keys()))
             latents_original = self.sample_latents()
             latents_transform = self.sample_latents()
@@ -308,41 +342,58 @@ class InfiniteDSpritesAnalogies(InfiniteDSprites):
 
     def __init__(self, *args, reference_shape=None, query_shape=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.window = pygame.display.set_mode(
-            (self.image_size // 2, self.image_size // 2)
-        )
+        self.window = pygame.display.set_mode((self.img_size // 2, self.img_size // 2))
         self.reference_shape = reference_shape
         self.query_shape = query_shape
 
     def __iter__(self):
         """Generate an infinite stream of images representing an analogy task.
-        Each output array represents a 2x2 grid of images. Top row: reference source, reference target.
-        Bottom row: query source, query target. The task is to infer a transformation between reference
-        source and reference target and apply it to query source to obtain query target. Reference source
-        and query source differ only in shape.
+        Each output array represents a 2x2 grid of images. Top row: reference
+        source, reference target. Bottom row: query source, query target. The task
+        is to infer a transformation between reference source and reference target
+        and apply it to query source to obtain query target. Reference source and
+        query source differ only in shape.
         Args:
             None
         Yields:
             An image grid as a single numpy array.
         """
-        while True:
+        while self.counter <= self.dataset_size:
+            self.counter += 1
             source_latents = self.sample_latents()
             target_latents = self.sample_latents()
+
+            reference_color = np.random.choice(self.ranges["color"])
             reference_shape = (
                 self.reference_shape
                 if self.reference_shape is not None
                 else self.generate_shape()
             )
+
+            query_color = np.random.choice(self.ranges["color"])
             query_shape = (
                 self.query_shape
                 if self.query_shape is not None
                 else self.generate_shape()
             )
+
             reference_source, reference_target, query_source, query_target = (
-                self.draw(source_latents._replace(shape=reference_shape)),
-                self.draw(target_latents._replace(shape=reference_shape)),
-                self.draw(source_latents._replace(shape=query_shape)),
-                self.draw(target_latents._replace(shape=query_shape)),
+                self.draw(
+                    source_latents._replace(
+                        shape=reference_shape, color=reference_color
+                    )
+                ),
+                self.draw(
+                    target_latents._replace(
+                        shape=reference_shape, color=reference_color
+                    )
+                ),
+                self.draw(
+                    source_latents._replace(shape=query_shape, color=query_color)
+                ),
+                self.draw(
+                    target_latents._replace(shape=query_shape, color=query_color)
+                ),
             )
             grid = np.concatenate(
                 [
@@ -353,8 +404,8 @@ class InfiniteDSpritesAnalogies(InfiniteDSprites):
             )
 
             # add horizontal and vertical borders
-            border_width = self.image_size // 128 or 1
-            mid = self.image_size // 2
+            border_width = self.img_size // 128 or 1
+            mid = self.img_size // 2
             grid[:, mid - border_width : mid + border_width, :] = 1.0
             grid[:, :, mid - border_width : mid + border_width] = 1.0
 

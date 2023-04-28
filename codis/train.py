@@ -1,100 +1,144 @@
 """Training script."""
 import argparse
-from collections import defaultdict
-from itertools import islice
 from pathlib import Path
 
-import torch
-from torch.utils.data import DataLoader, random_split
 import numpy as np
+import torch
+from lightning.pytorch import Trainer
+from lightning.pytorch.loggers import WandbLogger
+from torch.utils.data import DataLoader, random_split
 
 import wandb
-from codis.data import DSprites, InfiniteDSpritesRandom
-from codis.models import BetaVAE
-from codis.visualization import draw_batch_and_reconstructions
+from codis.data import ContinualDSprites, InfiniteDSprites
+from codis.lightning_modules import CodisModel, LightningBetaVAE, LightningMLP
+
+torch.set_float32_matmul_precision("medium")
 
 
 def train(args):
-    """Train the model."""
-    wandb.init(project="codis", group=args.wandb_group, dir=args.wandb_dir, config=args)
-    config = wandb.config
+    """Train the model in a continual learning setting."""
     print(f"Cuda available {torch.cuda.is_available()}")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    train_set, val_set = random_split(
-        DSprites(config.dsprites_path).to(device),
-        [0.8, 0.2],
-        generator=torch.Generator().manual_seed(42),
+    backbone = LightningBetaVAE(
+        img_size=args.img_size, latent_dim=args.latent_dim, beta=args.beta
     )
-    test_set = InfiniteDSpritesRandom(
-        image_size=64,
-        radius_std=0.8,
-        scale_range=np.linspace(0.5, 1.5, 10),
-    )
+    regressor = LightningMLP(
+        dims=[args.latent_dim, 64, 64, 4]
+    )  # 4 is the number of stacked latent values
+    model = CodisModel(backbone, regressor, gamma=args.gamma)
+    train_loaders, val_loaders, test_loaders = configure_ci_loaders(args)
+    trainer = configure_trainer(args)
+    if args.watch_gradients:
+        trainer.logger.watch(model)
 
-    train_loader = DataLoader(train_set, batch_size=config.batch_size, shuffle=True)
-    first_batch, _ = next(iter(train_loader))
-    model = BetaVAE(beta=config.beta, latent_dim=config.latent_dim).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
-
-    # train on dsprites
-    running_loss = defaultdict(list)
-    for _ in range(config.epochs):
-        for i, (batch, _) in enumerate(train_loader):
-            optimizer.zero_grad()
-            x_hat, mu, log_var = model(batch)  # pylint: disable=not-callable
-            loss = model.loss_function(batch, x_hat, mu, log_var)
-            loss["loss"].backward()
-            optimizer.step()
-            for k, v in loss.items():
-                running_loss[k].append(v.item())
-            if i > 0 and i % config.log_every == 0:
-                with torch.no_grad():
-                    x_hat, *_ = model(first_batch)  # pylint: disable=not-callable
-                log_metrics(running_loss, first_batch, x_hat, suffix="_train")
-                for k in running_loss:
-                    running_loss[k] = []
-                evaluate(model, val_set, device, config, suffix="_val")
-
-    evaluate(model, test_set, device, config, suffix="_test")
+    for task_id, (train_loader, val_loader) in enumerate(
+        zip(train_loaders, val_loaders)
+    ):
+        print(f"Starting task {task_id}...")
+        model.task_id = task_id
+        trainer.fit(model, train_loader, val_loader)
+        trainer.fit_loop.max_epochs += args.max_epochs
+        for test_task_id, test_loader in enumerate(test_loaders):
+            model.task_id = test_task_id
+            trainer.test(model, test_loader)
     wandb.finish()
 
 
-def evaluate(model, dataset, device, config, suffix=""):
-    """Evaluate the model on the validation set."""
-    model.eval()
-    dataloader = DataLoader(dataset, batch_size=config.batch_size)
-    first_batch, _ = next(iter(dataloader))
-    running_loss = defaultdict(list)
-    first_batch = first_batch.to(device)
-
-    with torch.no_grad():
-        for batch, _ in islice(dataloader, config.eval_on):
-            batch = batch.to(device)
-            x_hat, mu, log_var = model(batch)
-            loss = model.loss_function(batch, x_hat, mu, log_var)
-            for k, v in loss.items():
-                running_loss[k].append(v.item())
-        x_hat, *_ = model(first_batch)
-        log_metrics(running_loss, first_batch, x_hat, suffix=suffix)
-    model.train()
-
-
-def log_metrics(loss, x, x_hat, suffix=""):
-    """Log the loss and the reconstructions."""
-    wandb.log(
-        {
-            f"reconstruction{suffix}": wandb.Image(
-                draw_batch_and_reconstructions(
-                    x.detach().cpu().numpy(), x_hat.detach().cpu().numpy()
-                )
-            ),
-            **{
-                f"{name}{suffix}": sum(value) / len(value)
-                for name, value in loss.items()
-            },
-        }
+def train_vae(args):
+    """Train the VAE on dSprites or idSprites."""
+    print(f"Cuda available {torch.cuda.is_available()}")
+    vae = LightningBetaVAE(
+        img_size=args.img_size,
+        latent_dim=args.latent_dim,
+        beta=args.beta,
+        lr=args.lr,
     )
+    trainer = configure_trainer(args)
+    train_loader, val_loader, test_loader = get_idsprites_loaders(args)
+    trainer.fit(vae, train_loader, val_loader)
+    trainer.test(vae, test_loader)
+
+
+def configure_trainer(args):
+    """Configure the model trainer."""
+    wandb_logger = WandbLogger(
+        project="codis", save_dir=args.wandb_dir, group=args.wandb_group
+    )
+    wandb_logger.experiment.config.update(args)
+    return Trainer(
+        accelerator="auto",
+        default_root_dir=args.wandb_dir,
+        devices=1,
+        enable_checkpointing=False,
+        enable_progress_bar=False,
+        log_every_n_steps=args.log_every_n_steps,
+        logger=wandb_logger,
+        max_epochs=args.max_epochs,
+    )
+
+
+def configure_ci_loaders(args):
+    """Configure data loaders for a class-incremental continual learning scenario."""
+    scale_range = np.linspace(0.5, 1.5, 16)
+    orientation_range = np.linspace(0, 2 * np.pi, 16)
+    position_x_range = np.linspace(0, 1, 16)
+    position_y_range = np.linspace(0, 1, 16)
+
+    shapes = [InfiniteDSprites.generate_shape() for _ in range(args.tasks)]
+    datasets = [
+        ContinualDSprites(
+            img_size=args.img_size,
+            shapes=[shape],
+            scale_range=scale_range,
+            orientation_range=orientation_range,
+            position_x_range=position_x_range,
+            position_y_range=position_y_range,
+        )
+        for shape in shapes
+    ]
+    train_datasets, test_datasets = zip(
+        *[random_split(d, [0.8, 0.2]) for d in datasets]
+    )
+    val_datasets, test_datasets = zip(
+        *[random_split(d, [0.5, 0.5]) for d in test_datasets]
+    )
+    train_loaders = [
+        DataLoader(d, batch_size=args.batch_size, num_workers=args.num_workers)
+        for d in train_datasets
+    ]
+    val_loaders = [
+        DataLoader(d, batch_size=args.batch_size, num_workers=args.num_workers)
+        for d in val_datasets
+    ]
+    test_loaders = [
+        DataLoader(d, batch_size=args.batch_size, num_workers=args.num_workers)
+        for d in test_datasets
+    ]
+
+    return train_loaders, val_loaders, test_loaders
+
+
+def get_idsprites_loaders(args):
+    """Get the data loaders for idSprites."""
+    train_set = ContinualDSprites(args.img_size)
+    val_set = ContinualDSprites(args.img_size)
+    test_set = ContinualDSprites(args.img_size)
+
+    train_loader = torch.utils.data.DataLoader(
+        train_set,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+    )
+    val_loader = torch.utils.data.DataLoader(
+        val_set,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+    )
+    test_loader = torch.utils.data.DataLoader(
+        test_set,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+    )
+    return train_loader, val_loader, test_loader
 
 
 def _main():
@@ -106,21 +150,38 @@ def _main():
         default=repo_root / "codis/data/dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz",
     )
     parser.add_argument(
-        "--log_every",
+        "--log_every_n_steps",
         type=int,
-        default=10,
-        help="How often to log training progress. The logs will be averaged over this number of batches.",
+        default=50,
+        help="How often to log training progress. The metrics will be averaged.",
     )
     parser.add_argument(
-        "--epochs", type=int, default=5, help="Number of training epochs."
+        "--tasks", type=int, default=5, help="Number of continual learning tasks."
     )
-    parser.add_argument("--batch_size", type=int, default=64, help="Batch size.")
-    parser.add_argument("--beta", type=float, default=1.0, help="Beta parameter.")
     parser.add_argument(
-        "--eval_on", type=int, default=100, help="Number of batches to evaluate on."
+        "--max_epochs",
+        type=int,
+        default=1000,
+        help="Maximum number of epochs to train for.",
+    )
+    parser.add_argument("--batch_size", type=int, default=128, help="Batch size.")
+    parser.add_argument(
+        "--num_workers", type=int, default=4, help="Number of dataloader workers."
+    )
+    parser.add_argument(
+        "--img_size", type=int, default=128, help="Size of the images in the dataset."
     )
     parser.add_argument(
         "--latent_dim", type=int, default=10, help="Dimensionality of the latent space."
+    )
+    parser.add_argument(
+        "--beta", type=float, default=1.0, help="Beta parameter for the beta-VAE."
+    )
+    parser.add_argument(
+        "--gamma",
+        type=float,
+        default=0.5,
+        help="Relative weight of the backbone and regressor loss. 0 is only backbone loss, 1 is only regressor loss.",
     )
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
     parser.add_argument(
@@ -135,8 +196,19 @@ def _main():
         default=None,
         help="Wandb group name. If not specified, a new group will be created.",
     )
+    parser.add_argument(
+        "--experiment", type=str, choices=["codis", "vae"], default="codis"
+    )
+    parser.add_argument(
+        "--watch_gradients",
+        help="Whether to log gradients in wandb.",
+        action="store_true",
+    )
     args = parser.parse_args()
-    train(args)
+    if args.experiment == "codis":
+        train(args)
+    elif args.experiment == "vae":
+        train_vae(args)
 
 
 if __name__ == "__main__":
