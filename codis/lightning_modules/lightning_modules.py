@@ -65,7 +65,9 @@ class CodisModel(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         """Perform a test step."""
         loss = self._step(batch)
-        self.log_dict({f"{k}_test_task_{self.task_id}": v for k, v in loss.items()}, on_epoch=True)
+        self.log_dict(
+            {f"{k}_test_task_{self.task_id}": v for k, v in loss.items()}, on_epoch=True
+        )
         self.log(f"r2_score_test_task_{self.task_id}", self.r2_score, on_epoch=True)
         return loss["loss"]
 
