@@ -6,6 +6,7 @@ pillow
 pygame
 pytest
 scipy
+scikit-learn
 torch
 torchmetrics
 tqdm
