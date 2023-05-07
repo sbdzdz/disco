@@ -1,6 +1,7 @@
 """Disentanglement, Completeness and Informativeness score from Eastwood et al., 2018."""
 from collections import namedtuple
 
+import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 
 DCIScore = namedtuple(
@@ -32,7 +33,11 @@ class DCIMetric:
 
     def _get_regression_coefficients(self, latents, factors):
         """Compute regression coefficients of predicting factors from latents."""
-        raise NotImplementedError
+        coefficients = [
+            self.regressor.fit(latents, factors[:, i]).coef_
+            for i in range(self.n_factors)
+        ]
+        return np.stack(coefficients).T
 
     def _compute_disentanglement(self, coefficients):
         raise NotImplementedError
