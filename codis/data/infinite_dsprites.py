@@ -332,9 +332,8 @@ class InfiniteDSpritesTriplets(InfiniteDSprites):
             action = np.random.choice(list(self.ranges.keys()))
             latents_original = self.sample_latents()
             latents_transform = self.sample_latents()
-            if (
-                action != "shape"
-                and latents_original[action] == latents_transform[action]
+            if action != "shape" and np.allclose(
+                latents_original[action], latents_transform[action]
             ):
                 continue
             self.counter += 1
