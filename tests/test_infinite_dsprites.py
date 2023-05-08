@@ -39,3 +39,29 @@ def test_instantiation_from_config(dataset_class):
     assert np.allclose(dataset.ranges["orientation"], np.linspace(0.0, 2 * np.pi, 10))
     assert np.allclose(dataset.ranges["position_x"], np.linspace(0.1, 0.9, 3))
     assert np.allclose(dataset.ranges["position_y"], np.linspace(0.1, 0.9, 3))
+
+
+@pytest.mark.parametrize(
+    "color_range,shape",
+    [(["white"], (1, 256, 256)), (["red"], (3, 256, 256))],
+)
+def test_idsprites_iteration(color_range, shape):
+    """Test that the dataset can be iterated over."""
+    dataset = InfiniteDSprites(color_range=color_range)
+    images, _ = next(iter(dataset))
+    assert images.shape == shape
+    assert images.min() >= 0.0
+    assert images.max() <= 1.0
+
+
+@pytest.mark.parametrize(
+    "color_range,shape",
+    [(["white"], (1, 256, 256)), (["red"], (3, 256, 256))],
+)
+def test_idsprites_analogies_iteration(color_range, shape):
+    """Test that the dataset can be iterated over."""
+    dataset = InfiniteDSpritesAnalogies(color_range=color_range)
+    images = next(iter(dataset))
+    assert images.shape == shape
+    assert images.min() >= 0.0
+    assert images.max() <= 1.0

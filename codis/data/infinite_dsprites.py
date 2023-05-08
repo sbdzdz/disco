@@ -363,14 +363,14 @@ class InfiniteDSpritesAnalogies(InfiniteDSprites):
             source_latents = self.sample_latents()
             target_latents = self.sample_latents()
 
-            reference_color = np.random.choice(self.ranges["color"])
+            reference_color = colors.to_rgb(np.random.choice(self.ranges["color"]))
             reference_shape = (
                 self.reference_shape
                 if self.reference_shape is not None
                 else self.generate_shape()
             )
 
-            query_color = np.random.choice(self.ranges["color"])
+            query_color = colors.to_rgb(np.random.choice(self.ranges["color"]))
             query_shape = (
                 self.query_shape
                 if self.query_shape is not None
