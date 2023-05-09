@@ -2,10 +2,17 @@
 import pytest
 import numpy as np
 
-from codis.data import InfiniteDSprites, InfiniteDSpritesAnalogies
+from codis.data import (
+    InfiniteDSprites,
+    InfiniteDSpritesAnalogies,
+    InfiniteDSpritesTriplets,
+)
 
 
-@pytest.mark.parametrize("dataset_class", [InfiniteDSprites, InfiniteDSpritesAnalogies])
+@pytest.mark.parametrize(
+    "dataset_class",
+    [InfiniteDSprites, InfiniteDSpritesAnalogies, InfiniteDSpritesTriplets],
+)
 def test_idsprites_instantiation_with_no_parameters(dataset_class):
     """Test that the dataset can be instantiated with no parameters."""
     dataset = dataset_class()
@@ -17,7 +24,10 @@ def test_idsprites_instantiation_with_no_parameters(dataset_class):
     assert np.allclose(dataset.ranges["position_y"], np.linspace(0.0, 1.0, 32))
 
 
-@pytest.mark.parametrize("dataset_class", [InfiniteDSprites, InfiniteDSpritesAnalogies])
+@pytest.mark.parametrize(
+    "dataset_class",
+    [InfiniteDSprites, InfiniteDSpritesAnalogies, InfiniteDSpritesTriplets],
+)
 def test_instantiation_from_config(dataset_class):
     """Test that the dataset can be instantiated from a config."""
     config = {
@@ -42,26 +52,68 @@ def test_instantiation_from_config(dataset_class):
 
 
 @pytest.mark.parametrize(
-    "color_range,shape",
-    [(["white"], (1, 256, 256)), (["red"], (3, 256, 256))],
+    "img_size,color_range,expected_shape",
+    [(244, ["white"], (1, 244, 244)), (256, ["red"], (3, 256, 256))],
 )
-def test_idsprites_iteration(color_range, shape):
-    """Test that the dataset can be iterated over."""
-    dataset = InfiniteDSprites(color_range=color_range)
-    images, _ = next(iter(dataset))
-    assert images.shape == shape
-    assert images.min() >= 0.0
-    assert images.max() <= 1.0
+def test_idsprites_image(img_size, color_range, expected_shape):
+    """Test that the dataset can be iterated over and the image has the expected dimmensions."""
+    dataset = InfiniteDSprites(img_size=img_size, color_range=color_range)
+    image, _ = next(iter(dataset))
+    assert image.shape == expected_shape
+    assert image.min() >= 0.0
+    assert image.max() <= 1.0
 
 
 @pytest.mark.parametrize(
-    "color_range,shape",
-    [(["white"], (1, 256, 256)), (["red"], (3, 256, 256))],
+    "img_size,color_range,expected_shape",
+    [(244, ["white"], (1, 244, 244)), (256, ["red"], (3, 256, 256))],
 )
-def test_idsprites_analogies_iteration(color_range, shape):
+def test_idsprites_triplets_image(img_size, color_range, expected_shape):
     """Test that the dataset can be iterated over."""
-    dataset = InfiniteDSpritesAnalogies(color_range=color_range)
-    images = next(iter(dataset))
-    assert images.shape == shape
-    assert images.min() >= 0.0
-    assert images.max() <= 1.0
+    dataset = InfiniteDSpritesTriplets(img_size=img_size, color_range=color_range)
+    images, _ = next(iter(dataset))
+    for image in images:
+        assert image.shape == expected_shape
+        assert image.min() >= 0.0
+        assert image.max() <= 1.0
+
+
+@pytest.mark.parametrize(
+    "img_size,color_range,expected_shape",
+    [(244, ["white"], (1, 244, 244)), (256, ["red"], (3, 256, 256))],
+)
+def test_idsprites_analogies_image(img_size, color_range, expected_shape):
+    """Test that the dataset can be iterated over."""
+    dataset = InfiniteDSpritesAnalogies(img_size=img_size, color_range=color_range)
+    image = next(iter(dataset))
+    assert image.shape == expected_shape
+    assert image.min() >= 0.0
+    assert image.max() <= 1.0
+
+
+@pytest.mark.parametrize(
+    "dataset_class",
+    [InfiniteDSprites, InfiniteDSpritesAnalogies, InfiniteDSpritesTriplets],
+)
+@pytest.mark.parametrize("size", [-1, 0, 1, 5])
+def test_dataset_size(dataset_class, size):
+    """Test that setting the dataset size works."""
+    dataset = dataset_class(dataset_size=size)
+    data = list(dataset)
+    assert len(data) == max(0, size)
+
+
+@pytest.mark.parametrize("shapes", [-1, 0, 1, 5])
+def test_dataset_size(shapes):
+    """Test that setting the maximum number of shapes works."""
+    dataset = InfiniteDSprites(
+        scale_range=[0.5, 1.0],
+        orientation_range=[0.0, 1.0],
+        position_x_range=[0.0, 1.0],
+        position_y_range=[0.0, 1.0],
+        shapes=shapes,
+    )
+    data = list(dataset)
+    assert len(data) == max(0, shapes) * np.prod(
+        [len(r) for r in dataset.ranges.values()]
+    )
