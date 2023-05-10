@@ -22,7 +22,7 @@ from codis.data import (
 repo_root = Path(__file__).parent.parent.parent
 
 
-def draw_batch_grid(
+def draw_batch(
     images,
     path: Path = repo_root / "img/batch_grid.png",
     fig_height: float = 10,

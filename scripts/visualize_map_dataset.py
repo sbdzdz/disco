@@ -3,7 +3,7 @@ import torch
 import numpy as np
 
 from codis.data import ContinualDSprites, InfiniteDSprites
-from codis.visualization import draw_batch_grid
+from codis.visualization import draw_batch
 
 
 def main():
@@ -21,7 +21,7 @@ def main():
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=16, shuffle=False)
     for imgs, _ in dataloader:
         print(f"Batch shape: {imgs.shape}")
-        draw_batch_grid(imgs)
+        draw_batch(imgs)
 
 
 if __name__ == "__main__":
