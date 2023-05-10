@@ -30,16 +30,27 @@ class CodisModel(pl.LightningModule):
         self.regressor = regressor
         self.gamma = gamma
         self.r2_score = R2Score(num_outputs=self.regressor.model.dims[-1])
+        self.factors_to_regress = ["scale", "orientation", "position_x", "position_y"]
 
     @property
-    def task_id(self):
-        """Get the current task id."""
-        return self._task_id
+    def train_task_id(self):
+        """Get the current train task id."""
+        return self._train_task_id
 
-    @task_id.setter
-    def task_id(self, value):
-        """Set the current task id."""
-        self._task_id = value
+    @train_task_id.setter
+    def train_task_id(self, value):
+        """Set the current train task id."""
+        self._train_task_id = value
+
+    @property
+    def test_task_id(self):
+        """Get the current test task id."""
+        return self._test_task_id
+
+    @test_task_id.setter
+    def test_task_id(self, value):
+        """Set the current test task id."""
+        self._test_task_id = value
 
     def forward(self, x):
         """Perform the forward pass."""
@@ -50,33 +61,37 @@ class CodisModel(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         """Perform a training step."""
-        loss = self._step(batch)
+        loss, _ = self._step(batch)
         self.log_dict({f"{k}_train": v for k, v in loss.items()})
         self.log("task_id", float(self.task_id))
         return loss["loss"]
 
     def validation_step(self, batch, batch_idx):
         """Perform a validation step."""
-        loss = self._step(batch)
+        loss, metrics = self._step(batch)
         self.log_dict({f"{k}_val": v for k, v in loss.items()}, on_epoch=True)
-        self.log("r2_score_val", self.r2_score, on_epoch=True)
+        self.log("r2_score_val", metrics["r2_score"], on_epoch=True)
         return loss["loss"]
 
     def test_step(self, batch, batch_idx):
         """Perform a test step."""
-        loss = self._step(batch)
+        loss, metrics = self._step(batch)
         self.log_dict(
-            {f"{k}_test_task_{self.task_id}": v for k, v in loss.items()}, on_epoch=True
+            {f"{k}_test_task_{self.test_task_id}": v for k, v in loss.items()},
+            on_epoch=True,
         )
-        self.log(f"r2_score_test_task_{self.task_id}", self.r2_score, on_epoch=True)
+        self.log_dict(
+            {f"{k}_test_task_{self.test_task_id}": v for k, v in metrics.items()},
+            on_epoch=True,
+        )
         return loss["loss"]
 
     def _step(self, batch):
         """Perform a training or validation step."""
         x, y = batch
-        y = self._stack_latents(y)
+        y = self._stack_factors(y)
         y_hat, x_hat, mu, log_var = self.forward(x)
-        self.r2_score(y, y_hat)
+        metrics = self._calculate_metrics(y, y_hat)
         regressor_loss = self.regressor.loss_function(y, y_hat)
         backbone_loss = self.backbone.loss_function(x, x_hat, mu, log_var)
         loss = {
@@ -90,19 +105,34 @@ class CodisModel(pl.LightningModule):
                 self.gamma * loss["regressor_loss"]
                 + (1 - self.gamma) * loss["backbone_loss"]
             )
-        return loss
+        return loss, metrics
 
-    def _stack_latents(self, latents):
-        """Stack the latents."""
+    def _calculate_metrics(self, y, y_hat):
+        unstacked_y = self._unstack_factors(y)
+        unstacked_y_hat = self._unstack_factors(y_hat)
+        return {
+            "r2_score": self.r2_score(y_hat, y),
+            **{
+                f"r2_score_{name}": self.r2_score(
+                    unstacked_y[name], unstacked_y_hat[name]
+                )
+                for name in self.factors_to_regress
+            },
+        }
+
+    def _stack_factors(self, factors):
+        """Stack the factors."""
         return torch.cat(
-            [
-                latents.scale.unsqueeze(-1),
-                latents.orientation.unsqueeze(-1),
-                latents.position_x.unsqueeze(-1),
-                latents.position_y.unsqueeze(-1),
-            ],
+            [getattr(factors, name).unsqueeze(-1) for name in self.factors_to_regress],
             dim=-1,
         ).float()
+
+    def _unstack_factors(self, stacked_factors):
+        """Unstack the factors."""
+        return {
+            name: stacked_factors[:, i]
+            for i, name in enumerate(self.factors_to_regress)
+        }
 
     def configure_optimizers(self):
         """Configure the optimizers."""

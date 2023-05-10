@@ -17,7 +17,6 @@ torch.set_float32_matmul_precision("medium")
 
 def train(args):
     """Train the model in a continual learning setting."""
-    print(f"Cuda available {torch.cuda.is_available()}")
     backbone = LightningBetaVAE(
         img_size=args.img_size, latent_dim=args.latent_dim, beta=args.beta
     )
@@ -30,16 +29,17 @@ def train(args):
     if args.watch_gradients:
         trainer.logger.watch(model)
 
-    for task_id, (train_loader, val_loader) in enumerate(
+    for train_task_id, (train_loader, val_loader) in enumerate(
         zip(train_loaders, val_loaders)
     ):
-        print(f"Starting task {task_id}...")
-        model.task_id = task_id
+        print(f"Starting task {train_task_id}...")
+        model.train_task_id = train_task_id
         trainer.fit(model, train_loader, val_loader)
         trainer.fit_loop.max_epochs += args.max_epochs
         for test_task_id, test_loader in enumerate(test_loaders):
-            model.task_id = test_task_id
-            trainer.test(model, test_loader)
+            if test_task_id <= train_task_id:
+                model.test_task_id = test_task_id
+                trainer.test(model, test_loader)
     wandb.finish()
 
 
