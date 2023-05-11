@@ -1,10 +1,9 @@
 """Visualization utilities for the dSprites and InfiniteDSprites datasets.
 Example usage:
-    python -c "from codis.data.visualization import draw_shape; draw_shape()"
+    python -c "from codis.data.visualization import draw_shapes; draw_shapes()"
 """
 import io
 from pathlib import Path
-from typing import Optional
 
 import imageio.v2 as imageio
 import numpy as np
@@ -19,6 +18,7 @@ from codis.data import (
     Latents,
 )
 
+np.random.seed(0)
 repo_root = Path(__file__).parent.parent.parent
 
 
@@ -45,6 +45,8 @@ def draw_batch(
     _, axes = plt.subplots(
         ncols, nrows, figsize=(ncols / nrows * fig_height, fig_height)
     )
+    if not isinstance(axes, np.ndarray):
+        axes = np.array([axes])
 
     for ax, img in zip(axes.flat, images[:num_images]):
         ax.imshow(img, cmap="Greys_r", interpolation="nearest")
@@ -86,6 +88,9 @@ def draw_batch_and_reconstructions(
         figsize=(2 * ncols / nrows * fig_height, fig_height),
     )
     fig.tight_layout()
+    if not isinstance(axes, np.ndarray):
+        axes = np.array([axes])
+
     for ax, img, img_hat in zip(axes.flat, x[:num_images], x_hat[:num_images]):
         concatenated = np.concatenate([img, img_hat], axis=1)
         border_width = concatenated.shape[1] // 128 or 1
@@ -127,37 +132,22 @@ def draw_batch_density(
     plt.close()
 
 
-def draw_shape(
-    path: Path = repo_root / "img/shape.png", latents: Optional[Latents] = None
-):
-    """Draw a single shape from given or randomly sampled latents and save it to disk.
-    Args:
-        path: The path to save the image to.
-        latents: The latents to apply to the shape.
-    Returns:
-        None
-    """
-    dataset = InfiniteDSprites(img_size=512)
-    if latents is None:
-        latents = dataset.sample_latents()
-    image = dataset.draw(latents, channels_first=False)
-    plt.imshow(image, aspect=1.0, cmap="gray")
-    plt.axis("off")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    plt.savefig(path, bbox_inches="tight", pad_inches=0)
-
-
 def draw_shapes(
     path: Path = repo_root / "img/shapes.png",
     nrows: int = 5,
     ncols: int = 12,
     fig_height: float = 10,
+    img_size: int = 128,
+    bg_color: str = "black",
 ):
     """Plot an n x n grid of random shapes.
     Args:
+        path: The path to save the image to.
         nrows: The number of rows in the grid.
         ncols: The number of columns in the grid.
         fig_height: The height of the figure in inches.
+        img_size: The size of the image in pixels.
+        bg_color: The color of the background plot area.
     Returns:
         None
     """
@@ -167,8 +157,11 @@ def draw_shapes(
         figsize=(ncols / nrows * fig_height, fig_height),
         layout="tight",
         subplot_kw={"aspect": 1.0},
+        facecolor=bg_color,
     )
-    dataset = InfiniteDSprites()
+    dataset = InfiniteDSprites(img_size=img_size)
+    if not isinstance(axes, np.ndarray):
+        axes = np.array([axes])
     for ax in axes.flat:
         spline = dataset.generate_shape()
         ax.axis("off")
@@ -177,61 +170,34 @@ def draw_shapes(
     plt.savefig(path)
 
 
-def draw_shape_animated(
-    path: Path = repo_root / "img/shape.gif", fig_height: float = 10
-):
-    """Create an animated GIF showing a shape undergoing transformations.
-    Args:
-        fig_height: The height of the figure in inches.
-    Returns:
-        None
-    """
-    dataset = InfiniteDSprites(img_size=512)
-    shape = dataset.generate_shape()
-    scales, orientations, positions_x, positions_y = generate_latent_progression(
-        dataset
-    )
-    color = np.random.choice(dataset.ranges["color"])
-    frames = [
-        dataset.draw(
-            Latents(color, shape, scale, orientation, position_x, position_y),
-            channels_first=False,
-        )
-        for scale, orientation, position_x, position_y in zip(
-            scales, orientations, positions_x, positions_y
-        )
-    ]
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with imageio.get_writer(path, mode="I") as writer:
-        for frame in tqdm(frames):
-            _, ax = plt.subplots(figsize=(fig_height, fig_height))
-            ax.axis("off")
-            ax.imshow(frame)
-            buffer = io.BytesIO()
-            plt.savefig(buffer, format="png", bbox_inches="tight", pad_inches=0)
-            plt.close()
-            image = imageio.imread(buffer)
-            writer.append_data(image)  # type: ignore
-
-
 def draw_shapes_animated(
     path: Path = repo_root / "img/shapes.gif",
     nrows: int = 5,
     ncols: int = 11,
     fig_height: float = 10,
-    bg_color: str = "#FFFFFF",
+    img_size: int = 256,
+    bg_color: str = "black",
+    duration: int = 3,
+    fps: int = 60,
+    factor=None,
 ):
     """Create an animated GIF showing a grid of shapes undergoing transformations.
     Args:
+        path: The path to save the image to.
         nrows: The number of rows in the grid.
         ncols: The number of columns in the grid.
         fig_height: The height of the figure in inches.
+        img_size: The size of the image in pixels.
+        bg_color: The color of the background plot area.
+        duration: The duration of the animation in seconds.
+        fps: The number of frames per second.
+        factor: The factor to vary. If None, all factors are varied.
     Returns:
         None
     """
+    num_frames = fps * duration
     dataset = InfiniteDSprites(
-        img_size=256,
+        img_size=img_size,
         color_range=[
             "purple",
             "maroon",
@@ -241,12 +207,18 @@ def draw_shapes_animated(
             "white",
             "darkgreen",
         ],
+        scale_range=np.linspace(0.0, 1.0, num_frames),
+        orientation_range=np.linspace(0.0, 2 * np.pi, num_frames),
+        position_x_range=np.linspace(0.0, 1.0, num_frames),
+        position_y_range=np.linspace(0.0, 1.0, num_frames),
     )
     shapes = [dataset.generate_shape() for _ in range(nrows * ncols)]
     colors = [dataset.sample_latents().color for _ in range(nrows * ncols)]
-    scales, orientations, positions_x, positions_y = generate_latent_progression(
-        dataset
-    )
+    if factor is None:
+        factors = generate_multiple_factor_progression(dataset)
+    else:
+        path = path.with_stem(f"{path.stem}_{factor}")
+        factors = generate_single_factor_progression(dataset, factor)
 
     frames = [
         [
@@ -256,13 +228,11 @@ def draw_shapes_animated(
             )
             for shape, color in zip(shapes, colors)
         ]
-        for scale, orientation, position_x, position_y in zip(
-            scales, orientations, positions_x, positions_y
-        )
+        for scale, orientation, position_x, position_y in zip(*factors)
     ]
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    with imageio.get_writer(path, mode="I") as writer:
+    with imageio.get_writer(path, mode="I", fps=fps) as writer:
         for frame in tqdm(frames):
             _, axes = plt.subplots(
                 nrows,
@@ -273,6 +243,9 @@ def draw_shapes_animated(
                 facecolor=bg_color,
             )
             buffer = io.BytesIO()
+            if not isinstance(axes, np.ndarray):
+                axes = np.array([axes])
+
             for ax, image in zip(axes.flat, frame):
                 ax.axis("off")
                 ax.imshow(image)
@@ -282,15 +255,15 @@ def draw_shapes_animated(
             writer.append_data(image)  # type: ignore
 
 
-def generate_latent_progression(dataset):
-    """Generate a sequence of latents that can be used to animate a shape.
+def generate_multiple_factor_progression(dataset):
+    """Generate a sequence of factors that can be used to animate a shape.
     Args:
         scale_range: The range of scales to use.
         orientation_range: The range of orientations to use.
         position_x_range: The range of x positions to use.
         position_y_range: The range of y positions to use.
     Returns:
-        A tuple of latent value sequences representing a smooth animation.
+        A tuple of factor value sequences representing a smooth animation.
     """
     scale_range, orientation_range, position_x_range, position_y_range = (
         dataset.ranges["scale"],
@@ -327,6 +300,25 @@ def generate_latent_progression(dataset):
     positions_y[start : start + len(position_y_range)] = position_y_range
     positions_y[start + len(position_y_range) :] = position_y_range[-1]
     return scales, orientations, positions_x, positions_y
+
+
+def generate_single_factor_progression(dataset, factor):
+    """Generate a smooth progression of a single factor."""
+    length = 2 * len(dataset.ranges[factor])
+    factors = {
+        "scale": np.ones(length) * 0.5,
+        "orientation": np.ones(length) * 0.0,
+        "position_x": np.ones(length) * 0.5,
+        "position_y": np.ones(length) * 0.5,
+    }
+    factors[factor][: length // 2] = dataset.ranges[factor]
+    factors[factor][length // 2 :] = dataset.ranges[factor][::-1]
+    return (
+        factors["scale"],
+        factors["orientation"],
+        factors["position_x"],
+        factors["position_y"],
+    )
 
 
 def draw_triplet(path: Path = repo_root / "img/triplet.png", fig_height: float = 10):
