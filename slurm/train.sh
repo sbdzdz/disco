@@ -20,4 +20,4 @@ python -m pip install --upgrade pip setuptools
 python -m pip install -r $HOME/codis/requirements.txt
 python -m pip install -e $HOME/codis
 
-srun --gres=gpu:1 python $HOME/codis/codis/train.py --wandb_dir $WORK/projects/codis/wandb --beta 1.5 --gamma 0.99 --tasks 10 --log_every_n_steps 10 --wandb_group continual_dsprites --max_epochs 50 --num_workers 16 --experiment codis --img_size 128 --batch_size 128
+srun --gres=gpu:1 python $HOME/codis/codis/train.py --wandb_dir $WORK/projects/codis/wandb --beta 1.1 --gamma 0.99 --tasks 10 --log_every_n_steps 5 --wandb_group continual_dsprites --max_epochs 10 --num_workers 16 --experiment codis --img_size 128 --batch_size 256
