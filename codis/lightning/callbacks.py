@@ -7,12 +7,22 @@ from codis.visualization import draw_batch_and_reconstructions
 
 
 class VisualizationCallback(Callback):
-    """Callback for visualizing the model's reconstructions."""
+    """Callback for visualizing VAE reconstructions."""
 
     def __init__(self, shapes):
-        self.shapes = shapes
+        self.vis_batch = self._build_vis_batch(shapes)
 
-    def _get_vis_batch(self):
+    def on_train_epoch_end(self, trainer, pl_module):
+        """Visualize the images and reconstructions."""
+        pl_module.eval()
+        x_hat, *_ = pl_module(self.vis_batch)
+        trainer.logger.experiment.log(
+            {"reconstructions": draw_batch_and_reconstructions(self.vis_batch, x_hat)}
+        )
+        pl_module.train()
+
+    @staticmethod
+    def _build_vis_batch(shapes):
         """Prepare a data loader for visualization."""
         dataset = InfiniteDSprites()
         batch = [
@@ -26,13 +36,6 @@ class VisualizationCallback(Callback):
                     position_y=0.5,
                 )
             )
-            for shape in self.shapes
+            for shape in shapes
         ]
         return torch.stack(batch)
-
-    def on_train_epoch_end(self, trainer, pl_module):
-        """Visualize the model's reconstructions."""
-        x = self._get_vis_batch()
-        x_hat, *_ = pl_module(x)
-        vis = draw_batch_and_reconstructions(x, x_hat)
-        trainer.logger.experiment.log({"reconstructions": vis})
