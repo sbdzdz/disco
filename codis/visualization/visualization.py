@@ -21,6 +21,16 @@ from codis.data import (
 np.random.seed(0)
 repo_root = Path(__file__).parent.parent.parent
 
+COLORS = [
+    "purple",
+    "maroon",
+    "darkblue",
+    "teal",
+    "peachpuff",
+    "white",
+    "darkgreen",
+]
+
 
 def draw_batch(
     images,
@@ -138,6 +148,7 @@ def draw_shapes(
     ncols: int = 12,
     fig_height: float = 10,
     img_size: int = 128,
+    fg_color: str = "whitesmoke",
     bg_color: str = "black",
 ):
     """Plot an n x n grid of random shapes.
@@ -165,7 +176,7 @@ def draw_shapes(
     for ax in axes.flat:
         spline = dataset.generate_shape()
         ax.axis("off")
-        ax.plot(spline[0], spline[1], label="spline", color="red")
+        ax.plot(spline[0], spline[1], label="spline", color=fg_color)
     path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(path)
 
@@ -198,21 +209,13 @@ def draw_shapes_animated(
     num_frames = fps * duration
     dataset = InfiniteDSprites(
         img_size=img_size,
-        color_range=[
-            "purple",
-            "maroon",
-            "darkblue",
-            "teal",
-            "peachpuff",
-            "white",
-            "darkgreen",
-        ],
+        color_range=COLORS,
         scale_range=np.linspace(0.0, 1.0, num_frames),
         orientation_range=np.linspace(0.0, 2 * np.pi, num_frames),
         position_x_range=np.linspace(0.0, 1.0, num_frames),
         position_y_range=np.linspace(0.0, 1.0, num_frames),
     )
-    shapes = [dataset.generate_shape() for _ in range(nrows * ncols)]
+    shapes = [InfiniteDSprites.generate_shape() for _ in range(nrows * ncols)]
     colors = [dataset.sample_latents().color for _ in range(nrows * ncols)]
     if factor is None:
         factors = generate_multiple_factor_progression(dataset)
@@ -345,6 +348,66 @@ def draw_triplet(path: Path = repo_root / "img/triplet.png", fig_height: float =
     path = path.with_name(f"{path.stem}_{action}{path.suffix}")
     plt.savefig(path, bbox_inches="tight")
     plt.close()
+
+
+def draw_smooth_shapes(
+    path: Path = repo_root / "img/smooth_shapes.gif",
+    fig_height: float = 10,
+    img_size: int = 256,
+    num_shapes: int = 10,
+    duration_per_shape: int = 2,
+    fps: int = 60,
+):
+    """Smoothly interpolate between shapes and colors.
+    Args:
+        path: The path to save the animation to.
+        fig_height: The height of the figure in inches.
+        num_shapes: The number of shapes to interpolate between.
+        duration: The duration of the animation in seconds.
+        fps: The number of frames per second.
+    """
+    dataset = InfiniteDSprites(img_size=img_size, color_range=COLORS)
+    shapes = [InfiniteDSprites.generate_shape() for _ in range(num_shapes - 1)]
+    shapes.append(shapes[0])
+    colors = [dataset.sample_latents().color for _ in range(num_shapes)]
+
+    # interpolate between shapes
+    shape_sequence = []
+    for start, end in zip(shapes[:-1], shapes[1:]):
+        shape_sequence.extend(np.linspace(start, end, duration_per_shape * fps))
+
+    color_sequence = []
+    for start, end in zip(colors[:-1], colors[1:]):
+        color_sequence.extend(np.linspace(start, end, duration_per_shape * fps))
+
+    # draw the shapes
+    with imageio.get_writer(path, mode="I", fps=fps) as writer:
+        for shape, color in tqdm(zip(shape_sequence, color_sequence)):
+            factors = Latents(
+                shape=shape,
+                color=color,
+                scale=0.7,
+                orientation=0.0,
+                position_x=0.5,
+                position_y=0.5,
+            )
+            _, axes = plt.subplots(
+                1,
+                1,
+                figsize=(fig_height, fig_height),
+                layout="tight",
+                subplot_kw={"aspect": 1.0},
+            )
+            axes.axis("off")
+            # if not isinstance(axes, np.ndarray):
+            #    axes = np.array([axes])
+
+            buffer = io.BytesIO()
+            axes.imshow(dataset.draw(factors, channels_first=False))
+            plt.savefig(buffer, format="png", bbox_inches="tight")
+            plt.close()
+            image = imageio.imread(buffer)
+            writer.append_data(image)  # type: ignore
 
 
 def draw_classification_task(
