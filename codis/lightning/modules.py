@@ -21,6 +21,7 @@ class CodisModel(pl.LightningModule):
         regressor: pl.LightningModule,
         freeze_backbone: bool = False,
         gamma: float = 0.5,
+        factors_to_regress: list = None,
     ):
         super().__init__()
         self.backbone = backbone
@@ -30,7 +31,10 @@ class CodisModel(pl.LightningModule):
         self.regressor = regressor
         self.gamma = gamma
         self.r2_score = R2Score(num_outputs=self.regressor.model.dims[-1])
-        self.factors_to_regress = ["scale", "orientation", "position_x", "position_y"]
+
+        if factors_to_regress is None:
+            factors_to_regress = ["scale", "orientation", "position_x", "position_y"]
+        self.factors_to_regress = factors_to_regress
 
     @property
     def train_task_id(self):
@@ -57,13 +61,13 @@ class CodisModel(pl.LightningModule):
         if not isinstance(self.backbone.model, BaseVAE):
             return self.regressor(self.backbone(x))
         x_hat, mu, log_var = self.backbone(x)
-        return self.regressor(mu), x_hat, mu, log_var
+        return x_hat, mu, log_var, self.regressor(mu)
 
     def training_step(self, batch, batch_idx):
         """Perform a training step."""
         loss, _ = self._step(batch)
         self.log_dict({f"{k}_train": v for k, v in loss.items()})
-        self.log("task_id", float(self.task_id))
+        self.log("task_id", float(self.train_task_id))
         return loss["loss"]
 
     def validation_step(self, batch, batch_idx):
@@ -90,7 +94,7 @@ class CodisModel(pl.LightningModule):
         """Perform a training or validation step."""
         x, y = batch
         y = self._stack_factors(y)
-        y_hat, x_hat, mu, log_var = self.forward(x)
+        x_hat, mu, log_var, y_hat = self.forward(x)
         metrics = self._calculate_metrics(y, y_hat)
         regressor_loss = self.regressor.loss_function(y, y_hat)
         backbone_loss = self.backbone.loss_function(x, x_hat, mu, log_var)
