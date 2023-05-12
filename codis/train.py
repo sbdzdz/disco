@@ -18,7 +18,7 @@ torch.set_float32_matmul_precision("medium")
 
 def train(args):
     """Train the model in a continual learning setting."""
-    factors_to_regress = ["scale", "position_x", "position_y"]
+    factors_to_regress = ["scale", "orientation", "position_x", "position_y"]
     backbone = LightningBetaVAE(
         img_size=args.img_size, latent_dim=args.latent_dim, beta=args.beta
     )
