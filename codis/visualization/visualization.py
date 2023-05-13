@@ -149,7 +149,7 @@ def draw_shapes(
     fig_height: float = 10,
     img_size: int = 128,
     fg_color: str = "whitesmoke",
-    bg_color: str = "black",
+    bg_color: str = "white",
 ):
     """Plot an n x n grid of random shapes.
     Args:
@@ -187,7 +187,7 @@ def draw_shapes_animated(
     ncols: int = 11,
     fig_height: float = 10,
     img_size: int = 256,
-    bg_color: str = "black",
+    bg_color: str = "white",
     duration: int = 3,
     fps: int = 60,
     factor=None,
