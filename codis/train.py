@@ -9,7 +9,7 @@ from lightning.pytorch.loggers import WandbLogger
 from torch.utils.data import DataLoader, random_split
 
 import wandb
-from codis.data import ContinualDSprites, InfiniteDSprites
+from codis.data import ContinualDSprites, InfiniteDSprites, Latents
 from codis.lightning.callbacks import VisualizationCallback
 from codis.lightning.modules import CodisModel, LightningBetaVAE, LightningMLP
 
@@ -31,7 +31,7 @@ def train(args):
 
     shapes = [InfiniteDSprites.generate_shape() for _ in range(args.tasks)]
     train_loaders, val_loaders, test_loaders = build_data_loaders(args, shapes)
-    callback = VisualizationCallback(shapes)
+    callback = build_visualization_callback(args, shapes)
     trainer = build_trainer(args, callbacks=[callback])
 
     for train_task_id, (train_loader, val_loader) in enumerate(
@@ -46,6 +46,26 @@ def train(args):
                 model.test_task_id = test_task_id
                 trainer.test(model, test_loader)
     wandb.finish()
+
+
+def build_visualization_callback(args, shapes):
+    """Build a callback for visualizing VAE reconstructions on a test batch."""
+    dataset = InfiniteDSprites(img_size=args.img_size)
+    batch = [
+        dataset.draw(
+            Latents(
+                color=(0.0, 0.0, 0.0),
+                shape=shape,
+                scale=0.5,
+                orientation=0.0,
+                position_x=0.5,
+                position_y=0.5,
+            )
+        )
+        for shape in shapes
+    ]
+    batch = torch.stack([torch.from_numpy(img) for img in batch])
+    return VisualizationCallback(batch)
 
 
 def build_trainer(args, callbacks=None):
@@ -112,11 +132,6 @@ def build_data_loaders(args, shapes):
 def _main():
     parser = argparse.ArgumentParser()
     repo_root = Path(__file__).parent.parent
-    parser.add_argument(
-        "--dsprites_path",
-        type=Path,
-        default=repo_root / "codis/data/dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz",
-    )
     parser.add_argument(
         "--log_every_n_steps",
         type=int,
