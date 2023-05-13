@@ -214,7 +214,7 @@ class InfiniteDSprites(IterableDataset):
     def apply_scale(self, shape: npt.NDArray, scale: float):
         """Apply a scale to a shape."""
         height, _ = self.window.get_size()
-        return 0.2 * height * (0.5 + scale) * shape
+        return 0.2 * height * (0.3 + scale) * shape
 
     @staticmethod
     def apply_orientation(shape: npt.NDArray, orientation: float):
