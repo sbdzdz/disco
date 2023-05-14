@@ -17,46 +17,6 @@ def visualize_wandb_run(args):
     """Pull images and metrics from a wandb run and create custom figures."""
     api = wandb.Api()
     run = api.run(f"sebastiandziadzio/codis/{args.run_id}")
-    metrics = download_metrics(run, prefix=args.metric_name)
-
-    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
-    length = len(list(metrics.values())[0][0])
-
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-
-    with imageio.get_writer(
-        args.output_dir / "training.gif", mode="I", fps=30
-    ) as writer:
-        for i in tqdm(range(2, length)):
-            _, ax = plt.subplots(1, 1)
-            for current_task_id, color in zip(range(run.config["tasks"]), colors):
-                # for steps, task_ids, values in metrics.values():
-                steps, task_ids, values = list(metrics.values())[0]
-                ax.plot(
-                    [
-                        step
-                        for step, task_id in zip(steps[:i], task_ids[:i])
-                        if task_id == current_task_id
-                    ],
-                    [
-                        value
-                        for task_id, value in zip(task_ids[:i], values[:i])
-                        if task_id == current_task_id
-                    ],
-                    color=color,
-                    linewidth=1,
-                )
-                buffer = io.BytesIO()
-            plt.savefig(buffer, format="png", bbox_inches="tight")
-            plt.close()
-            image = imageio.imread(buffer)
-            writer.append_data(image)
-
-
-def visualize_wandb_run_matplotlib(args):
-    """Pull images and metrics from a wandb run and create custom figures."""
-    api = wandb.Api()
-    run = api.run(f"sebastiandziadzio/codis/{args.run_id}")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     metrics = download_metrics(run, prefix=args.metric_name)
 
@@ -126,7 +86,7 @@ def _main():
     parser.add_argument("--output_dir", type=Path, default=repo_root / "img")
     parser.add_argument("--metric_name", type=str, default="reconstruction_val")
     args = parser.parse_args()
-    visualize_wandb_run_matplotlib(args)
+    visualize_wandb_run(args)
 
 
 if __name__ == "__main__":
