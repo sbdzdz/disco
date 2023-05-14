@@ -15,11 +15,6 @@ class VisualizationCallback(Callback):
         """Visualize the images and reconstructions."""
         pl_module.eval()
         x_hat, *_ = pl_module(self.batch.to(pl_module.device))
-        pl_module.logger.log_image(
-            {
-                "reconstructions": draw_batch_and_reconstructions(
-                    to_numpy(self.batch), to_numpy(x_hat)
-                )
-            }
-        )
+        images = draw_batch_and_reconstructions(to_numpy(self.batch), to_numpy(x_hat))
+        pl_module.logger.log_image("reconstructions", images=[images])
         pl_module.train()
