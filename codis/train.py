@@ -56,7 +56,7 @@ def build_visualization_callback(args, shapes):
             Latents(
                 color=(1.0, 1.0, 1.0),
                 shape=shape,
-                scale=0.5,
+                scale=1.0,
                 orientation=0.0,
                 position_x=0.5,
                 position_y=0.5,
