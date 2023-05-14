@@ -54,7 +54,7 @@ def build_visualization_callback(args, shapes):
     batch = [
         dataset.draw(
             Latents(
-                color=(0.0, 0.0, 0.0),
+                color=(1.0, 1.0, 1.0),
                 shape=shape,
                 scale=0.5,
                 orientation=0.0,
