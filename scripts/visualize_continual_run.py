@@ -1,12 +1,9 @@
 """Pull images and metrics from a wandb run and create custom figures."""
-import io
 from argparse import ArgumentParser
 from pathlib import Path
 
-import imageio.v2 as imageio
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation, PillowWriter
-from tqdm import tqdm
 
 import wandb
 
