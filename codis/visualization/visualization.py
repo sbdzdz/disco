@@ -188,7 +188,7 @@ def draw_shapes_animated(
     fig_height: float = 10,
     img_size: int = 256,
     bg_color: str = "white",
-    duration: int = 3,
+    duration: int = 2,
     fps: int = 60,
     factor=None,
 ):
