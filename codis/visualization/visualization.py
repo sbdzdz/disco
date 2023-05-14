@@ -436,7 +436,7 @@ def draw_smooth_shapes(
             for ax, img in zip(axes.flat, frame):
                 ax.axis("off")
                 ax.imshow(img)
-            plt.savefig(buffer, format="png", bbox_inches="tight")
+            plt.savefig(buffer, format="png")
             plt.close()
             image = imageio.imread(buffer)
             writer.append_data(image)  # type: ignore
