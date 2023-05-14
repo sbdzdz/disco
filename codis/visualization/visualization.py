@@ -309,7 +309,7 @@ def generate_single_factor_progression(dataset, factor):
     """Generate a smooth progression of a single factor."""
     length = 2 * len(dataset.ranges[factor])
     factors = {
-        "scale": np.ones(length) * 0.5,
+        "scale": np.ones(length) * 0.8,
         "orientation": np.ones(length) * 0.0,
         "position_x": np.ones(length) * 0.5,
         "position_y": np.ones(length) * 0.5,
