@@ -162,7 +162,7 @@ def draw_shapes(
     Returns:
         None
     """
-    _, axes = plt.subplots(
+    fig, axes = plt.subplots(
         nrows=nrows,
         ncols=ncols,
         figsize=(ncols / nrows * fig_height, fig_height),
@@ -170,6 +170,7 @@ def draw_shapes(
         subplot_kw={"aspect": 1.0},
         facecolor=bg_color,
     )
+    fig.tight_layout()
     dataset = InfiniteDSprites(img_size=img_size)
     if not isinstance(axes, np.ndarray):
         axes = np.array([axes])
