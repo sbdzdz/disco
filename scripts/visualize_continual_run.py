@@ -13,7 +13,7 @@ plt.style.use("ggplot")
 
 def visualize_wandb_run(args):
     """Pull images and metrics from a wandb run and create custom figures."""
-    api = wandb.Api(api_key=os.environ["WANDB_API_KEY"])
+    api = wandb.Api()
     run = api.run(args.run_id)
 
     metrics = download_metrics(run, prefix=args.metric_name, subsample=args.subsample)
@@ -22,9 +22,8 @@ def visualize_wandb_run(args):
     num_tasks = run.config["tasks"]
     length = len(list(metrics.values())[0][0])
     steps, task_ids, values = list(metrics.values())[0]
-    print(len(values))
 
-    fig, axes = plt.subplots(ncols=2, figsize=(32, 9), layout="tight")
+    fig, axes = plt.subplots(ncols=2, figsize=(11, 3), layout="tight")
     xdata = [[] for _ in range(num_tasks)]
     ydata = [[] for _ in range(num_tasks)]
     lines = [axes[0].plot([], [], linewidth=3)[0] for _ in range(num_tasks)]
@@ -36,9 +35,8 @@ def visualize_wandb_run(args):
         axes[0].set_ylim(0, max(values))
         axes[0].set_xlabel("Steps")
         axes[0].set_title("VAE Loss")
-        # box = axes[0].get_position()
-        # axes[0].set_position([box.x0, box.y0, box.width, box.height * 0.9])
-
+        box = axes[0].get_position()
+        axes[0].set_position([box.x0, box.y0, box.width, box.height * 0.9])
         axes[1].axis("off")
         return lines
 
