@@ -2,7 +2,7 @@
 from collections import namedtuple
 
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LassoCV
 
 DCIScore = namedtuple(
     "DCIScore", ["disentanglement", "completeness", "informativeness"]
@@ -15,7 +15,7 @@ class DCIMetric:
     def __init__(self, data, n_factors):
         self.data = data
         self.n_factors = n_factors
-        self.regressor = RandomForestRegressor()
+        self.regressor = LassoCV()
 
     def compute(self, latents, factors) -> DCIScore:
         """Calculate the DCI score.
