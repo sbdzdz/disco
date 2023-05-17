@@ -9,61 +9,73 @@ from lightning.pytorch.loggers import WandbLogger
 from torch.utils.data import DataLoader, random_split
 
 import wandb
-from codis.data import ContinualDSprites, InfiniteDSprites
-from codis.lightning_modules import CodisModel, LightningBetaVAE, LightningMLP
+from codis.data import ContinualDSprites, InfiniteDSprites, Latents
+from codis.lightning.callbacks import VisualizationCallback
+from codis.lightning.modules import CodisModel, LightningBetaVAE, LightningMLP
 
 torch.set_float32_matmul_precision("medium")
 
 
 def train(args):
     """Train the model in a continual learning setting."""
-    print(f"Cuda available {torch.cuda.is_available()}")
+    factors_to_regress = ["scale", "orientation", "position_x", "position_y"]
     backbone = LightningBetaVAE(
         img_size=args.img_size, latent_dim=args.latent_dim, beta=args.beta
     )
     regressor = LightningMLP(
-        dims=[args.latent_dim, 64, 64, 4]
+        dims=[args.latent_dim, 64, 64, len(factors_to_regress)]
     )  # 4 is the number of stacked latent values
-    model = CodisModel(backbone, regressor, gamma=args.gamma)
-    train_loaders, val_loaders, test_loaders = configure_ci_loaders(args)
-    trainer = configure_trainer(args)
-    if args.watch_gradients:
-        trainer.logger.watch(model)
+    model = CodisModel(
+        backbone, regressor, gamma=args.gamma, factors_to_regress=factors_to_regress
+    )
 
-    for task_id, (train_loader, val_loader) in enumerate(
+    shapes = [InfiniteDSprites.generate_shape() for _ in range(args.tasks)]
+    train_loaders, val_loaders, test_loaders = build_data_loaders(args, shapes)
+    callback = build_visualization_callback(args, shapes)
+    trainer = build_trainer(args, callbacks=[callback])
+
+    for train_task_id, (train_loader, val_loader) in enumerate(
         zip(train_loaders, val_loaders)
     ):
-        print(f"Starting task {task_id}...")
-        model.task_id = task_id
+        print(f"Starting task {train_task_id}...")
+        model.train_task_id = train_task_id
         trainer.fit(model, train_loader, val_loader)
         trainer.fit_loop.max_epochs += args.max_epochs
         for test_task_id, test_loader in enumerate(test_loaders):
-            model.task_id = test_task_id
-            trainer.test(model, test_loader)
+            if test_task_id <= train_task_id:
+                model.test_task_id = test_task_id
+                trainer.test(model, test_loader)
     wandb.finish()
 
 
-def train_vae(args):
-    """Train the VAE on dSprites or idSprites."""
-    print(f"Cuda available {torch.cuda.is_available()}")
-    vae = LightningBetaVAE(
-        img_size=args.img_size,
-        latent_dim=args.latent_dim,
-        beta=args.beta,
-        lr=args.lr,
-    )
-    trainer = configure_trainer(args)
-    train_loader, val_loader, test_loader = get_idsprites_loaders(args)
-    trainer.fit(vae, train_loader, val_loader)
-    trainer.test(vae, test_loader)
+def build_visualization_callback(args, shapes):
+    """Build a callback for visualizing VAE reconstructions on a test batch."""
+    dataset = InfiniteDSprites(img_size=args.img_size)
+    batch = [
+        dataset.draw(
+            Latents(
+                color=(1.0, 1.0, 1.0),
+                shape=shape,
+                scale=1.0,
+                orientation=0.0,
+                position_x=0.5,
+                position_y=0.5,
+            )
+        )
+        for shape in shapes
+    ]
+    batch = torch.stack([torch.from_numpy(img) for img in batch])
+    return VisualizationCallback(batch)
 
 
-def configure_trainer(args):
+def build_trainer(args, callbacks=None):
     """Configure the model trainer."""
     wandb_logger = WandbLogger(
         project="codis", save_dir=args.wandb_dir, group=args.wandb_group
     )
     wandb_logger.experiment.config.update(args)
+    if callbacks is None:
+        callbacks = []
     return Trainer(
         accelerator="auto",
         default_root_dir=args.wandb_dir,
@@ -73,17 +85,17 @@ def configure_trainer(args):
         log_every_n_steps=args.log_every_n_steps,
         logger=wandb_logger,
         max_epochs=args.max_epochs,
+        callbacks=callbacks,
     )
 
 
-def configure_ci_loaders(args):
-    """Configure data loaders for a class-incremental continual learning scenario."""
+def build_data_loaders(args, shapes):
+    """Build data loaders for a class-incremental continual learning scenario."""
     scale_range = np.linspace(0.5, 1.5, 16)
     orientation_range = np.linspace(0, 2 * np.pi, 16)
     position_x_range = np.linspace(0, 1, 16)
     position_y_range = np.linspace(0, 1, 16)
 
-    shapes = [InfiniteDSprites.generate_shape() for _ in range(args.tasks)]
     datasets = [
         ContinualDSprites(
             img_size=args.img_size,
@@ -117,38 +129,9 @@ def configure_ci_loaders(args):
     return train_loaders, val_loaders, test_loaders
 
 
-def get_idsprites_loaders(args):
-    """Get the data loaders for idSprites."""
-    train_set = ContinualDSprites(args.img_size)
-    val_set = ContinualDSprites(args.img_size)
-    test_set = ContinualDSprites(args.img_size)
-
-    train_loader = torch.utils.data.DataLoader(
-        train_set,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-    )
-    val_loader = torch.utils.data.DataLoader(
-        val_set,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-    )
-    test_loader = torch.utils.data.DataLoader(
-        test_set,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-    )
-    return train_loader, val_loader, test_loader
-
-
 def _main():
     parser = argparse.ArgumentParser()
     repo_root = Path(__file__).parent.parent
-    parser.add_argument(
-        "--dsprites_path",
-        type=Path,
-        default=repo_root / "codis/data/dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz",
-    )
     parser.add_argument(
         "--log_every_n_steps",
         type=int,
@@ -196,19 +179,8 @@ def _main():
         default=None,
         help="Wandb group name. If not specified, a new group will be created.",
     )
-    parser.add_argument(
-        "--experiment", type=str, choices=["codis", "vae"], default="codis"
-    )
-    parser.add_argument(
-        "--watch_gradients",
-        help="Whether to log gradients in wandb.",
-        action="store_true",
-    )
     args = parser.parse_args()
-    if args.experiment == "codis":
-        train(args)
-    elif args.experiment == "vae":
-        train_vae(args)
+    train(args)
 
 
 if __name__ == "__main__":
