@@ -12,6 +12,8 @@ DCIScore = namedtuple(
 class DCIMetric:
     """Class calculating DCI score"""
 
+    # pylint: disable=too-few-public-methods
+
     def __init__(self, data, n_factors):
         self.data = data
         self.n_factors = n_factors
