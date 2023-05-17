@@ -23,7 +23,7 @@ def visualize_wandb_run(args):
     length = len(list(metrics.values())[0][0])
     steps, task_ids, values = list(metrics.values())[0]
 
-    fig, axes = plt.subplots(ncols=2, figsize=(11, 3), layout="tight")
+    fig, axes = plt.subplots(ncols=2, figsize=(32, 9), layout="tight")
     xdata = [[] for _ in range(num_tasks)]
     ydata = [[] for _ in range(num_tasks)]
     lines = [axes[0].plot([], [], linewidth=3)[0] for _ in range(num_tasks)]
@@ -31,12 +31,10 @@ def visualize_wandb_run(args):
 
     def init():
         """Initialize the matplotlib animation."""
-        axes[0].set_xlim(-10, max(steps))
-        axes[0].set_ylim(0, max(values))
+        axes[0].set_xlim(-50, 1.1 * max(steps))
+        axes[0].set_ylim(0, 1.1 * max(values))
         axes[0].set_xlabel("Steps")
         axes[0].set_title("VAE Loss")
-        box = axes[0].get_position()
-        axes[0].set_position([box.x0, box.y0, box.width, box.height * 0.9])
         axes[1].axis("off")
         return lines
 
@@ -65,7 +63,7 @@ def visualize_wandb_run(args):
     args.output_dir.mkdir(parents=True, exist_ok=True)
     animation.save(
         args.output_dir / "training_matplotlib.gif",
-        dpi=300,
+        dpi=150,
         writer=PillowWriter(fps=30),
     )
 
