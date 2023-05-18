@@ -182,6 +182,70 @@ def draw_shapes(
     plt.savefig(path)
 
 
+def draw_smooth_shapes(
+    path: Path = repo_root / "img/smooth_shapes.gif",
+    nrows: int = 5,
+    ncols: int = 11,
+    fig_height: float = 10,
+    img_size: int = 256,
+    bg_color="white",
+    num_shapes: int = 10,
+    duration_per_shape: int = 2,
+    fps: int = 60,
+):
+    """Smoothly interpolate between shapes and colors.
+    Args:
+        path: The path to save the animation to.
+        fig_height: The height of the figure in inches.
+        num_shapes: The number of shapes to interpolate between.
+        duration: The duration of the animation in seconds.
+        fps: The number of frames per second.
+    """
+    dataset = InfiniteDSprites(img_size=img_size, color_range=COLORS)
+    colors = [
+        [dataset.sample_latents().color for _ in range(num_shapes)]
+        for _ in range(nrows * ncols)
+    ]
+    shapes = [
+        [InfiniteDSprites.generate_shape() for _ in range(num_shapes)]
+        for _ in range(nrows * ncols)
+    ]
+    shape_sequences = interpolate(shapes, num_frames=fps * duration_per_shape)
+    color_sequences = interpolate(colors, num_frames=fps * duration_per_shape)
+
+    frames = [
+        [
+            dataset.draw(
+                Latents(
+                    shape=shape,
+                    color=color,
+                    scale=0.7,
+                    orientation=0.8,
+                    position_x=0.5,
+                    position_y=0.5,
+                ),
+                channels_first=False,
+            )
+            for shape, color in zip(shape_sequence, color_sequence)
+        ]
+        for shape_sequence, color_sequence in zip(shape_sequences, color_sequences)
+    ]
+    save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps)
+
+
+def interpolate(values, num_frames):
+    """Interpolate between a sequence of values."""
+    sequences = []
+    for value in values:
+        value.append(value[0])
+        sequence = []
+        for start, end in zip(value[:-1], value[1:]):
+            sequence.extend(np.linspace(start, end, num_frames))
+        sequences.append(sequence)
+
+    return zip(*sequences)
+
+
 def draw_shapes_animated(
     path: Path = repo_root / "img/shapes.gif",
     nrows: int = 5,
@@ -234,29 +298,7 @@ def draw_shapes_animated(
         ]
         for scale, orientation, position_x, position_y in zip(*factors)
     ]
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with imageio.get_writer(path, mode="I", fps=fps) as writer:
-        for frame in tqdm(frames):
-            _, axes = plt.subplots(
-                nrows,
-                ncols,
-                figsize=(ncols / nrows * fig_height, fig_height),
-                layout="tight",
-                subplot_kw={"aspect": 1.0},
-                facecolor=bg_color,
-            )
-            buffer = io.BytesIO()
-            if not isinstance(axes, np.ndarray):
-                axes = np.array([axes])
-
-            for ax, image in zip(axes.flat, frame):
-                ax.axis("off")
-                ax.imshow(image)
-            plt.savefig(buffer, format="png")
-            plt.close()
-            image = imageio.imread(buffer)
-            writer.append_data(image)  # type: ignore
+    save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps)
 
 
 def generate_multiple_factor_progression(dataset):
@@ -325,6 +367,31 @@ def generate_single_factor_progression(dataset, factor):
     )
 
 
+def save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps):
+    """Save an animation to a GIF file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with imageio.get_writer(path, mode="I", fps=fps) as writer:
+        for frame in tqdm(frames):
+            _, axes = plt.subplots(
+                nrows,
+                ncols,
+                figsize=(ncols / nrows * fig_height, fig_height),
+                layout="tight",
+                subplot_kw={"aspect": 1.0},
+                facecolor=bg_color,
+            )
+            buffer = io.BytesIO()
+            if not isinstance(axes, np.ndarray):
+                axes = np.array([axes])
+
+            for ax, image in zip(axes.flat, frame):
+                ax.axis("off")
+                ax.imshow(image)
+            plt.savefig(buffer, format="png")
+            plt.close()
+            writer.append_data(imageio.imread(buffer))  # type: ignore
+
+
 def draw_triplet(path: Path = repo_root / "img/triplet.png", fig_height: float = 10):
     """Plot a triplet of shapes form the InfiniteDSpritesTriplets.
     See Montero et al. 2020 for details of the composition task.
@@ -349,98 +416,6 @@ def draw_triplet(path: Path = repo_root / "img/triplet.png", fig_height: float =
     path = path.with_name(f"{path.stem}_{action}{path.suffix}")
     plt.savefig(path, bbox_inches="tight")
     plt.close()
-
-
-def draw_smooth_shapes(
-    path: Path = repo_root / "img/smooth_shapes.gif",
-    nrows: int = 5,
-    ncols: int = 11,
-    fig_height: float = 10,
-    img_size: int = 256,
-    bg_color="white",
-    num_shapes: int = 10,
-    duration_per_shape: int = 2,
-    fps: int = 60,
-):
-    """Smoothly interpolate between shapes and colors.
-    Args:
-        path: The path to save the animation to.
-        fig_height: The height of the figure in inches.
-        num_shapes: The number of shapes to interpolate between.
-        duration: The duration of the animation in seconds.
-        fps: The number of frames per second.
-    """
-    dataset = InfiniteDSprites(img_size=img_size, color_range=COLORS)
-    colors = [
-        [dataset.sample_latents().color for _ in range(num_shapes)]
-        for _ in range(nrows * ncols)
-    ]
-    shapes = [
-        [InfiniteDSprites.generate_shape() for _ in range(num_shapes)]
-        for _ in range(nrows * ncols)
-    ]
-
-    # interpolate between shapes
-    shape_sequences = []
-    for shape in shapes:
-        shape.append(shape[0])
-        shape_sequence = []
-        for start, end in zip(shape[:-1], shape[1:]):
-            shape_sequence.extend(np.linspace(start, end, duration_per_shape * fps))
-        shape_sequences.append(shape_sequence)
-
-    # interpolate between colors
-    color_sequences = []
-    for color in colors:
-        color.append(color[0])
-        color_sequence = []
-        for start, end in zip(color[:-1], color[1:]):
-            color_sequence.extend(np.linspace(start, end, duration_per_shape * fps))
-        color_sequences.append(color_sequence)
-
-    shape_sequences = zip(*shape_sequences)
-    color_sequences = zip(*color_sequences)
-
-    frames = [
-        [
-            dataset.draw(
-                Latents(
-                    shape=shape,
-                    color=color,
-                    scale=0.7,
-                    orientation=0.8,
-                    position_x=0.5,
-                    position_y=0.5,
-                ),
-                channels_first=False,
-            )
-            for shape, color in zip(shape_sequence, color_sequence)
-        ]
-        for shape_sequence, color_sequence in zip(shape_sequences, color_sequences)
-    ]
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with imageio.get_writer(path, mode="I", fps=fps) as writer:
-        for frame in tqdm(frames):
-            _, axes = plt.subplots(
-                nrows,
-                ncols,
-                figsize=(ncols / nrows * fig_height, fig_height),
-                layout="tight",
-                subplot_kw={"aspect": 1.0},
-                facecolor=bg_color,
-            )
-            buffer = io.BytesIO()
-            if not isinstance(axes, np.ndarray):
-                axes = np.array([axes])
-
-            for ax, img in zip(axes.flat, frame):
-                ax.axis("off")
-                ax.imshow(img)
-            plt.savefig(buffer, format="png")
-            plt.close()
-            image = imageio.imread(buffer)
-            writer.append_data(image)  # type: ignore
 
 
 def draw_classification_task(
