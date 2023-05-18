@@ -31,8 +31,8 @@ class InfiniteDSprites(IterableDataset):
         self,
         img_size: int = 256,
         color_range=("white",),
-        scale_range=np.linspace(0.5, 1, 6),
-        orientation_range=np.linspace(0, 2 * np.pi, 40),
+        scale_range=np.linspace(0, 1, 32),
+        orientation_range=np.linspace(0, 2 * np.pi, 32),
         position_x_range=np.linspace(0, 1, 32),
         position_y_range=np.linspace(0, 1, 32),
         dataset_size: int = float("inf"),
@@ -214,7 +214,7 @@ class InfiniteDSprites(IterableDataset):
     def apply_scale(self, shape: npt.NDArray, scale: float):
         """Apply a scale to a shape."""
         height, _ = self.window.get_size()
-        return 0.2 * height * scale * shape
+        return 0.2 * height * (0.3 + scale) * shape
 
     @staticmethod
     def apply_orientation(shape: npt.NDArray, orientation: float):
