@@ -19,15 +19,11 @@ class CodisModel(pl.LightningModule):
         self,
         backbone: pl.LightningModule,
         regressor: pl.LightningModule,
-        freeze_backbone: bool = False,
         gamma: float = 0.5,
         factors_to_regress: list = None,
     ):
         super().__init__()
         self.backbone = backbone
-        if freeze_backbone:
-            self.backbone.freeze()
-        self.freeze_backbone = freeze_backbone
         self.regressor = regressor
         self.gamma = gamma
         self.r2_score = R2Score(num_outputs=self.regressor.model.dims[-1])
@@ -102,13 +98,10 @@ class CodisModel(pl.LightningModule):
             "regressor_loss": regressor_loss["loss"],
             "backbone_loss": backbone_loss["loss"],
         }
-        if self.freeze_backbone:
-            loss["loss"] = loss["regressor_loss"]
-        else:
-            loss["loss"] = (
-                self.gamma * loss["regressor_loss"]
-                + (1 - self.gamma) * loss["backbone_loss"]
-            )
+        loss["loss"] = (
+            self.gamma * loss["regressor_loss"]
+            + (1 - self.gamma) * loss["backbone_loss"]
+        )
         return loss, metrics
 
     def _calculate_metrics(self, y, y_hat):
