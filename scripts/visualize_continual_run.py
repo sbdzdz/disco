@@ -88,7 +88,7 @@ def visualize_wandb_run(args):
 
         animation.save(
             args.output_dir / "training.gif",
-            dpi=150,
+            dpi=args.dpi,
             writer=PillowWriter(fps=30),
             progress_callback=callback,
         )
@@ -197,6 +197,9 @@ def _main():
     )
     parser.add_argument(
         "--metric_name", type=str, default="regressor_loss_train", help="Metric name."
+    )
+    parser.add_argument(
+        "--dpi", type=int, default=150, help="DPI of the output figure."
     )
     parser.add_argument("--subsample", type=int, default=1, help="Subsample rate.")
     args = parser.parse_args()
