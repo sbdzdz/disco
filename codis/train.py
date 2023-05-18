@@ -11,23 +11,17 @@ from torch.utils.data import DataLoader, random_split
 import wandb
 from codis.data import ContinualDSprites, InfiniteDSprites, Latents
 from codis.lightning.callbacks import VisualizationCallback
-from codis.lightning.modules import CodisModel, LightningBetaVAE, LightningMLP
+from codis.lightning.modules import LightningBetaVAE, SupervisedVAE
 
 torch.set_float32_matmul_precision("medium")
 
 
 def train(args):
     """Train the model in a continual learning setting."""
-    factors_to_regress = ["scale", "orientation", "position_x", "position_y"]
-    backbone = LightningBetaVAE(
+    vae = LightningBetaVAE(
         img_size=args.img_size, latent_dim=args.latent_dim, beta=args.beta
     )
-    regressor = LightningMLP(
-        dims=[args.latent_dim, 64, 64, len(factors_to_regress)]
-    )  # 4 is the number of stacked latent values
-    model = CodisModel(
-        backbone, regressor, gamma=args.gamma, factors_to_regress=factors_to_regress
-    )
+    model = SupervisedVAE(vae=vae, gamma=args.gamma)
 
     shapes = [InfiniteDSprites.generate_shape() for _ in range(args.tasks)]
     train_loaders, val_loaders, test_loaders = build_data_loaders(args, shapes)

@@ -5,32 +5,28 @@ import lightning.pytorch as pl
 import torch
 from torchmetrics import R2Score
 
-from codis.models import MLP, BaseVAE, BetaVAE
+from codis.models import MLP, BetaVAE
+from codis.blocks import Encoder
 from codis.utils import to_numpy
 from codis.visualization import draw_batch_and_reconstructions
 
 # pylint: disable=arguments-differ,unused-argument
 
 
-class CodisModel(pl.LightningModule):
-    """A model that combines a backbone and a latent regressor."""
+class SpatialTransformer(pl.LightningModule):
+    """A model that combines a parameter regressor and differentiable affine transforms."""
 
     def __init__(
         self,
-        backbone: pl.LightningModule,
         regressor: pl.LightningModule,
-        gamma: float = 0.5,
-        factors_to_regress: list = None,
+        img_size: int = 64,
+        in_channels: int = 1,
+        num_channels: Optional[list] = None,
     ):
         super().__init__()
-        self.backbone = backbone
-        self.regressor = regressor
-        self.gamma = gamma
-        self.r2_score = R2Score(num_outputs=self.regressor.model.dims[-1])
-
-        if factors_to_regress is None:
-            factors_to_regress = ["scale", "orientation", "position_x", "position_y"]
-        self.factors_to_regress = factors_to_regress
+        if num_channels is None:
+            num_channels = [4, 4, 8, 8, 16]
+        self.encoder = Encoder(img_size, in_channels, num_channels)
 
     @property
     def train_task_id(self):
@@ -52,10 +48,84 @@ class CodisModel(pl.LightningModule):
         """Set the current test task id."""
         self._test_task_id = value
 
+    def configure_optimizers(self):
+        """Configure the optimizers."""
+        return torch.optim.Adam(
+            params=self.encoder.parameters(),
+            lr=self.encoder.lr,
+        )
+
     def forward(self, x):
         """Perform the forward pass."""
-        if not isinstance(self.backbone.model, BaseVAE):
-            return self.regressor(self.backbone(x))
+        raise NotImplementedError
+
+    def training_step(self, batch, batch_idx):
+        """Perform a training step."""
+        raise NotImplementedError
+
+    def validation_step(self, batch, batch_idx):
+        """Perform a validation step."""
+        raise NotImplementedError
+
+    def test_step(self, batch, batch_idx):
+        """Perform a test step."""
+        raise NotImplementedError
+
+
+class SupervisedVAE(pl.LightningModule):
+    """A model that combines a VAE backbone and an MLP regressor."""
+
+    def __init__(
+        self,
+        vae: pl.LightningModule,
+        regressor: pl.LightningModule = None,
+        gamma: float = 0.5,
+        factors_to_regress: list = None,
+    ):
+        super().__init__()
+        self.backbone = vae
+        self.gamma = gamma
+        if factors_to_regress is None:
+            factors_to_regress = ["scale", "orientation", "position_x", "position_y"]
+        self.factors_to_regress = factors_to_regress
+        if regressor is None:
+            regressor = LightningMLP(
+                dims=[self.backbone.latent_dim, 64, 64, len(factors_to_regress)],
+            )
+        self.regressor = regressor
+        self.r2_score = R2Score(num_outputs=self.regressor.model.dims[-1])
+
+    @property
+    def train_task_id(self):
+        """Get the current train task id."""
+        return self._train_task_id
+
+    @train_task_id.setter
+    def train_task_id(self, value):
+        """Set the current train task id."""
+        self._train_task_id = value
+
+    @property
+    def test_task_id(self):
+        """Get the current test task id."""
+        return self._test_task_id
+
+    @test_task_id.setter
+    def test_task_id(self, value):
+        """Set the current test task id."""
+        self._test_task_id = value
+
+    def configure_optimizers(self):
+        """Configure the optimizers."""
+        return torch.optim.Adam(
+            [
+                {"params": self.backbone.parameters(), "lr": self.backbone.lr},
+                {"params": self.regressor.parameters(), "lr": self.regressor.lr},
+            ]
+        )
+
+    def forward(self, x):
+        """Perform the forward pass."""
         x_hat, mu, log_var = self.backbone(x)
         return x_hat, mu, log_var, self.regressor(mu)
 
@@ -131,15 +201,6 @@ class CodisModel(pl.LightningModule):
             for i, name in enumerate(self.factors_to_regress)
         }
 
-    def configure_optimizers(self):
-        """Configure the optimizers."""
-        return torch.optim.Adam(
-            [
-                {"params": self.backbone.parameters(), "lr": self.backbone.lr},
-                {"params": self.regressor.parameters(), "lr": self.regressor.lr},
-            ]
-        )
-
 
 class LightningBetaVAE(pl.LightningModule):
     """The β-VAE Lightning module."""
@@ -163,6 +224,11 @@ class LightningBetaVAE(pl.LightningModule):
         )
         self.save_hyperparameters()
         self.lr = lr
+
+    @property
+    def latent_dim(self):
+        """Dimensionality of the latent space."""
+        return self.model.latent_dim
 
     def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
         """Perform the forward pass."""
