@@ -6,7 +6,7 @@ import torch
 from torchmetrics import R2Score
 
 from codis.models import MLP, BetaVAE
-from codis.blocks import Encoder
+from codis.models.blocks import Encoder
 from codis.utils import to_numpy
 from codis.visualization import draw_batch_and_reconstructions
 
@@ -21,12 +21,12 @@ class SpatialTransformer(pl.LightningModule):
         regressor: pl.LightningModule,
         img_size: int = 64,
         in_channels: int = 1,
-        num_channels: Optional[list] = None,
+        channels: Optional[list] = None,
     ):
         super().__init__()
-        if num_channels is None:
-            num_channels = [4, 4, 8, 8, 16]
-        self.encoder = Encoder(img_size, in_channels, num_channels)
+        if channels is None:
+            channels = [4, 4, 8, 8, 16]
+        self.encoder = Encoder(channels, in_channels)
 
     @property
     def train_task_id(self):
