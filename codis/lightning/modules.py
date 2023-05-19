@@ -210,7 +210,7 @@ class LightningBetaVAE(pl.LightningModule):
         img_size: int = 64,
         in_channels: int = 1,
         latent_dim: int = 10,
-        num_channels: Optional[list] = None,
+        channels: Optional[list] = None,
         beta: float = 1.0,
         lr: float = 1e-3,
     ):
@@ -219,7 +219,7 @@ class LightningBetaVAE(pl.LightningModule):
             img_size,
             in_channels,
             latent_dim,
-            num_channels,
+            channels,
             beta,
         )
         self.save_hyperparameters()
