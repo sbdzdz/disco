@@ -218,8 +218,8 @@ class LightningBetaVAE(pl.LightningModule):
         self.model = BetaVAE(
             img_size,
             in_channels,
-            latent_dim,
             channels,
+            latent_dim,
             beta,
         )
         self.save_hyperparameters()

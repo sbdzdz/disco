@@ -16,8 +16,8 @@ class BetaVAE(BaseVAE):
         self,
         img_size: int = 64,
         in_channels: int = 1,
-        latent_dim: int = 10,
         channels: Optional[list] = None,
+        latent_dim: int = 10,
         beta: float = 1.0,
     ) -> None:
         """Initialize the model.
