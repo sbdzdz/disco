@@ -10,8 +10,8 @@ from torch.utils.data import DataLoader, random_split
 
 import wandb
 from codis.data import ContinualDSprites, InfiniteDSprites, Latents
-from codis.lightning.callbacks import VisualizationCallback
-from codis.lightning.modules import LightningBetaVAE, SupervisedVAE
+from codis.lightning.callbacks import VisualizationCallback, LoggingCallback
+from codis.lightning.modules import LightningBetaVAE, SupervisedVAE, SpatialTransformer
 
 torch.set_float32_matmul_precision("medium")
 
@@ -21,18 +21,26 @@ def train(args):
     vae = LightningBetaVAE(
         img_size=args.img_size, latent_dim=args.latent_dim, beta=args.beta
     )
-    model = SupervisedVAE(vae=vae, gamma=args.gamma)
+    if args.model == "vae":
+        model = SupervisedVAE(vae=vae, gamma=args.gamma)
+    elif args.model == "stn":
+        model = SpatialTransformer()
+    else:
+        raise ValueError(f"Unknown model {args.model}.")
 
     shapes = [InfiniteDSprites.generate_shape() for _ in range(args.tasks)]
     train_loaders, val_loaders, test_loaders = build_data_loaders(args, shapes)
-    callback = build_visualization_callback(args, shapes)
-    trainer = build_trainer(args, callbacks=[callback])
+    exemplars = generate_exemplars(args, shapes)
+    visualization_callback = VisualizationCallback(exemplars)
+    logging_callback = LoggingCallback()
+    trainer = build_trainer(args, callbacks=[visualization_callback, logging_callback])
 
-    for train_task_id, (train_loader, val_loader) in enumerate(
-        zip(train_loaders, val_loaders)
+    for train_task_id, (train_loader, val_loader, exemplar) in enumerate(
+        zip(train_loaders, val_loaders, exemplars)
     ):
-        print(f"Starting task {train_task_id}...")
         model.train_task_id = train_task_id
+        if model.has_buffer:
+            model.add_exemplar(exemplar)
         trainer.fit(model, train_loader, val_loader)
         trainer.fit_loop.max_epochs += args.max_epochs
         for test_task_id, test_loader in enumerate(test_loaders):
@@ -42,8 +50,8 @@ def train(args):
     wandb.finish()
 
 
-def build_visualization_callback(args, shapes):
-    """Build a callback for visualizing VAE reconstructions on a test batch."""
+def generate_exemplars(args, shapes):
+    """Generate a batch of exemplars for visualization."""
     dataset = InfiniteDSprites(img_size=args.img_size)
     batch = [
         dataset.draw(
@@ -58,8 +66,7 @@ def build_visualization_callback(args, shapes):
         )
         for shape in shapes
     ]
-    batch = torch.stack([torch.from_numpy(img) for img in batch])
-    return VisualizationCallback(batch)
+    return torch.stack([torch.from_numpy(img) for img in batch])
 
 
 def build_trainer(args, callbacks=None):
@@ -172,6 +179,12 @@ def _main():
         type=str,
         default=None,
         help="Wandb group name. If not specified, a new group will be created.",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="stn",
+        help="Model to train. One of 'vae' or 'stn'.",
     )
     args = parser.parse_args()
     train(args)
