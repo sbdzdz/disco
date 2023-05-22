@@ -3,6 +3,7 @@ from typing import List, Optional
 
 import lightning.pytorch as pl
 import torch
+import torch.nn.functional as F
 from torchmetrics import R2Score
 
 from codis.models import MLP, BetaVAE
@@ -10,23 +11,14 @@ from codis.models.blocks import Encoder
 from codis.utils import to_numpy
 from codis.visualization import draw_batch_and_reconstructions
 
-# pylint: disable=arguments-differ,unused-argument
+# pylint: disable=arguments-differ,unused-argument,too-many-ancestors
 
 
-class SpatialTransformer(pl.LightningModule):
-    """A model that combines a parameter regressor and differentiable affine transforms."""
+class ContinualModule(pl.LightningModule):
+    """A base class for continual learning modules."""
 
-    def __init__(
-        self,
-        regressor: pl.LightningModule,
-        img_size: int = 64,
-        in_channels: int = 1,
-        channels: Optional[list] = None,
-    ):
+    def __init__(self):
         super().__init__()
-        if channels is None:
-            channels = [4, 4, 8, 8, 16]
-        self.encoder = Encoder(channels, in_channels)
 
     @property
     def train_task_id(self):
@@ -48,6 +40,37 @@ class SpatialTransformer(pl.LightningModule):
         """Set the current test task id."""
         self._test_task_id = value
 
+
+class SpatialTransformer(ContinualModule):
+    """A model that combines a parameter regressor and differentiable affine transforms."""
+
+    def __init__(
+        self,
+        img_size: int = 64,
+        in_channels: int = 1,
+        channels: Optional[list] = None,
+    ):
+        super().__init__()
+        self.has_buffer = True
+        if channels is None:
+            channels = [4, 4, 8, 8, 16]
+        self.encoder = Encoder(channels, in_channels)
+        self.encoder_output_dim = (img_size // 2 ** len(channels)) ** 2 * channels[-1]
+        self.regressor = MLP(
+            dims=[self.encoder_output_dim, 64, 32, 6],
+        )
+
+        # initialise the weights of the regressor to the identity transform
+        self.regressor.model[-1].weight.data.zero_()
+        self.regressor.model[-1].bias.data.copy_(
+            torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float)
+        )
+        self._buffer = []
+
+    def add_exemplar(self, exemplar):
+        """Add an exemplar to the buffer."""
+        self._buffer.append(exemplar)
+
     def configure_optimizers(self):
         """Configure the optimizers."""
         return torch.optim.Adam(
@@ -57,22 +80,46 @@ class SpatialTransformer(pl.LightningModule):
 
     def forward(self, x):
         """Perform the forward pass."""
-        raise NotImplementedError
+        x = self.encoder(x)
+        x = x.view(-1, self.encoder_output_dim)
+        theta = self.regressor(x)
+        theta = theta.view(-1, 2, 3)
+
+        grid = F.affine_grid(theta, x.size())
+        x = F.grid_sample(x, grid)
+
+        return x, theta
 
     def training_step(self, batch, batch_idx):
         """Perform a training step."""
-        raise NotImplementedError
+        return self._step(batch, "train")
 
     def validation_step(self, batch, batch_idx):
         """Perform a validation step."""
-        raise NotImplementedError
+        return self._step(batch, "val")
 
     def test_step(self, batch, batch_idx):
         """Perform a test step."""
-        raise NotImplementedError
+        return self._step(batch, "test")
+
+    def _step(self, batch, stage):
+        """Perform a training or validation step."""
+        x, _ = batch
+        x_hat, _ = self.forward(x)
+        if stage in ["train", "val"]:
+            task_id = self.train_task_id
+        else:
+            task_id = self.test_task_id
+        exemplar_tiled = self._buffer[task_id].repeat(x.shape[0], 1, 1, 1)
+        loss = F.mse_loss(x_hat, exemplar_tiled)
+        if stage in ["train", "val"]:
+            self.log(f"loss_{stage}", loss)
+        else:
+            self.log(f"loss_{stage}_task_{task_id}", loss)
+        return loss
 
 
-class SupervisedVAE(pl.LightningModule):
+class SupervisedVAE(ContinualModule):
     """A model that combines a VAE backbone and an MLP regressor."""
 
     def __init__(
@@ -94,26 +141,7 @@ class SupervisedVAE(pl.LightningModule):
             )
         self.regressor = regressor
         self.r2_score = R2Score(num_outputs=self.regressor.model.dims[-1])
-
-    @property
-    def train_task_id(self):
-        """Get the current train task id."""
-        return self._train_task_id
-
-    @train_task_id.setter
-    def train_task_id(self, value):
-        """Set the current train task id."""
-        self._train_task_id = value
-
-    @property
-    def test_task_id(self):
-        """Get the current test task id."""
-        return self._test_task_id
-
-    @test_task_id.setter
-    def test_task_id(self, value):
-        """Set the current test task id."""
-        self._test_task_id = value
+        self.has_buffer = False
 
     def configure_optimizers(self):
         """Configure the optimizers."""
@@ -133,7 +161,6 @@ class SupervisedVAE(pl.LightningModule):
         """Perform a training step."""
         loss, _ = self._step(batch)
         self.log_dict({f"{k}_train": v for k, v in loss.items()})
-        self.log("task_id", float(self.train_task_id))
         return loss["loss"]
 
     def validation_step(self, batch, batch_idx):
