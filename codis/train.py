@@ -18,13 +18,13 @@ torch.set_float32_matmul_precision("medium")
 
 def train(args):
     """Train the model in a continual learning setting."""
-    vae = LightningBetaVAE(
-        img_size=args.img_size, latent_dim=args.latent_dim, beta=args.beta
-    )
     if args.model == "vae":
+        vae = LightningBetaVAE(
+            img_size=args.img_size, latent_dim=args.latent_dim, beta=args.beta
+        )
         model = SupervisedVAE(vae=vae, gamma=args.gamma)
     elif args.model == "stn":
-        model = SpatialTransformer()
+        model = SpatialTransformer(img_size=args.img_size)
     else:
         raise ValueError(f"Unknown model {args.model}.")
 
