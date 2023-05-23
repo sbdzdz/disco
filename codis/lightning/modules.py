@@ -17,9 +17,6 @@ from codis.visualization import draw_batch_and_reconstructions
 class ContinualModule(pl.LightningModule):
     """A base class for continual learning modules."""
 
-    def __init__(self):
-        super().__init__()
-
     @property
     def train_task_id(self):
         """Get the current train task id."""
