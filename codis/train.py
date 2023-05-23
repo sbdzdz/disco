@@ -92,10 +92,10 @@ def build_trainer(args, callbacks=None):
 
 def build_data_loaders(args, shapes):
     """Build data loaders for a class-incremental continual learning scenario."""
-    scale_range = np.linspace(0.5, 1.5, 16)
-    orientation_range = np.linspace(0, 2 * np.pi, 16)
-    position_x_range = np.linspace(0, 1, 16)
-    position_y_range = np.linspace(0, 1, 16)
+    scale_range = np.linspace(0.5, 1.5, args.factor_resolution)
+    orientation_range = np.linspace(0, 2 * np.pi, args.factor_resolution)
+    position_x_range = np.linspace(0, 1, args.factor_resolution)
+    position_y_range = np.linspace(0, 1, args.factor_resolution)
 
     datasets = [
         ContinualDSprites(
@@ -141,6 +141,12 @@ def _main():
     )
     parser.add_argument(
         "--tasks", type=int, default=5, help="Number of continual learning tasks."
+    )
+    parser.add_argument(
+        "--factor_resolution",
+        type=int,
+        default=16,
+        help="Resolution of the factors of variation. The dataset size is factor_resolution ** 4.",
     )
     parser.add_argument(
         "--max_epochs",
