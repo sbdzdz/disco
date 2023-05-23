@@ -46,8 +46,10 @@ class SpatialTransformer(ContinualModule):
         img_size: int = 64,
         in_channels: int = 1,
         channels: Optional[list] = None,
+        lr: float = 1e-3,
     ):
         super().__init__()
+        self.lr = lr
         self.has_buffer = True
         if channels is None:
             channels = [4, 4, 8, 8, 16]
@@ -71,21 +73,21 @@ class SpatialTransformer(ContinualModule):
     def configure_optimizers(self):
         """Configure the optimizers."""
         return torch.optim.Adam(
-            params=self.encoder.parameters(),
-            lr=self.encoder.lr,
+            [
+                {"params": self.encoder.parameters(), "lr": self.lr},
+                {"params": self.regressor.parameters(), "lr": self.lr},
+            ]
         )
 
     def forward(self, x):
         """Perform the forward pass."""
-        x = self.encoder(x)
-        x = x.view(-1, self.encoder_output_dim)
-        theta = self.regressor(x)
-        theta = theta.view(-1, 2, 3)
+        xs = self.encoder(x).view(-1, self.encoder_output_dim)
+        theta = self.regressor(xs).view(-1, 2, 3)
 
         grid = F.affine_grid(theta, x.size())
-        x = F.grid_sample(x, grid)
+        x_hat = F.grid_sample(x, grid)
 
-        return x, theta
+        return x_hat, theta
 
     def training_step(self, batch, batch_idx):
         """Perform a training step."""
