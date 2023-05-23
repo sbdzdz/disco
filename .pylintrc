@@ -2,7 +2,7 @@
 extension-pkg-whitelist=pygame
 
 [BASIC]
-good-names=x,y,u,k,ax,to,rs,bn,z,mu,i,j,v,lr
+good-names=x,xs,y,u,k,ax,to,rs,bn,z,mu,i,j,v,lr
 max-args = 15
 max-locals = 20
 
