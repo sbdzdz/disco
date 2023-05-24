@@ -47,6 +47,7 @@ class SpatialTransformer(ContinualModule):
         in_channels: int = 1,
         channels: Optional[list] = None,
         lr: float = 1e-3,
+        mask: torch.Tensor = None,
     ):
         super().__init__()
         self.lr = lr
@@ -58,6 +59,7 @@ class SpatialTransformer(ContinualModule):
         self.regressor = MLP(
             dims=[self.encoder_output_dim, 64, 32, 6],
         )
+        self.mask = torch.tensor([1, 1, 1, 1, 1, 1]) if mask is None else mask
 
         # initialise the weights of the regressor to the identity transform
         self.regressor.model[-1].weight.data.zero_()
@@ -83,6 +85,7 @@ class SpatialTransformer(ContinualModule):
         """Perform the forward pass."""
         xs = self.encoder(x).view(-1, self.encoder_output_dim)
         theta = self.regressor(xs).view(-1, 2, 3)
+        theta = theta * self.mask.view(-1, 2, 3).to(self.device)
 
         grid = F.affine_grid(theta, x.size())
         x_hat = F.grid_sample(x, grid)
@@ -109,7 +112,9 @@ class SpatialTransformer(ContinualModule):
             task_id = self.train_task_id
         else:
             task_id = self.test_task_id
-        exemplar_tiled = self._buffer[task_id].repeat(x.shape[0], 1, 1, 1)
+        exemplar_tiled = (
+            self._buffer[task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
+        )
         loss = F.mse_loss(x_hat, exemplar_tiled)
         if stage in ["train", "val"]:
             self.log(f"loss_{stage}", loss)
