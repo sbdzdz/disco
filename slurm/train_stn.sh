@@ -21,4 +21,4 @@ python -m pip install -r $HOME/codis/requirements.txt
 python -m pip install -e $HOME/codis
 
 srun --gres=gpu:1 python $HOME/codis/codis/train.py --wandb_dir $WORK/projects/codis/wandb --tasks 6 --log_every_n_steps 5 \
---wandb_group spatial_transformer --max_epochs 10 --num_workers 16 --img_size 128 --batch_size 256  --model stn
+--wandb_group spatial_transformer --max_epochs 15 --num_workers 16 --img_size 128 --batch_size 256  --model stn
