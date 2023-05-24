@@ -24,7 +24,8 @@ def train(args):
         )
         model = SupervisedVAE(vae=vae, gamma=args.gamma)
     elif args.model == "stn":
-        model = SpatialTransformer(img_size=args.img_size)
+        mask = torch.tensor([1, 0, 1, 0, 1, 1])
+        model = SpatialTransformer(img_size=args.img_size, mask=mask)
     else:
         raise ValueError(f"Unknown model {args.model}.")
 
@@ -93,7 +94,7 @@ def build_trainer(args, callbacks=None):
 def build_data_loaders(args, shapes):
     """Build data loaders for a class-incremental continual learning scenario."""
     scale_range = np.linspace(0.5, 1.5, args.factor_resolution)
-    orientation_range = np.linspace(0, 2 * np.pi, args.factor_resolution)
+    orientation_range = [0.0]
     position_x_range = np.linspace(0, 1, args.factor_resolution)
     position_y_range = np.linspace(0, 1, args.factor_resolution)
 
