@@ -27,7 +27,7 @@ class VisualizationCallback(Callback):
         outputs,
         batch,
         batch_idx: int,
-        dataloader_idx: int,
+        dataloader_idx: int = 0,
     ):
         """Visualize the first batch of the validation set and the reconstructions."""
         if batch_idx == 0:
