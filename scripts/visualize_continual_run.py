@@ -11,11 +11,103 @@ import wandb
 plt.style.use("ggplot")
 
 
-def visualize_wandb_run(args):
+def visualize_stn_run(args):
     """Pull images and metrics from a wandb run and create custom figures."""
     api = wandb.Api()
     run = api.run(args.run_id)
-    metrics = download_metrics(run, args)
+    metrics = download_stn_metrics(run, args)
+    fig, axes = plt.subplots(1, 2, figsize=(32, 9), layout="tight")
+    lines = {
+        "loss_val": axes[0].plot([], [], linewidth=2, label="Loss (val)")[0],
+        "loss_train": axes[0].plot([], [], linewidth=2, label="Loss (train)")[0],
+        "img": axes[1].imshow(plt.imread(metrics["img_paths"][0])),
+    }
+
+    def init():
+        """Initialize the matplotlib animation."""
+        steps, values = metrics["loss_train_steps"], metrics["loss_train_values"]
+        axes[0].set_xlim(0, max(steps))
+        axes[0].set_ylim(0, max(values))
+        axes[0].set_title("Loss")
+        axes[0].legend(loc="upper right")
+        axes[0].set_xlabel("Steps")
+
+        for task_transition in metrics["task_transitions"]:
+            axes[0].axvline(task_transition, color="gray", linestyle="dotted")
+
+        axes[1].axis("off")
+
+        return list(lines.values())
+
+    def update(i):
+        """Update the matplotlib animation."""
+        current_step = metrics["loss_train_steps"][i]
+        lines["loss_train"].set_data(
+            metrics["loss_train_steps"][:i], metrics["loss_train_values"][:i]
+        )
+        j = find_nearest_step_index(metrics["loss_val_steps"], current_step)
+        lines["loss_val"].set_data(
+            metrics["loss_val_steps"][:j], metrics["loss_val_values"][:j]
+        )
+        j = find_nearest_step_index(metrics["img_steps"], current_step)
+        lines["img"].set_data(plt.imread(metrics["img_paths"][j]))
+
+        return list(lines.values())
+
+    length = len(metrics["loss_train_steps"])
+    animation = FuncAnimation(
+        fig=fig,
+        func=update,
+        interval=0.01,
+        blit=True,
+        repeat=False,
+        frames=length,
+        init_func=init,
+    )
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    with tqdm(total=length) as progress_bar:
+
+        def callback(current_frame: int, total_frames: int) -> None:
+            # pylint: disable=unused-argument
+            progress_bar.update(1)
+
+        animation.save(
+            args.output_dir / "training_stn.gif",
+            dpi=args.dpi,
+            writer=PillowWriter(fps=30),
+            progress_callback=callback,
+        )
+
+
+def download_stn_metrics(run, args):
+    """Download all metrics required to build the figure."""
+    metrics = {}
+    metrics["loss_train_steps"], metrics["loss_train_values"] = download_metric(
+        run, name="loss_train", subsample=args.subsample
+    )
+    metrics["loss_val_steps"], metrics["loss_val_values"] = download_metric(
+        run, name="loss_val", subsample=1
+    )
+    task_id_steps, task_id_values = download_metric(
+        run, name="task_id", subsample=args.subsample
+    )
+    metrics["task_transitions"] = [
+        task_id_steps[i]
+        for i in range(len(task_id_steps) - 1)
+        if task_id_values[i] != task_id_values[i + 1]
+    ]
+
+    metrics["img_steps"], metrics["img_paths"] = maybe_download_media(
+        run, output_dir=args.output_dir
+    )
+    return metrics
+
+
+def visualize_vae_run(args):
+    """Pull images and metrics from a wandb run and create custom figures."""
+    api = wandb.Api()
+    run = api.run(args.run_id)
+    metrics = download_vae_metrics(run, args)
 
     fig, axes = plt.subplot_mosaic("AC;BC", figsize=(32, 9), layout="tight")
     lines = {
@@ -87,7 +179,7 @@ def visualize_wandb_run(args):
             progress_bar.update(1)
 
         animation.save(
-            args.output_dir / "training.gif",
+            args.output_dir / "training_vae.gif",
             dpi=args.dpi,
             writer=PillowWriter(fps=30),
             progress_callback=callback,
@@ -103,7 +195,7 @@ def find_nearest_step_index(steps, step):
     return min(range(len(steps)), key=lambda j: abs(steps[j] - step))
 
 
-def download_metrics(run, args):
+def download_vae_metrics(run, args):
     """Download all metrics required to build the figure.
     Args:
         run: Wandb run object.
@@ -196,14 +288,23 @@ def _main():
         "--output_dir", type=Path, default=repo_root / "img", help="Output directory."
     )
     parser.add_argument(
-        "--metric_name", type=str, default="regressor_loss_train", help="Metric name."
-    )
-    parser.add_argument(
         "--dpi", type=int, default=150, help="DPI of the output figure."
     )
     parser.add_argument("--subsample", type=int, default=1, help="Subsample rate.")
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="stn",
+        choices=["vae", "stn"],
+        help="Model type (VAE or STN).",
+    )
     args = parser.parse_args()
-    visualize_wandb_run(args)
+    if args.model == "vae":
+        visualize_vae_run(args)
+    elif args.model == "stn":
+        visualize_stn_run(args)
+    else:
+        raise ValueError(f"Unknown experiment type: {args.model}")
 
 
 if __name__ == "__main__":
