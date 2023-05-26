@@ -40,7 +40,7 @@ class VisualizationCallback(Callback):
         """Log images and reconstructions"""
         x = x[:max_imgs]
         pl_module.eval()
-        x_hat, *_ = pl_module(x)
+        x_hat, *_ = pl_module(x.to(pl_module.device))
         images = draw_batch_and_reconstructions(to_numpy(x), to_numpy(x_hat))
         pl_module.logger.log_image(name, images=[images])
         pl_module.train()
