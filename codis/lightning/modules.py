@@ -25,7 +25,7 @@ class ContinualModule(pl.LightningModule):
     @task_id.setter
     def task_id(self, value):
         """Set the current train task id."""
-        self.task_id = value
+        self._task_id = value
 
 
 class SpatialTransformer(ContinualModule):
