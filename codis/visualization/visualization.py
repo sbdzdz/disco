@@ -71,7 +71,7 @@ def draw_batch_and_reconstructions(
     x,
     x_hat,
     fig_height: float = 10,
-    n_max: int = 16,
+    n_max: int = 25,
     path: Path = None,
     show=False,
 ):
