@@ -50,7 +50,5 @@ class LoggingCallback(Callback):
     """Callback for additional logging."""
 
     def on_train_epoch_start(self, trainer, pl_module):
-        print(f"Starting task {pl_module.train_task_id}...")
-
-    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
-        pl_module.log("task_id", pl_module.train_task_id)
+        print(f"Starting task {pl_module.task_id}...")
+        pl_module.log("task_id", pl_module.task_id)

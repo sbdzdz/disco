@@ -18,24 +18,14 @@ class ContinualModule(pl.LightningModule):
     """A base class for continual learning modules."""
 
     @property
-    def train_task_id(self):
+    def task_id(self):
         """Get the current train task id."""
-        return self._train_task_id
+        return self._task_id
 
-    @train_task_id.setter
-    def train_task_id(self, value):
+    @task_id.setter
+    def task_id(self, value):
         """Set the current train task id."""
-        self._train_task_id = value
-
-    @property
-    def test_task_id(self):
-        """Get the current test task id."""
-        return self._test_task_id
-
-    @test_task_id.setter
-    def test_task_id(self, value):
-        """Set the current test task id."""
-        self._test_task_id = value
+        self.task_id = value
 
 
 class SpatialTransformer(ContinualModule):
@@ -108,18 +98,16 @@ class SpatialTransformer(ContinualModule):
         """Perform a training or validation step."""
         x, _ = batch
         x_hat, _ = self.forward(x)
-        if stage in ["train", "val"]:
-            task_id = self.train_task_id
-        else:
-            task_id = self.test_task_id
         exemplar_tiled = (
-            self._buffer[task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
+            self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
         )
         loss = F.mse_loss(x_hat, exemplar_tiled)
-        if stage in ["train", "val"]:
-            self.log(f"loss_{stage}", loss)
+        if stage == "train":
+            self.log(f"loss_{stage}", loss, on_step=True)
+        elif stage == "val":
+            self.log(f"loss_{stage}", loss, on_epoch=True)
         else:
-            self.log(f"loss_{stage}_task_{task_id}", loss)
+            self.log(f"loss_{stage}_task_{self.task_id}", loss, on_epoch=True)
         return loss
 
 
@@ -178,11 +166,11 @@ class SupervisedVAE(ContinualModule):
         """Perform a test step."""
         loss, metrics = self._step(batch)
         self.log_dict(
-            {f"{k}_test_task_{self.test_task_id}": v for k, v in loss.items()},
+            {f"{k}_test_task_{self.task_id}": v for k, v in loss.items()},
             on_epoch=True,
         )
         self.log_dict(
-            {f"{k}_test_task_{self.test_task_id}": v for k, v in metrics.items()},
+            {f"{k}_test_task_{self.task_id}": v for k, v in metrics.items()},
             on_epoch=True,
         )
         return loss["loss"]

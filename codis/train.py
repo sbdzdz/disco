@@ -39,14 +39,14 @@ def train(args):
     for train_task_id, (train_loader, val_loader, exemplar) in enumerate(
         zip(train_loaders, val_loaders, exemplars)
     ):
-        model.train_task_id = train_task_id
+        model.task_id = train_task_id
         if model.has_buffer:
             model.add_exemplar(exemplar)
         trainer.fit(model, train_loader, val_loader)
         trainer.fit_loop.max_epochs += args.max_epochs
         for test_task_id, test_loader in enumerate(test_loaders):
             if test_task_id <= train_task_id:
-                model.test_task_id = test_task_id
+                model.task_id = test_task_id
                 trainer.test(model, test_loader)
     wandb.finish()
 

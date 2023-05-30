@@ -129,7 +129,7 @@ def download_metrics(run, args):
         run, name="task_id", subsample=args.subsample
     )
     metrics["task_transitions"] = [
-        task_id_steps[i]
+        task_id_steps[i + 1]
         for i in range(len(task_id_steps) - 1)
         if task_id_values[i] != task_id_values[i + 1]
     ]
