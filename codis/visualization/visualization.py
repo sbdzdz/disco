@@ -18,7 +18,6 @@ from codis.data import (
     Latents,
 )
 
-np.random.seed(0)
 repo_root = Path(__file__).parent.parent.parent
 
 COLORS = [
@@ -150,6 +149,7 @@ def draw_shapes(
     img_size: int = 128,
     fg_color: str = "whitesmoke",
     bg_color: str = "white",
+    seed: int = 0,
 ):
     """Plot an n x n grid of random shapes.
     Args:
@@ -162,6 +162,7 @@ def draw_shapes(
     Returns:
         None
     """
+    np.random.seed(seed)
     fig, axes = plt.subplots(
         nrows=nrows,
         ncols=ncols,
@@ -192,15 +193,22 @@ def draw_smooth_shapes(
     num_shapes: int = 10,
     duration_per_shape: int = 2,
     fps: int = 60,
+    seed: int = 0,
 ):
     """Smoothly interpolate between shapes and colors.
     Args:
         path: The path to save the animation to.
+        nrows: The number of rows in the grid.
+        ncols: The number of columns in the grid.
         fig_height: The height of the figure in inches.
+        img_size: The size of the image in pixels.
+        bg_color: The color of the background plot area.
         num_shapes: The number of shapes to interpolate between.
-        duration: The duration of the animation in seconds.
+        duration_per_shape: The number of seconds per shape transition.
         fps: The number of frames per second.
+        seed: The random seed.
     """
+    np.random.seed(seed)
     dataset = InfiniteDSprites(img_size=img_size, color_range=COLORS)
     colors = [
         [dataset.sample_latents().color for _ in range(num_shapes)]
@@ -255,7 +263,8 @@ def draw_shapes_animated(
     bg_color: str = "white",
     duration: int = 2,
     fps: int = 60,
-    factor=None,
+    factor: str = None,
+    seed: int = 0,
 ):
     """Create an animated GIF showing a grid of shapes undergoing transformations.
     Args:
@@ -268,9 +277,11 @@ def draw_shapes_animated(
         duration: The duration of the animation in seconds.
         fps: The number of frames per second.
         factor: The factor to vary. If None, all factors are varied.
+        seed: The random seed.
     Returns:
         None
     """
+    np.random.seed(seed)
     num_frames = fps * duration
     dataset = InfiniteDSprites(
         img_size=img_size,
@@ -390,74 +401,6 @@ def save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps):
             plt.savefig(buffer, format="png")
             plt.close()
             writer.append_data(imageio.imread(buffer))  # type: ignore
-
-
-def draw_triplet(path: Path = repo_root / "img/triplet.png", fig_height: float = 10):
-    """Plot a triplet of shapes form the InfiniteDSpritesTriplets.
-    See Montero et al. 2020 for details of the composition task.
-    Args:
-        fig_height: The height of the figure in inches.
-    Returns:
-        None
-    """
-    dataset = InfiniteDSpritesTriplets(img_size=256)
-    (images, action) = next(iter(dataset))
-    _, axes = plt.subplots(
-        nrows=1,
-        ncols=3,
-        figsize=(3 * fig_height, fig_height),
-        subplot_kw={"aspect": 1.0},
-        layout="tight",
-    )
-    for ax, img in zip(axes.flat, images):
-        ax.axis("off")
-        ax.imshow(img)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path = path.with_name(f"{path.stem}_{action}{path.suffix}")
-    plt.savefig(path, bbox_inches="tight")
-    plt.close()
-
-
-def draw_classification_task(
-    path: Path = repo_root / "img/classification.png", fig_height: float = 10
-):
-    """Draw an example of the binary classification task.
-    Args:
-        fig_height: The height of the figure in inches.
-    Returns:
-        None
-    """
-    dataset = InfiniteDSprites(img_size=256)
-    latents_reference = dataset.sample_latents()
-    latents_same = dataset.sample_latents()
-    latents_different = dataset.sample_latents()
-
-    reference = dataset.draw(latents_reference, channels_first=False)
-    for latent in ["shape", "scale", "orientation", "position_x", "position_y"]:
-        same = dataset.draw(
-            latents_same._replace(**{latent: latents_reference[latent]}),
-            channels_first=False,
-        )
-        different = dataset.draw(latents_different, channels_first=False)
-        pairs = [(reference, same), (reference, different)]
-        path.parent.mkdir(parents=True, exist_ok=True)
-        for pair, label in zip(pairs, ["same", "different"]):
-            _, axes = plt.subplots(
-                nrows=1,
-                ncols=2,
-                figsize=(2 * fig_height, fig_height),
-                subplot_kw={"aspect": 1.0},
-                layout="tight",
-            )
-            for ax, img in zip(axes.flat, pair):
-                ax.axis("off")
-                ax.imshow(img)
-            path = path.with_name(f"{path.stem}_{latent}_{label}{path.suffix}")
-            plt.savefig(
-                path,
-                bbox_inches="tight",
-                pad_inches=0,
-            )
 
 
 def draw_analogy_task(
