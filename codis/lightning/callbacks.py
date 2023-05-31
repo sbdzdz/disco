@@ -40,7 +40,7 @@ class VisualizationCallback(Callback):
         """Log images and reconstructions"""
         x = x[:max_imgs]
         pl_module.eval()
-        x_hat, *_ = pl_module(x)
+        x_hat, *_ = pl_module(x.to(pl_module.device))
         images = draw_batch_and_reconstructions(to_numpy(x), to_numpy(x_hat))
         pl_module.logger.log_image(name, images=[images])
         pl_module.train()
@@ -50,7 +50,5 @@ class LoggingCallback(Callback):
     """Callback for additional logging."""
 
     def on_train_epoch_start(self, trainer, pl_module):
-        print(f"Starting task {pl_module.train_task_id}...")
-
-    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
-        pl_module.log("task_id", pl_module.train_task_id)
+        print(f"Starting task {pl_module.task_id}...")
+        pl_module.log("task_id", pl_module.task_id)
