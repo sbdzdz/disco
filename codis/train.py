@@ -23,6 +23,10 @@ torch.set_float32_matmul_precision("medium")
 
 def train(args):
     """Train the model in a continual learning setting."""
+    shapes = [InfiniteDSprites.generate_shape() for _ in range(args.tasks)]
+    exemplars = generate_exemplars(shapes, img_size=args.img_size)
+    callbacks = [VisualizationCallback(exemplars), LoggingCallback()]
+
     if args.model == "vae":
         vae = LightningBetaVAE(
             img_size=args.img_size,
@@ -39,15 +43,12 @@ def train(args):
         model = LatentRegressor(
             img_size=args.img_size, lr=args.lr, factors_to_regress=factors_to_regress
         )
+        callbacks = [LoggingCallback()]
     else:
         raise ValueError(f"Unknown model {args.model}.")
 
-    shapes = [InfiniteDSprites.generate_shape() for _ in range(args.tasks)]
     train_loaders, val_loaders, test_loaders = build_data_loaders(args, shapes)
-    exemplars = generate_exemplars(args, shapes)
-    visualization_callback = VisualizationCallback(exemplars)
-    logging_callback = LoggingCallback()
-    trainer = build_trainer(args, callbacks=[visualization_callback, logging_callback])
+    trainer = build_trainer(args, callbacks=callbacks)
 
     for train_task_id, (train_loader, val_loader, exemplar) in enumerate(
         zip(train_loaders, val_loaders, exemplars)
@@ -64,9 +65,9 @@ def train(args):
     wandb.finish()
 
 
-def generate_exemplars(args, shapes):
+def generate_exemplars(shapes, img_size):
     """Generate a batch of exemplars for visualization."""
-    dataset = InfiniteDSprites(img_size=args.img_size)
+    dataset = InfiniteDSprites(img_size=img_size)
     batch = [
         dataset.draw(
             Latents(
