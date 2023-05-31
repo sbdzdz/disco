@@ -11,7 +11,12 @@ from torch.utils.data import DataLoader, random_split
 import wandb
 from codis.data import ContinualDSprites, InfiniteDSprites, Latents
 from codis.lightning.callbacks import VisualizationCallback, LoggingCallback
-from codis.lightning.modules import LightningBetaVAE, SupervisedVAE, SpatialTransformer
+from codis.lightning.modules import (
+    LightningBetaVAE,
+    SupervisedVAE,
+    SpatialTransformer,
+    LatentRegressor,
+)
 
 torch.set_float32_matmul_precision("medium")
 
@@ -20,12 +25,20 @@ def train(args):
     """Train the model in a continual learning setting."""
     if args.model == "vae":
         vae = LightningBetaVAE(
-            img_size=args.img_size, latent_dim=args.latent_dim, beta=args.beta
+            img_size=args.img_size,
+            latent_dim=args.latent_dim,
+            beta=args.beta,
+            lr=args.lr,
         )
         model = SupervisedVAE(vae=vae, gamma=args.gamma)
     elif args.model == "stn":
-        mask = torch.tensor([1, 0, 1, 0, 1, 1])
-        model = SpatialTransformer(img_size=args.img_size, mask=mask)
+        mask = torch.tensor([0, 0, 1, 0, 0, 1])
+        model = SpatialTransformer(img_size=args.img_size, mask=mask, lr=args.lr)
+    elif args.model == "regressor":
+        factors_to_regress = ["position_x", "position_y"]
+        model = LatentRegressor(
+            img_size=args.img_size, lr=args.lr, factors_to_regress=factors_to_regress
+        )
     else:
         raise ValueError(f"Unknown model {args.model}.")
 
@@ -94,7 +107,7 @@ def build_trainer(args, callbacks=None):
 def build_data_loaders(args, shapes):
     """Build data loaders for a class-incremental continual learning scenario."""
     scale_range = np.linspace(0.5, 1.5, args.factor_resolution)
-    orientation_range = [0.0]
+    orientation_range = np.linspace(0, 2 * np.pi, args.factor_resolution)
     position_x_range = np.linspace(0, 1, args.factor_resolution)
     position_y_range = np.linspace(0, 1, args.factor_resolution)
 
@@ -191,6 +204,7 @@ def _main():
         "--model",
         type=str,
         default="stn",
+        choices=["vae", "stn", "regressor"],
         help="Model to train. One of 'vae' or 'stn'.",
     )
     args = parser.parse_args()
