@@ -17,6 +17,16 @@ from codis.visualization import draw_batch_and_reconstructions
 class ContinualModule(pl.LightningModule):
     """A base class for continual learning modules."""
 
+    def __init__(self, lr: float = 1e-3, factors_to_regress: list = None):
+        super().__init__()
+        self.lr = lr
+        if factors_to_regress is None:
+            factors_to_regress = ["scale", "orientation", "position_x", "position_y"]
+        self.factors_to_regress = factors_to_regress
+        self.num_factors = len(self.factors_to_regress)
+        self._task_id = None
+        self.has_buffer = False
+
     @property
     def task_id(self):
         """Get the current train task id."""
@@ -27,6 +37,78 @@ class ContinualModule(pl.LightningModule):
         """Set the current train task id."""
         self._task_id = value
 
+    def _stack_factors(self, factors):
+        """Stack the factors."""
+        return torch.cat(
+            [getattr(factors, name).unsqueeze(-1) for name in self.factors_to_regress],
+            dim=-1,
+        ).float()
+
+    def _unstack_factors(self, stacked_factors):
+        """Unstack the factors."""
+        return {
+            name: stacked_factors[:, i]
+            for i, name in enumerate(self.factors_to_regress)
+        }
+
+
+class LatentRegressor(ContinualModule):
+    """A model that directly regresses the latent factors."""
+
+    def __init__(
+        self,
+        img_size: int = 64,
+        in_channels: int = 1,
+        channels: Optional[list] = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+
+        if channels is None:
+            channels = [8, 8, 16, 16, 32]
+        self.encoder = Encoder(channels, in_channels)
+        self.encoder_output_dim = (img_size // 2 ** len(channels)) ** 2 * channels[-1]
+
+        self.regressor = MLP(
+            dims=[self.encoder_output_dim, 64, 32, self.num_factors],
+        )
+
+    def forward(self, x):
+        """Perform the forward pass."""
+        x = self.encoder(x).view(-1, self.encoder_output_dim)
+        return self.regressor(x)
+
+    def configure_optimizers(self):
+        """Configure the optimizers."""
+        return torch.optim.Adam(
+            [
+                {"params": self.encoder.parameters(), "lr": self.lr},
+                {"params": self.regressor.parameters(), "lr": self.lr},
+            ]
+        )
+
+    def training_step(self, batch, batch_idx):
+        """Perform a training step."""
+        loss = self._step(batch)
+        self.log("loss_train", loss)
+
+    def validation_step(self, batch, batch_idx):
+        """Perform a validation step."""
+        loss = self._step(batch)
+        self.log("loss_val", loss)
+
+    def test_step(self, batch, batch_idx):
+        """Perform a test step."""
+        loss = self._step(batch)
+        self.log(f"loss_task_{self._task_id}", loss)
+
+    def _step(self, batch):
+        """Perform a training or validation step."""
+        x, y = batch
+        y = self._stack_factors(y)
+        y_hat = self.forward(x)
+        return F.mse_loss(y, y_hat)
+
 
 class SpatialTransformer(ContinualModule):
     """A model that combines a parameter regressor and differentiable affine transforms."""
@@ -36,26 +118,27 @@ class SpatialTransformer(ContinualModule):
         img_size: int = 64,
         in_channels: int = 1,
         channels: Optional[list] = None,
-        lr: float = 1e-3,
         mask: torch.Tensor = None,
+        **kwargs,
     ):
-        super().__init__()
-        self.lr = lr
+        super().__init__(**kwargs)
         self.has_buffer = True
+
         if channels is None:
-            channels = [4, 4, 8, 8, 16]
+            channels = [8, 8, 16, 16, 32]
         self.encoder = Encoder(channels, in_channels)
         self.encoder_output_dim = (img_size // 2 ** len(channels)) ** 2 * channels[-1]
+
+        # build the regressor and initialize its weights to the identity transform
         self.regressor = MLP(
             dims=[self.encoder_output_dim, 64, 32, 6],
         )
-        self.mask = torch.tensor([1, 1, 1, 1, 1, 1]) if mask is None else mask
-
-        # initialise the weights of the regressor to the identity transform
         self.regressor.model[-1].weight.data.zero_()
         self.regressor.model[-1].bias.data.copy_(
             torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float)
         )
+        self.mask = torch.tensor([1, 1, 1, 1, 1, 1]) if mask is None else mask
+
         self._buffer = []
 
     def add_exemplar(self, exemplar):
@@ -119,17 +202,14 @@ class SupervisedVAE(ContinualModule):
         vae: pl.LightningModule,
         regressor: pl.LightningModule = None,
         gamma: float = 0.5,
-        factors_to_regress: list = None,
+        **kwargs,
     ):
         super().__init__()
         self.backbone = vae
         self.gamma = gamma
-        if factors_to_regress is None:
-            factors_to_regress = ["scale", "orientation", "position_x", "position_y"]
-        self.factors_to_regress = factors_to_regress
         if regressor is None:
             regressor = LightningMLP(
-                dims=[self.backbone.latent_dim, 64, 64, len(factors_to_regress)],
+                dims=[self.backbone.latent_dim, 64, 64, len(self.factors_to_regress)],
             )
         self.regressor = regressor
         self.r2_score = R2Score(num_outputs=self.regressor.model.dims[-1])
@@ -204,20 +284,6 @@ class SupervisedVAE(ContinualModule):
                 )
                 for name in self.factors_to_regress
             },
-        }
-
-    def _stack_factors(self, factors):
-        """Stack the factors."""
-        return torch.cat(
-            [getattr(factors, name).unsqueeze(-1) for name in self.factors_to_regress],
-            dim=-1,
-        ).float()
-
-    def _unstack_factors(self, stacked_factors):
-        """Unstack the factors."""
-        return {
-            name: stacked_factors[:, i]
-            for i, name in enumerate(self.factors_to_regress)
         }
 
 
