@@ -118,13 +118,9 @@ class InfiniteDSprites(IterableDataset):
     def generate_shape(cls):
         """Generate random vertices and connect them with straight lines or a smooth curve.
         Args:
-            min_verts: Minimum number of vertices (inclusive).
-            max_verts: Maximum number of vertices (inclusive).
-            radius_std: Standard deviation of the polar radius when sampling the vertices.
-            angle_std: Standard deviation of the polar angle when sampling the vertices.
+            None
         Returns:
-            A tuple of (points, spline), where points is an array of points of shape (2, num_verts)
-            and spline is an array of shape (2, num_spline_points).
+            An array of shape (2, num_verts).
         """
         verts = cls.sample_vertex_positions()
         shape = (
@@ -146,9 +142,10 @@ class InfiniteDSprites(IterableDataset):
     ):
         """Sample the positions of the vertices of a polygon.
         Args:
+            min_verts: Minimum number of vertices (inclusive).
+            max_verts: Maximum number of vertices (inclusive).
             radius_std: Standard deviation of the polar radius when sampling the vertices.
             angle_std: Standard deviation of the polar angle when sampling the vertices.
-            num_verts: Number of vertices.
         Returns:
             An array of shape (2, num_verts).
         """

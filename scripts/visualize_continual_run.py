@@ -98,7 +98,7 @@ def download_stn_metrics(run, args):
     ]
 
     metrics["img_steps"], metrics["img_paths"] = maybe_download_media(
-        run, output_dir=args.output_dir
+        run, output_dir=args.output_dir, name="reconstructions_exemplars"
     )
     return metrics
 
@@ -227,7 +227,7 @@ def download_vae_metrics(run, args):
     ]
 
     metrics["img_steps"], metrics["img_paths"] = maybe_download_media(
-        run, output_dir=args.output_dir
+        run, output_dir=args.output_dir, name="reconstructions"
     )
 
     return metrics
@@ -251,7 +251,7 @@ def download_metric(run, name, subsample: int = 1):
     return steps, values
 
 
-def maybe_download_media(run, output_dir: Path):
+def maybe_download_media(run, output_dir: Path, name: str = ""):
     """Download all images from a run unless they have been downloaded before.
     Args:
         run: Wandb run object.
@@ -260,18 +260,17 @@ def maybe_download_media(run, output_dir: Path):
     assert run.state != "running", "Run is not finished yet."
     path = output_dir / f"media/{run.id}"
     for file in run.files():
-        if file.name.endswith(".png"):
+        if name in file.name and file.name.endswith(".png"):
             file.download(root=path, exist_ok=True)
 
-    img_steps, img_paths = zip(
-        *[
-            (int(img_path.stem.split("_")[1]), img_path)
-            for img_path in sorted(
-                path.glob("media/images/*.png"),
-                key=lambda x: int(x.stem.split("_")[1]),
-            )
-        ]
+    img_paths = list(
+        sorted(
+            path.glob(f"media/images/{name}*.png"),
+            key=lambda x: int(x.stem.split("_")[-2]),
+        )
     )
+    img_steps = [int(img_path.stem.split("_")[-2]) for img_path in img_paths]
+
     return img_steps, img_paths
 
 
