@@ -39,7 +39,7 @@ def train(args):
         mask = torch.tensor([0, 0, 1, 0, 0, 1])
         model = SpatialTransformer(img_size=args.img_size, mask=mask, lr=args.lr)
     elif args.model == "regressor":
-        factors_to_regress = ["position_x", "position_y"]
+        factors_to_regress = ["position_x", "position_y", "scale"]
         model = LatentRegressor(
             img_size=args.img_size, lr=args.lr, factors_to_regress=factors_to_regress
         )
@@ -53,6 +53,7 @@ def train(args):
     for train_task_id, (train_loader, val_loader, exemplar) in enumerate(
         zip(train_loaders, val_loaders, exemplars)
     ):
+        print(f"Training on task {train_task_id}...")
         model.task_id = train_task_id
         if model.has_buffer:
             model.add_exemplar(exemplar)
