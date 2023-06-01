@@ -49,6 +49,10 @@ class VisualizationCallback(Callback):
 class LoggingCallback(Callback):
     """Callback for additional logging."""
 
-    def on_train_epoch_start(self, trainer, pl_module):
+    def on_train_start(
+        self, trainer: pl.Trainer, pl_module: pl.LightningModule
+    ) -> None:
         print(f"Starting task {pl_module.task_id}...")
+
+    def on_train_epoch_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
         pl_module.log("task_id", pl_module.task_id)
