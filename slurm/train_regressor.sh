@@ -20,5 +20,5 @@ python -m pip install --upgrade pip setuptools
 python -m pip install -r $HOME/codis/requirements.txt
 python -m pip install -e $HOME/codis
 
-srun --gres=gpu:1 python $HOME/codis/codis/train.py --wandb_dir $WORK/projects/codis/wandb --tasks 9 --log_every_n_steps 50 \
+srun --gres=gpu:1 python $HOME/codis/codis/train.py --wandb_dir $WORK/projects/codis/wandb --tasks 9 --log_every_n_steps 1 \
 --wandb_group position_regressor --max_epochs 20 --num_workers 16 --img_size 128 --batch_size 256  --model regressor --factor_resolution 64
