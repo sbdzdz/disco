@@ -91,16 +91,19 @@ class LatentRegressor(ContinualModule):
         """Perform a training step."""
         loss = self._step(batch)
         self.log("loss_train", loss)
+        return loss
 
     def validation_step(self, batch, batch_idx):
         """Perform a validation step."""
         loss = self._step(batch)
         self.log("loss_val", loss)
+        return loss
 
     def test_step(self, batch, batch_idx):
         """Perform a test step."""
         loss = self._step(batch)
         self.log(f"loss_test_task_{self._task_id}", loss)
+        return loss
 
     def _step(self, batch):
         """Perform a training or validation step."""
