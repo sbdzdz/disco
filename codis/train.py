@@ -97,7 +97,6 @@ def build_trainer(args, callbacks=None):
         default_root_dir=args.wandb_dir,
         devices=1,
         enable_checkpointing=False,
-        enable_progress_bar=False,
         log_every_n_steps=args.log_every_n_steps,
         logger=wandb_logger,
         max_epochs=args.max_epochs,
