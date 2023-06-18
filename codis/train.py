@@ -26,7 +26,6 @@ def train(args):
     shapes = [InfiniteDSprites.generate_shape() for _ in range(args.tasks)]
     exemplars = generate_exemplars(shapes, img_size=args.img_size)
     callbacks = [VisualizationCallback(exemplars), LoggingCallback()]
-    factors_to_regress = ["position_x", "position_y", "scale"]
 
     if args.model == "vae":
         vae = LightningBetaVAE(
@@ -36,7 +35,7 @@ def train(args):
             lr=args.lr,
         )
         model = SupervisedVAE(
-            vae=vae, gamma=args.gamma, factors_to_regress=factors_to_regress
+            vae=vae, gamma=args.gamma, factors_to_regress=args.factors_to_regress
         )
     elif args.model == "stn":
         mask = torch.tensor([0, 0, 1, 0, 0, 1])
@@ -44,11 +43,13 @@ def train(args):
             img_size=args.img_size,
             mask=mask,
             lr=args.lr,
-            factors_to_regress=factors_to_regress,
+            factors_to_regress=args.factors_to_regress,
         )
     elif args.model == "regressor":
         model = LatentRegressor(
-            img_size=args.img_size, lr=args.lr, factors_to_regress=factors_to_regress
+            img_size=args.img_size,
+            lr=args.lr,
+            factors_to_regress=args.factors_to_regress,
         )
         callbacks = [LoggingCallback()]
     else:
@@ -214,6 +215,12 @@ def _main():
         default="stn",
         choices=["vae", "stn", "regressor"],
         help="Model to train. One of 'vae' or 'stn'.",
+    )
+    parser.add_argument(
+        "--factors_to_regress",
+        type=str,
+        nargs="+",
+        default=["scale", "position_x", "position_y"],
     )
     args = parser.parse_args()
     train(args)
