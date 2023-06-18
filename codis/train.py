@@ -26,6 +26,7 @@ def train(args):
     shapes = [InfiniteDSprites.generate_shape() for _ in range(args.tasks)]
     exemplars = generate_exemplars(shapes, img_size=args.img_size)
     callbacks = [VisualizationCallback(exemplars), LoggingCallback()]
+    factors_to_regress = ["position_x", "position_y", "scale"]
 
     if args.model == "vae":
         vae = LightningBetaVAE(
@@ -34,12 +35,18 @@ def train(args):
             beta=args.beta,
             lr=args.lr,
         )
-        model = SupervisedVAE(vae=vae, gamma=args.gamma)
+        model = SupervisedVAE(
+            vae=vae, gamma=args.gamma, factors_to_regress=factors_to_regress
+        )
     elif args.model == "stn":
         mask = torch.tensor([0, 0, 1, 0, 0, 1])
-        model = SpatialTransformer(img_size=args.img_size, mask=mask, lr=args.lr)
+        model = SpatialTransformer(
+            img_size=args.img_size,
+            mask=mask,
+            lr=args.lr,
+            factors_to_regress=factors_to_regress,
+        )
     elif args.model == "regressor":
-        factors_to_regress = ["position_x", "position_y"]
         model = LatentRegressor(
             img_size=args.img_size, lr=args.lr, factors_to_regress=factors_to_regress
         )
