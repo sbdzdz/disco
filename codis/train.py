@@ -96,7 +96,7 @@ def generate_exemplars(shapes, img_size):
 def build_trainer(args, callbacks=None):
     """Configure the model trainer."""
     wandb_logger = WandbLogger(
-        project="codis", save_dir=args.wandb_dir, group=args.wandb_group
+        name = args.run_name, project="codis", save_dir=args.wandb_dir, group=args.wandb_group
     )
     wandb_logger.experiment.config.update(args)
     if callbacks is None:
@@ -198,6 +198,12 @@ def _main():
         help="Relative weight of the backbone and regressor loss. 0 is only backbone loss, 1 is only regressor loss.",
     )
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
+    parser.add_argument(
+        "--run_name",
+        type=str,
+        default=None,
+        help="Name of the run. If not specified, a new run will be created.",
+    )
     parser.add_argument(
         "--wandb_dir",
         type=Path,
