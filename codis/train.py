@@ -220,7 +220,7 @@ def _main():
         "--factors_to_regress",
         type=str,
         nargs="+",
-        default=["scale", "position_x", "position_y"],
+        default=["orientation", "scale", "position_x", "position_y"],
     )
     args = parser.parse_args()
     train(args)
