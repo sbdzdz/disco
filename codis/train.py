@@ -34,14 +34,22 @@ def train(args):
             beta=args.beta,
             lr=args.lr,
         )
-        model = SupervisedVAE(vae=vae, gamma=args.gamma)
+        model = SupervisedVAE(
+            vae=vae, gamma=args.gamma, factors_to_regress=args.factors_to_regress
+        )
     elif args.model == "stn":
         mask = torch.tensor([0, 0, 1, 0, 0, 1])
-        model = SpatialTransformer(img_size=args.img_size, mask=mask, lr=args.lr)
+        model = SpatialTransformer(
+            img_size=args.img_size,
+            mask=mask,
+            lr=args.lr,
+            factors_to_regress=args.factors_to_regress,
+        )
     elif args.model == "regressor":
-        factors_to_regress = ["position_x", "position_y", "scale"]
         model = LatentRegressor(
-            img_size=args.img_size, lr=args.lr, factors_to_regress=factors_to_regress
+            img_size=args.img_size,
+            lr=args.lr,
+            factors_to_regress=args.factors_to_regress,
         )
         callbacks = [LoggingCallback()]
     else:
@@ -208,6 +216,12 @@ def _main():
         default="stn",
         choices=["vae", "stn", "regressor"],
         help="Model to train. One of 'vae' or 'stn'.",
+    )
+    parser.add_argument(
+        "--factors_to_regress",
+        type=str,
+        nargs="+",
+        default=["orientation", "scale", "position_x", "position_y"],
     )
     args = parser.parse_args()
     train(args)
