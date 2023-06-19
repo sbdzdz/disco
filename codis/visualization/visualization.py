@@ -132,7 +132,7 @@ def draw_batch_density(
         None
     """
     _, ax = plt.subplots(figsize=(fig_height, fig_height))
-    ax.imshow(images.mean(axis=0), interpolation="nearest", cmap="Greys_r")
+    ax.imshow(images.mean(axis=0), cmap="Greys_r", interpolation="nearest")
     ax.axis("off")
     path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(path, bbox_inches="tight", pad_inches=0)
@@ -148,8 +148,9 @@ def draw_shapes(
     fig_height: float = 10,
     img_size: int = 128,
     fg_color: str = "whitesmoke",
-    bg_color: str = "white",
+    bg_color: str = "black",
     seed: int = 0,
+    fill_shape: bool = False,
 ):
     """Plot an n x n grid of random shapes.
     Args:
@@ -176,9 +177,15 @@ def draw_shapes(
     if not isinstance(axes, np.ndarray):
         axes = np.array([axes])
     for ax in axes.flat:
-        spline = dataset.generate_shape()
         ax.axis("off")
-        ax.plot(spline[0], spline[1], label="spline", color=fg_color)
+        if fill_shape:
+            latents = dataset.sample_latents()
+            img = dataset.draw(latents, channels_first=False)
+            ax.imshow(img, cmap="Greys_r", interpolation="nearest")
+        else:
+            spline = dataset.generate_shape()
+            ax.plot(spline[0], spline[1], label="spline", color=fg_color)
+
     path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(path)
 
