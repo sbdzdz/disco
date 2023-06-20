@@ -20,6 +20,6 @@ python -m pip install --upgrade pip setuptools
 python -m pip install -r $HOME/codis/requirements.txt
 python -m pip install -e $HOME/codis
 
-srun --gres=gpu:1 python $HOME/codis/codis/train.py --wandb_dir $WORK/projects/codis/wandb --tasks 9 --log_every_n_steps 5 \
---wandb_group spatial_transformer --max_epochs 15 --num_workers 16 --img_size 128 --batch_size 256  --model stn --factor_resolution 32 \
+srun --gres=gpu:1 python $HOME/codis/codis/train.py --wandb_dir $WORK/projects/codis/wandb --tasks 9 --log_every_n_steps 1 \
+--max_epochs 5 --num_workers 16 --img_size 128 --factor_resolution 16 --batch_size 256 --wandb_group stn --model stn \
 --factors_to_regress scale position_x position_y
