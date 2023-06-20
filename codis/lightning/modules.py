@@ -170,31 +170,48 @@ class SpatialTransformer(ContinualModule):
 
     def training_step(self, batch, batch_idx):
         """Perform a training step."""
-        return self._step(batch, "train")
+        loss, regressor_loss = self._step(batch)
+        self.log("loss_train", loss, on_step=True)
+        self.log("regressor_loss_train", regressor_loss, on_step=True)
+        return loss
 
     def validation_step(self, batch, batch_idx):
         """Perform a validation step."""
-        return self._step(batch, "val")
+        loss, regressor_loss = self._step(batch)
+        self.log("loss_val", loss, on_epoch=True)
+        self.log("regressor_loss_val", regressor_loss, on_epoch=True)
+        return loss
 
     def test_step(self, batch, batch_idx):
         """Perform a test step."""
-        return self._step(batch, "test")
+        loss, regressor_loss = self._step(batch)
+        self.log("loss_{stage}_task_{self.task_id}", loss, on_epoch=True)
+        self.log("regressor_loss_{stage}", regressor_loss, on_epoch=True)
+        return loss
 
-    def _step(self, batch, stage):
+    def _step(self, batch):
         """Perform a training or validation step."""
-        x, _ = batch
-        x_hat, _ = self.forward(x)
+        x, y = batch
+        x_hat, theta = self.forward(x)
         exemplar_tiled = (
             self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
         )
         loss = F.mse_loss(x_hat, exemplar_tiled)
-        if stage == "train":
-            self.log(f"loss_{stage}", loss, on_step=True)
-        elif stage == "val":
-            self.log(f"loss_{stage}", loss, on_epoch=True)
-        else:
-            self.log(f"loss_{stage}_task_{self.task_id}", loss, on_epoch=True)
-        return loss
+        regressor_loss = F.mse_loss(y, self.theta_to_factors(theta))
+        return loss, regressor_loss
+
+    @staticmethod
+    def theta_to_factors(theta):
+        """Convert a theta matrix to a vector of factors."""
+
+        # TODO: fix this calculation
+        position_x = -theta[:, 0, 2]
+        position_y = -theta[:, 1, 2]
+        scale_x = torch.sqrt(theta[:, 0, 0] ** 2 + theta[:, 0, 1] ** 2)
+        scale_y = torch.sqrt(theta[:, 1, 0] ** 2 + theta[:, 1, 1] ** 2)
+        scale = torch.sqrt(scale_x**2 + scale_y**2)
+
+        return torch.stack([scale, position_x, position_y])
 
 
 class SupervisedVAE(ContinualModule):
