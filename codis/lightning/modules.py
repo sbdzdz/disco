@@ -170,35 +170,30 @@ class SpatialTransformer(ContinualModule):
 
     def training_step(self, batch, batch_idx):
         """Perform a training step."""
-        loss, regressor_loss = self._step(batch)
+        loss = self._step(batch)
         self.log("loss_train", loss, on_step=True)
-        self.log("regressor_loss_train", regressor_loss, on_step=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         """Perform a validation step."""
-        loss, regressor_loss = self._step(batch)
+        loss = self._step(batch)
         self.log("loss_val", loss, on_epoch=True)
-        self.log("regressor_loss_val", regressor_loss, on_epoch=True)
         return loss
 
     def test_step(self, batch, batch_idx):
         """Perform a test step."""
-        loss, regressor_loss = self._step(batch)
+        loss = self._step(batch)
         self.log("loss_{stage}_task_{self.task_id}", loss, on_epoch=True)
-        self.log("regressor_loss_{stage}", regressor_loss, on_epoch=True)
         return loss
 
     def _step(self, batch):
         """Perform a training or validation step."""
-        x, y = batch
-        x_hat, theta = self.forward(x)
+        x, _ = batch
+        x_hat, _ = self.forward(x)
         exemplar_tiled = (
             self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
         )
-        loss = F.mse_loss(x_hat, exemplar_tiled)
-        regressor_loss = F.mse_loss(y, self.theta_to_factors(theta))
-        return loss, regressor_loss
+        return F.mse_loss(x_hat, exemplar_tiled)
 
 
 class SupervisedVAE(ContinualModule):
