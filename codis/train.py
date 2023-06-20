@@ -96,7 +96,7 @@ def generate_exemplars(shapes, img_size):
 def build_trainer(args, callbacks=None):
     """Configure the model trainer."""
     wandb_logger = WandbLogger(
-        name = args.run_name, project="codis", save_dir=args.wandb_dir, group=args.wandb_group
+        project="codis", save_dir=args.wandb_dir, group=args.wandb_group
     )
     wandb_logger.experiment.config.update(args)
     if callbacks is None:
@@ -117,7 +117,7 @@ def build_trainer(args, callbacks=None):
 def build_data_loaders(args, shapes):
     """Build data loaders for a class-incremental continual learning scenario."""
     scale_range = np.linspace(0.5, 1.5, args.factor_resolution)
-    orientation_range = np.linspace(0, 2 * np.pi, args.factor_resolution)
+    orientation_range = [0.0]  # np.linspace(0, 2 * np.pi, args.factor_resolution)
     position_x_range = np.linspace(0, 1, args.factor_resolution)
     position_y_range = np.linspace(0, 1, args.factor_resolution)
 
@@ -198,12 +198,6 @@ def _main():
         help="Relative weight of the backbone and regressor loss. 0 is only backbone loss, 1 is only regressor loss.",
     )
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
-    parser.add_argument(
-        "--run_name",
-        type=str,
-        default=None,
-        help="Name of the run. If not specified, a new run will be created.",
-    )
     parser.add_argument(
         "--wandb_dir",
         type=Path,
