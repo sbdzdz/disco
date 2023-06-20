@@ -67,8 +67,7 @@ def draw_batch(
 
 
 def draw_batch_and_reconstructions(
-    x,
-    x_hat,
+    *image_arrays,
     fig_height: float = 10,
     n_max: int = 25,
     path: Path = None,
@@ -77,33 +76,35 @@ def draw_batch_and_reconstructions(
     """Show a batch of images and their reconstructions on a grid.
     Only the first n_max images are shown.
     Args:
-        x: A numpy array of shape (N, C, H, W) or (N, H, W).
-        x_hat: A numpy array of shape (N, C, H, W) or (N, H, W).
+        image_arrays: Numpy arrays of shape (N, C, H, W) or (N, H, W).
         n_max: The maximum number of images to show.
     Returns:
         None
     """
-    num_images = min(x.shape[0], n_max)
-    if x.ndim == 4:
-        x = np.transpose(x, (0, 2, 3, 1))
-        x_hat = np.transpose(x_hat, (0, 2, 3, 1))
+    img = image_arrays[0]
+    num_images = min(img.shape[0], n_max)
+    if img.ndim == 4:
+        image_arrays = [np.transpose(img, (0, 2, 3, 1)) for img in image_arrays]
     ncols = int(np.ceil(np.sqrt(num_images)))
     nrows = int(np.ceil(num_images / ncols))
 
     fig, axes = plt.subplots(
         nrows,
         ncols,
-        figsize=(2 * ncols / nrows * fig_height, fig_height),
+        figsize=(len(image_arrays) * ncols / nrows * fig_height, fig_height),
     )
     fig.tight_layout()
     if not isinstance(axes, np.ndarray):
         axes = np.array([axes])
 
-    for ax, img, img_hat in zip(axes.flat, x[:num_images], x_hat[:num_images]):
-        concatenated = np.concatenate([img, img_hat], axis=1)
+    for i, ax in enumerate(axes.flat):
+        images = [img[i] for img in image_arrays]
+        concatenated = np.concatenate(images, axis=1)
         border_width = concatenated.shape[1] // 128 or 1
-        mid = concatenated.shape[1] // 2
-        concatenated[:, mid - border_width : mid + border_width] = 1.0
+
+        for j in range(1, len(image_arrays)):
+            mid = j * concatenated.shape[1] // len(image_arrays)
+            concatenated[:, mid - border_width : mid + border_width] = 1.0
         ax.imshow(concatenated, cmap="Greys_r", interpolation="nearest")
         ax.axis("off")
     if show:
