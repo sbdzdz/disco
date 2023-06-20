@@ -5,16 +5,16 @@ from torch import nn
 class Encoder(nn.Module):
     """A simple encoder model."""
 
-    def __init__(self, hidden_dims: list[int], in_channels: int = 1) -> None:
+    def __init__(self, channels: list[int], in_channels: int = 1) -> None:
         """Initialize the encoder.
         Args:
             in_channels: The number of input channels.
-            hidden_dims: The number of channels in each hidden layer.
+            channels: The number of channels in each hidden layer.
         Returns:
             None
         """
         super().__init__()
-        hidden_dims = [in_channels] + hidden_dims
+        channels = [in_channels] + channels
         module = [
             nn.Sequential(
                 nn.Conv2d(
@@ -27,7 +27,7 @@ class Encoder(nn.Module):
                 nn.BatchNorm2d(out_channels),
                 nn.LeakyReLU(),
             )
-            for in_channels, out_channels in zip(hidden_dims[:-1], hidden_dims[1:])
+            for in_channels, out_channels in zip(channels[:-1], channels[1:])
         ]
         self.encoder = nn.Sequential(*module)
 

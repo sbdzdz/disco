@@ -18,7 +18,7 @@ class AutoEncoder(nn.Module):
             hidden_dims = [32, 64, 128, 256, 512]
         hidden_dims = [in_channels] + hidden_dims
 
-        self.encoder = Encoder(hidden_dims=hidden_dims, in_channels=in_channels)
+        self.encoder = Encoder(channels=hidden_dims, in_channels=in_channels)
         self.decoder = Decoder(reversed(hidden_dims), out_channels=in_channels)
 
     def forward(self, x):

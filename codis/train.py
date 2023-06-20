@@ -10,47 +10,73 @@ from torch.utils.data import DataLoader, random_split
 
 import wandb
 from codis.data import ContinualDSprites, InfiniteDSprites, Latents
-from codis.lightning.callbacks import VisualizationCallback
-from codis.lightning.modules import CodisModel, LightningBetaVAE, LightningMLP
+from codis.lightning.callbacks import VisualizationCallback, LoggingCallback
+from codis.lightning.modules import (
+    LightningBetaVAE,
+    SupervisedVAE,
+    SpatialTransformer,
+    LatentRegressor,
+)
 
 torch.set_float32_matmul_precision("medium")
 
 
 def train(args):
     """Train the model in a continual learning setting."""
-    factors_to_regress = ["scale", "orientation", "position_x", "position_y"]
-    backbone = LightningBetaVAE(
-        img_size=args.img_size, latent_dim=args.latent_dim, beta=args.beta
-    )
-    regressor = LightningMLP(
-        dims=[args.latent_dim, 64, 64, len(factors_to_regress)]
-    )  # 4 is the number of stacked latent values
-    model = CodisModel(
-        backbone, regressor, gamma=args.gamma, factors_to_regress=factors_to_regress
-    )
-
     shapes = [InfiniteDSprites.generate_shape() for _ in range(args.tasks)]
-    train_loaders, val_loaders, test_loaders = build_data_loaders(args, shapes)
-    callback = build_visualization_callback(args, shapes)
-    trainer = build_trainer(args, callbacks=[callback])
+    exemplars = generate_exemplars(shapes, img_size=args.img_size)
+    callbacks = [VisualizationCallback(exemplars), LoggingCallback()]
 
-    for train_task_id, (train_loader, val_loader) in enumerate(
-        zip(train_loaders, val_loaders)
+    if args.model == "vae":
+        vae = LightningBetaVAE(
+            img_size=args.img_size,
+            latent_dim=args.latent_dim,
+            beta=args.beta,
+            lr=args.lr,
+        )
+        model = SupervisedVAE(
+            vae=vae, gamma=args.gamma, factors_to_regress=args.factors_to_regress
+        )
+    elif args.model == "stn":
+        mask = torch.tensor([0, 0, 1, 0, 0, 1])
+        model = SpatialTransformer(
+            img_size=args.img_size,
+            mask=mask,
+            lr=args.lr,
+            factors_to_regress=args.factors_to_regress,
+        )
+    elif args.model == "regressor":
+        model = LatentRegressor(
+            img_size=args.img_size,
+            lr=args.lr,
+            factors_to_regress=args.factors_to_regress,
+        )
+        callbacks = [LoggingCallback()]
+    else:
+        raise ValueError(f"Unknown model {args.model}.")
+
+    train_loaders, val_loaders, test_loaders = build_data_loaders(args, shapes)
+    trainer = build_trainer(args, callbacks=callbacks)
+
+    for train_task_id, (train_loader, val_loader, exemplar) in enumerate(
+        zip(train_loaders, val_loaders, exemplars)
     ):
-        print(f"Starting task {train_task_id}...")
-        model.train_task_id = train_task_id
+        print(f"Training on task {train_task_id}...")
+        model.task_id = train_task_id
+        if model.has_buffer:
+            model.add_exemplar(exemplar)
         trainer.fit(model, train_loader, val_loader)
         trainer.fit_loop.max_epochs += args.max_epochs
         for test_task_id, test_loader in enumerate(test_loaders):
             if test_task_id <= train_task_id:
-                model.test_task_id = test_task_id
+                model.task_id = test_task_id
                 trainer.test(model, test_loader)
     wandb.finish()
 
 
-def build_visualization_callback(args, shapes):
-    """Build a callback for visualizing VAE reconstructions on a test batch."""
-    dataset = InfiniteDSprites(img_size=args.img_size)
+def generate_exemplars(shapes, img_size):
+    """Generate a batch of exemplars for visualization."""
+    dataset = InfiniteDSprites(img_size=img_size)
     batch = [
         dataset.draw(
             Latents(
@@ -64,8 +90,7 @@ def build_visualization_callback(args, shapes):
         )
         for shape in shapes
     ]
-    batch = torch.stack([torch.from_numpy(img) for img in batch])
-    return VisualizationCallback(batch)
+    return torch.stack([torch.from_numpy(img) for img in batch])
 
 
 def build_trainer(args, callbacks=None):
@@ -91,10 +116,10 @@ def build_trainer(args, callbacks=None):
 
 def build_data_loaders(args, shapes):
     """Build data loaders for a class-incremental continual learning scenario."""
-    scale_range = np.linspace(0.5, 1.5, 16)
-    orientation_range = np.linspace(0, 2 * np.pi, 16)
-    position_x_range = np.linspace(0, 1, 16)
-    position_y_range = np.linspace(0, 1, 16)
+    scale_range = np.linspace(0.5, 1.5, args.factor_resolution)
+    orientation_range = [0.0]  # np.linspace(0, 2 * np.pi, args.factor_resolution)
+    position_x_range = np.linspace(0, 1, args.factor_resolution)
+    position_y_range = np.linspace(0, 1, args.factor_resolution)
 
     datasets = [
         ContinualDSprites(
@@ -114,7 +139,9 @@ def build_data_loaders(args, shapes):
         *[random_split(d, [0.5, 0.5]) for d in test_datasets]
     )
     train_loaders = [
-        DataLoader(d, batch_size=args.batch_size, num_workers=args.num_workers)
+        DataLoader(
+            d, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True
+        )
         for d in train_datasets
     ]
     val_loaders = [
@@ -140,6 +167,12 @@ def _main():
     )
     parser.add_argument(
         "--tasks", type=int, default=5, help="Number of continual learning tasks."
+    )
+    parser.add_argument(
+        "--factor_resolution",
+        type=int,
+        default=16,
+        help="Resolution of the factors of variation. The dataset size is factor_resolution ** 4.",
     )
     parser.add_argument(
         "--max_epochs",
@@ -178,6 +211,19 @@ def _main():
         type=str,
         default=None,
         help="Wandb group name. If not specified, a new group will be created.",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="stn",
+        choices=["vae", "stn", "regressor"],
+        help="Model to train. One of 'vae' or 'stn'.",
+    )
+    parser.add_argument(
+        "--factors_to_regress",
+        type=str,
+        nargs="+",
+        default=["orientation", "scale", "position_x", "position_y"],
     )
     args = parser.parse_args()
     train(args)

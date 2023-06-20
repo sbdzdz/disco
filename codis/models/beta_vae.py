@@ -16,8 +16,8 @@ class BetaVAE(BaseVAE):
         self,
         img_size: int = 64,
         in_channels: int = 1,
+        channels: Optional[list] = None,
         latent_dim: int = 10,
-        num_channels: Optional[list] = None,
         beta: float = 1.0,
     ) -> None:
         """Initialize the model.
@@ -25,7 +25,7 @@ class BetaVAE(BaseVAE):
             img_size: Size of the input image in pixels
             in_channels: Number of input channels
             latent_dim: Latent space dimensionality
-            num_channels: Number of channels in the encoder and decoder networks
+            channels: Number of channels in the encoder and decoder networks
             beta: Weight of the KL divergence loss term
         Returns:
             None
@@ -35,18 +35,18 @@ class BetaVAE(BaseVAE):
         self.latent_dim = latent_dim
         self.beta = beta
 
-        if num_channels is None:
-            num_channels = [4, 4, 8, 8, 16]
-        self.num_channels = num_channels
+        if channels is None:
+            channels = [4, 4, 8, 8, 16]
+        self.channels = channels
 
-        self.encoder_output_size = img_size // 2 ** len(num_channels)
-        encoder_output_dim = self.encoder_output_size**2 * num_channels[-1]
+        self.encoder_output_size = img_size // 2 ** len(channels)
+        encoder_output_dim = self.encoder_output_size**2 * channels[-1]
 
-        self.encoder = Encoder(num_channels, in_channels)
+        self.encoder = Encoder(channels, in_channels)
         self.fc_mu = nn.Linear(encoder_output_dim, latent_dim)
         self.fc_var = nn.Linear(encoder_output_dim, latent_dim)
         self.decoder_input = nn.Linear(latent_dim, encoder_output_dim)
-        self.decoder = Decoder(list(reversed(num_channels)), in_channels)
+        self.decoder = Decoder(list(reversed(channels)), in_channels)
 
     def forward(self, x: Tensor) -> List[Tensor]:
         """Perform the forward pass.
@@ -94,7 +94,7 @@ class BetaVAE(BaseVAE):
         z = self.decoder_input(z)
         z = z.view(
             -1,
-            self.num_channels[-1],
+            self.channels[-1],
             self.encoder_output_size,
             self.encoder_output_size,
         )

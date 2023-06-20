@@ -7,5 +7,4 @@ from codis.visualization.visualization import (
     draw_shapes_animated,
     draw_smooth_shapes,
     draw_analogy_task,
-    draw_classification_task,
 )
