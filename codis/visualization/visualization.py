@@ -14,7 +14,6 @@ from tqdm import tqdm
 from codis.data import (
     InfiniteDSprites,
     InfiniteDSpritesAnalogies,
-    InfiniteDSpritesTriplets,
     Latents,
 )
 
