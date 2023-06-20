@@ -139,7 +139,9 @@ def build_data_loaders(args, shapes):
         *[random_split(d, [0.5, 0.5]) for d in test_datasets]
     )
     train_loaders = [
-        DataLoader(d, batch_size=args.batch_size, num_workers=args.num_workers)
+        DataLoader(
+            d, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True
+        )
         for d in train_datasets
     ]
     val_loaders = [
