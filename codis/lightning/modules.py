@@ -200,19 +200,6 @@ class SpatialTransformer(ContinualModule):
         regressor_loss = F.mse_loss(y, self.theta_to_factors(theta))
         return loss, regressor_loss
 
-    @staticmethod
-    def theta_to_factors(theta):
-        """Convert a theta matrix to a vector of factors."""
-
-        # TODO: fix this calculation
-        position_x = -theta[:, 0, 2]
-        position_y = -theta[:, 1, 2]
-        scale_x = torch.sqrt(theta[:, 0, 0] ** 2 + theta[:, 0, 1] ** 2)
-        scale_y = torch.sqrt(theta[:, 1, 0] ** 2 + theta[:, 1, 1] ** 2)
-        scale = torch.sqrt(scale_x**2 + scale_y**2)
-
-        return torch.stack([scale, position_x, position_y])
-
 
 class SupervisedVAE(ContinualModule):
     """A model that combines a VAE backbone and an MLP regressor."""
