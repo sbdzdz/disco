@@ -16,7 +16,7 @@ def visualize_loss(args):
     stages = ["val", "train"]
 
     if args.include_test:
-        stages.extend([f"test_{i}" for i in range(9)])
+        stages.extend([f"test_task_{i}" for i in range(9)])
 
     _, ax = plt.subplots(figsize=(20, 9), layout="tight")
     for stage in stages:
@@ -46,8 +46,6 @@ def visualize_loss(args):
     for task_transition in get_task_transitions(api.run(args.run_ids[0])):
         ax.axvline(task_transition, color="gray", linestyle="dotted", linewidth=1)
 
-    ax.set_xlim([-300, 5000])
-    ax.set_ylim([0, 1.0])
     ax.set_title("Loss (average of 5 runs)")
     ax.set_xlabel("Steps")
     ax.legend(loc="upper right")
@@ -103,6 +101,9 @@ def _main():
     )
     parser.add_argument(
         "--include_test", action="store_true", help="Include test losses in the plot."
+    )
+    parser.add_argument(
+        "--visualize_std", action="store_true", help="Visualize standard deviation."
     )
     args = parser.parse_args()
 

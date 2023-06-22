@@ -1,4 +1,5 @@
 """Lightning modules for the models."""
+import math
 from typing import List, Optional
 
 import lightning.pytorch as pl
@@ -122,6 +123,7 @@ class SpatialTransformer(ContinualModule):
         in_channels: int = 1,
         channels: Optional[list] = None,
         mask: torch.Tensor = None,
+        gamma: float = 0.5,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -141,6 +143,7 @@ class SpatialTransformer(ContinualModule):
             torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float)
         )
         self.mask = torch.tensor([1, 1, 1, 1, 1, 1]) if mask is None else mask
+        self.gamma = gamma
 
         self._buffer = []
 
@@ -171,29 +174,93 @@ class SpatialTransformer(ContinualModule):
     def training_step(self, batch, batch_idx):
         """Perform a training step."""
         loss = self._step(batch)
-        self.log("loss_train", loss, on_step=True)
+        self.log_dict({f"{k}_train": v for k, v in loss.items()})
         return loss
 
     def validation_step(self, batch, batch_idx):
         """Perform a validation step."""
         loss = self._step(batch)
-        self.log("loss_val", loss, on_epoch=True)
+        self.log_dict({f"{k}_val": v for k, v in loss.items()})
         return loss
 
     def test_step(self, batch, batch_idx):
         """Perform a test step."""
         loss = self._step(batch)
-        self.log("loss_{stage}_task_{self.task_id}", loss, on_epoch=True)
+        self.log_dict({f"{k}_test_task_{self.task_id}": v for k, v in loss.items()})
         return loss
 
     def _step(self, batch):
         """Perform a training or validation step."""
-        x, _ = batch
-        x_hat, _ = self.forward(x)
+        x, y = batch
+        x_hat, theta_hat = self.forward(x)
         exemplar_tiled = (
             self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
         )
-        return F.mse_loss(x_hat, exemplar_tiled)
+        theta = self.convert_parameters_to_matrix(y) * self.mask.view(-1, 2, 3).to(
+            self.device
+        )
+        backbone_loss = F.mse_loss(exemplar_tiled, x_hat)
+        regression_loss = F.mse_loss(theta, theta_hat)
+        return {
+            "regression_loss": regression_loss,
+            "backbone_loss": backbone_loss,
+            "loss": self.gamma * regression_loss + (1 - self.gamma) * backbone_loss,
+        }
+
+    @staticmethod
+    def convert_parameters_to_matrix(factors):
+        """Convert the ground truth factors to a transformation matrix.
+        The matrix maps from an arbitrary image (defined by factors) to the canonical representation.
+        Args:
+            factors: A namedtuple of factors.
+        Returns:
+            A 2x3 transformation matrix.
+        """
+        scale, orientation, position_x, position_y = (
+            factors.scale,
+            factors.orientation,
+            factors.position_x,
+            factors.position_y,
+        )
+
+        transform_matrix = torch.eye(3)
+
+        # reverse scale
+        scale = 0.8 * scale + 0.2  # hardcoded to account for dataset min_scale
+        transform_matrix = torch.matmul(
+            torch.tensor(
+                [[scale, 0.0, 0.0], [0.0, scale, 0.0], [0.0, 0.0, 1.0]],
+            ).float(),
+            transform_matrix,
+        )
+
+        # reverse orientation
+        transform_matrix = torch.matmul(
+            torch.tensor(
+                [
+                    [math.cos(-orientation), -math.sin(-orientation), 0.0],
+                    [math.sin(-orientation), math.cos(-orientation), 0.0],
+                    [0.0, 0.0, 1.0],
+                ]
+            ).float(),
+            transform_matrix,
+        )
+
+        # move to 0.5, 0.5
+        transform_matrix = torch.matmul(
+            torch.tensor([[1.0, 0.0, -0.5], [0.0, 1.0, -0.5], [0.0, 0.0, 1.0]]).float(),
+            transform_matrix,
+        )
+
+        # move from position_x and position_y to 0, 0
+        transform_matrix = torch.matmul(
+            torch.tensor(
+                [[1.0, 0.0, position_x], [0.0, 1.0, position_y], [0.0, 0.0, 1.0]]
+            ).float(),
+            transform_matrix,
+        )
+
+        return transform_matrix
 
 
 class SupervisedVAE(ContinualModule):
@@ -206,7 +273,7 @@ class SupervisedVAE(ContinualModule):
         gamma: float = 0.5,
         **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.backbone = vae
         self.gamma = gamma
         if regressor is None:
@@ -263,16 +330,13 @@ class SupervisedVAE(ContinualModule):
         y = self._stack_factors(y)
         x_hat, mu, log_var, y_hat = self.forward(x)
         metrics = self._calculate_metrics(y, y_hat)
-        regressor_loss = self.regressor.loss_function(y, y_hat)
-        backbone_loss = self.backbone.loss_function(x, x_hat, mu, log_var)
+        regressor_loss = self.regressor.loss_function(y, y_hat)["loss"]
+        backbone_loss = self.backbone.loss_function(x, x_hat, mu, log_var)["loss"]
         loss = {
-            "regressor_loss": regressor_loss["loss"],
-            "backbone_loss": backbone_loss["loss"],
+            "regression_loss": regressor_loss,
+            "backbone_loss": backbone_loss,
+            "loss": self.gamma * regressor_loss + (1 - self.gamma) * backbone_loss,
         }
-        loss["loss"] = (
-            self.gamma * loss["regressor_loss"]
-            + (1 - self.gamma) * loss["backbone_loss"]
-        )
         return loss, metrics
 
     def _calculate_metrics(self, y, y_hat):
