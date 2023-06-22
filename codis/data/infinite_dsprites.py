@@ -68,6 +68,7 @@ class InfiniteDSprites(IterableDataset):
         self.counter = 0
         self.current_shape_index = 0
         self.shapes = shapes
+        self.min_scale = 0.25  # minimum scale to avoid shapes being too tiny
 
     @classmethod
     def from_config(cls, config: dict):
@@ -211,7 +212,7 @@ class InfiniteDSprites(IterableDataset):
     def apply_scale(self, shape: npt.NDArray, scale: float):
         """Apply a scale to a shape."""
         height, _ = self.window.get_size()
-        return 0.2 * height * (0.3 + scale) * shape
+        return 0.2 * height * (self.min_scale + scale) * shape
 
     @staticmethod
     def apply_orientation(shape: npt.NDArray, orientation: float):
