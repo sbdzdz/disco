@@ -210,7 +210,7 @@ class SpatialTransformer(ContinualModule):
     @staticmethod
     def convert_parameters_to_matrix(factors):
         """Convert the ground truth factors to a transformation matrix.
-        The matrix maps an arbitrary image (defined by factors) to the canonical exemplar.
+        The matrix maps from an arbitrary image (defined by factors) to the canonical representation.
         Args:
             factors: A namedtuple of factors.
         Returns:
@@ -260,7 +260,7 @@ class SpatialTransformer(ContinualModule):
             transform_matrix,
         )
 
-        return torch.tensor(transform_matrix)
+        return transform_matrix
 
 
 class SupervisedVAE(ContinualModule):
