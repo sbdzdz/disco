@@ -38,10 +38,10 @@ def train(args):
             vae=vae, gamma=args.gamma, factors_to_regress=args.factors_to_regress
         )
     elif args.model == "stn":
-        mask = torch.tensor([0, 0, 1, 0, 0, 1])
+        # mask = torch.tensor([0, 0, 1, 0, 0, 1], dtype=torch.float)
         model = SpatialTransformer(
             img_size=args.img_size,
-            mask=mask,
+            mask=None,
             lr=args.lr,
             factors_to_regress=args.factors_to_regress,
         )
