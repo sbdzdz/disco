@@ -1,5 +1,4 @@
 """Lightning modules for the models."""
-import math
 from typing import List, Optional
 
 import lightning.pytorch as pl
@@ -142,7 +141,11 @@ class SpatialTransformer(ContinualModule):
         self.regressor.model[-1].bias.data.copy_(
             torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float)
         )
-        self.mask = torch.tensor([1, 1, 1, 1, 1, 1]) if mask is None else mask
+        self.mask = (
+            torch.tensor([1, 1, 1, 1, 1, 1], dtype=torch.float)
+            if mask is None
+            else mask
+        )
         self.gamma = gamma
 
         self._buffer = []
@@ -164,7 +167,7 @@ class SpatialTransformer(ContinualModule):
         """Perform the forward pass."""
         xs = self.encoder(x).view(-1, self.encoder_output_dim)
         theta = self.regressor(xs).view(-1, 2, 3)
-        theta = theta * self.mask.view(-1, 2, 3).to(self.device)
+        # theta = theta * self.mask.view(-1, 2, 3).to(self.device)
 
         grid = F.affine_grid(theta, x.size())
         x_hat = F.grid_sample(x, grid)
@@ -175,19 +178,19 @@ class SpatialTransformer(ContinualModule):
         """Perform a training step."""
         loss = self._step(batch)
         self.log_dict({f"{k}_train": v for k, v in loss.items()})
-        return loss
+        return loss["loss"]
 
     def validation_step(self, batch, batch_idx):
         """Perform a validation step."""
         loss = self._step(batch)
         self.log_dict({f"{k}_val": v for k, v in loss.items()})
-        return loss
+        return loss["loss"]
 
     def test_step(self, batch, batch_idx):
         """Perform a test step."""
         loss = self._step(batch)
         self.log_dict({f"{k}_test_task_{self.task_id}": v for k, v in loss.items()})
-        return loss
+        return loss["loss"]
 
     def _step(self, batch):
         """Perform a training or validation step."""
@@ -196,9 +199,8 @@ class SpatialTransformer(ContinualModule):
         exemplar_tiled = (
             self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
         )
-        theta = self.convert_parameters_to_matrix(y) * self.mask.view(-1, 2, 3).to(
-            self.device
-        )
+        theta = self.convert_parameters_to_matrix(y)
+        # theta = theta * self.mask.view(-1, 2, 3).to(self.device)
         backbone_loss = F.mse_loss(exemplar_tiled, x_hat)
         regression_loss = F.mse_loss(theta, theta_hat)
         return {
@@ -207,8 +209,7 @@ class SpatialTransformer(ContinualModule):
             "loss": self.gamma * regression_loss + (1 - self.gamma) * backbone_loss,
         }
 
-    @staticmethod
-    def convert_parameters_to_matrix(factors):
+    def convert_parameters_to_matrix(self, factors):
         """Convert the ground truth factors to a transformation matrix.
         The matrix maps from an arbitrary image (defined by factors) to the canonical representation.
         Args:
@@ -222,45 +223,47 @@ class SpatialTransformer(ContinualModule):
             factors.position_x,
             factors.position_y,
         )
+        batch_size = scale.shape[0]
 
-        transform_matrix = torch.eye(3)
+        transform_matrix = self.batched_eye(batch_size)
 
-        # reverse scale
+        # scale
+        scale_matrix = self.batched_eye(batch_size)
         scale = 0.8 * scale + 0.2  # hardcoded to account for dataset min_scale
-        transform_matrix = torch.matmul(
-            torch.tensor(
-                [[scale, 0.0, 0.0], [0.0, scale, 0.0], [0.0, 0.0, 1.0]],
-            ).float(),
-            transform_matrix,
-        )
+        scale_matrix[:, 0, 0] = scale
+        scale_matrix[:, 1, 1] = scale
+        transform_matrix = torch.bmm(scale_matrix, transform_matrix)
 
-        # reverse orientation
-        transform_matrix = torch.matmul(
-            torch.tensor(
-                [
-                    [math.cos(-orientation), -math.sin(-orientation), 0.0],
-                    [math.sin(-orientation), math.cos(-orientation), 0.0],
-                    [0.0, 0.0, 1.0],
-                ]
-            ).float(),
-            transform_matrix,
-        )
+        # rotate
+        orientation_matrix = self.batched_eye(batch_size)
+        orientation_matrix[:, 0, 0] = torch.cos(orientation)
+        orientation_matrix[:, 0, 1] = -torch.sin(orientation)
+        orientation_matrix[:, 1, 0] = torch.sin(orientation)
+        orientation_matrix[:, 1, 1] = torch.cos(orientation)
+        transform_matrix = torch.bmm(orientation_matrix, transform_matrix)
 
-        # move to 0.5, 0.5
-        transform_matrix = torch.matmul(
-            torch.tensor([[1.0, 0.0, -0.5], [0.0, 1.0, -0.5], [0.0, 0.0, 1.0]]).float(),
-            transform_matrix,
-        )
+        # move to the center
+        translation_matrix = self.batched_eye(batch_size)
+        translation_matrix[:, 0, 2] = -0.5
+        translation_matrix[:, 1, 2] = -0.5
+        transform_matrix = torch.bmm(translation_matrix, transform_matrix)
 
-        # move from position_x and position_y to 0, 0
-        transform_matrix = torch.matmul(
-            torch.tensor(
-                [[1.0, 0.0, position_x], [0.0, 1.0, position_y], [0.0, 0.0, 1.0]]
-            ).float(),
-            transform_matrix,
-        )
+        # move to 0, 0
+        translation_matrix = self.batched_eye(batch_size)
+        translation_matrix[:, 0, 2] = position_x
+        translation_matrix[:, 1, 2] = position_y
+        transform_matrix = torch.bmm(translation_matrix, transform_matrix)
 
-        return transform_matrix
+        return transform_matrix[:, :2, :]
+
+    def batched_eye(self, batch_size):
+        """Create a batch of identity matrices."""
+        return (
+            torch.eye(3, dtype=torch.float)
+            .unsqueeze(0)
+            .repeat(batch_size, 1, 1)
+            .to(self.device)
+        )
 
 
 class SupervisedVAE(ContinualModule):
