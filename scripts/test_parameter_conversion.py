@@ -1,24 +1,30 @@
 """Test converting between a theta transformation matrix and a ground truth factor representation."""
-
-from argparse import ArgumentParser
-
 import numpy as np
 import torch
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
 
-from codis.data.infinite_dsprites import InfiniteDSpritesRandom
-from codis.visualization import draw_batch_and_reconstructions
+from codis.data.infinite_dsprites import InfiniteDSpritesRandom, Latents
 from codis.lightning.modules import SpatialTransformer
+from codis.visualization import draw_batch_and_reconstructions
 
 
 def main():
     """Compare the original image with the transformed image.
     The transformation maps from the input to the canonical representation.
     """
+    batch_size = 16
     dataset = InfiniteDSpritesRandom()
     transformer = SpatialTransformer()
+    dataloader = DataLoader(dataset, batch_size, num_workers=0)
+    images, factors = next(iter(dataloader))
+    matrices = transformer.convert_parameters_to_matrix(factors)
 
-    factors = [dataset.sample_latents() for _ in range(25)]
+    # convert torch tensors to numpy arrays
+    factors = Latents(**{k: v.numpy() for k, v in factors._asdict().items()})
+    # convert batched namedtuple to a list of namedtuples
+    factors = [Latents(*items) for items in zip(*factors)]
+
     canonical_factors = [
         f._replace(
             scale=1.0,
@@ -28,9 +34,7 @@ def main():
         )
         for f in factors
     ]
-    matrices = [transformer.convert_parameters_to_matrix(f) for f in factors]
 
-    images = [torch.tensor(dataset.draw(f)) for f in factors]
     canonical_images = [torch.tensor(dataset.draw(f)) for f in canonical_factors]
     transformed_images = [transform(i, m) for i, m in zip(images, matrices)]
 
