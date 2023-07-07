@@ -1,5 +1,5 @@
 """Visualization utilities for the dSprites and InfiniteDSprites datasets.
-Example usage:
+Example:
     python -c "from codis.data.visualization import draw_shapes; draw_shapes()"
 """
 import io
