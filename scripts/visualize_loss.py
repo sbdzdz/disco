@@ -17,7 +17,7 @@ plt.style.use("ggplot")
 def visualize_loss(args):
     """Visualize train, validation, and optionally test losses."""
     api = wandb.Api()
-    stages = ["val", "train"]
+    stages = ["train", "val"]
 
     if args.include_test:
         stages.extend([f"test_task_{i}" for i in range(9)])
@@ -25,11 +25,12 @@ def visualize_loss(args):
     _, ax = plt.subplots(figsize=(20, 9), layout="tight")
     for stage in stages:
         metric = f"{args.metric_name}_{stage}"
+        subsample = args.subsample if stage in ["train", "val"] else 1
         metrics = [
             download_metric(
                 api.run(run_id),
                 metric,
-                subsample=args.subsample,
+                subsample=subsample,
                 max_samples=args.max_samples,
             )
             for run_id in tqdm(args.run_ids)
