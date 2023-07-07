@@ -138,8 +138,8 @@ class InfiniteDSprites(IterableDataset):
         cls,
         min_verts: int = 3,
         max_verts: int = 7,
-        radius_std: float = 0.6,
-        angle_std: float = 0.8,
+        radius_std: float = 0.8,
+        angle_std: float = 0.5,
     ):
         """Sample the positions of the vertices of a polygon.
         Args:
