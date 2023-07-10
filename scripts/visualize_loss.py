@@ -17,15 +17,16 @@ plt.style.use("ggplot")
 def visualize_loss(args):
     """Visualize train, validation, and optionally test losses."""
     api = wandb.Api()
-    stages = ["train", "val"]
+    stages = ["val", "train"]
 
     if args.include_test:
         stages.extend([f"test_task_{i}" for i in range(9)])
 
     _, ax = plt.subplots(figsize=(20, 9), layout="tight")
     for stage in stages:
+        print(f"Downloading {stage}...")
         metric = f"{args.metric_name}_{stage}"
-        subsample = args.subsample if stage in ["train", "val"] else 1
+        subsample = args.subsample if stage in ["val", "train"] else 1
         metrics = [
             download_metric(
                 api.run(run_id),
@@ -53,6 +54,8 @@ def visualize_loss(args):
 
     ax.set_title(args.plot_title)
     ax.set_xlabel("Steps")
+    ax.set_xlim(args.xlim)
+    ax.set_ylim(args.ylim)
     ax.legend(loc="upper right")
 
     plt.savefig(args.out_dir / args.out_name)
@@ -89,6 +92,9 @@ def download_metric(run, name, subsample: int = 1, max_samples: int = None):
 
 
 def _main():
+    def float_or_none(x):
+        return None if x == "None" else float(x)
+
     repo_root = Path(__file__).parent.parent
     parser = ArgumentParser()
     parser.add_argument(
@@ -119,6 +125,8 @@ def _main():
     parser.add_argument(
         "--out_name", type=str, default="loss.png", help="Output file name."
     )
+    parser.add_argument("--xlim", type=float_or_none, nargs=2, help="Y-axis limits.")
+    parser.add_argument("--ylim", type=float_or_none, nargs=2, help="Y-axis limits.")
     args = parser.parse_args()
 
     visualize_loss(args)
