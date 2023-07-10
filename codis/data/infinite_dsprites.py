@@ -129,8 +129,8 @@ class InfiniteDSprites(IterableDataset):
             if np.random.rand() < 0.5
             else cls.interpolate(verts, k=1)
         )
-        shape = shape / np.max(np.linalg.norm(shape, axis=0))  # normalize scale
         shape = shape - np.mean(shape, axis=1, keepdims=True)  # center shape
+        shape = shape / np.max(np.linalg.norm(shape, axis=0))  # normalize scale
         return shape
 
     @classmethod
