@@ -1,9 +1,13 @@
-"""Pull loss values from a few wandb runs and create an aggregate plot."""
+"""Pull loss values from a few wandb runs and create an aggregate plot.
+Example:
+    python scripts/visualize_loss.py --run_ids entity/project/run_id1 entity/project/run_id2
+"""
 from argparse import ArgumentParser
 from pathlib import Path
 
 import numpy as np
 from matplotlib import pyplot as plt
+from tqdm import tqdm
 
 import wandb
 
@@ -20,15 +24,17 @@ def visualize_loss(args):
 
     _, ax = plt.subplots(figsize=(20, 9), layout="tight")
     for stage in stages:
+        print(f"Downloading {stage}...")
         metric = f"{args.metric_name}_{stage}"
+        subsample = args.subsample if stage in ["val", "train"] else 1
         metrics = [
             download_metric(
                 api.run(run_id),
                 metric,
-                subsample=args.subsample,
+                subsample=subsample,
                 max_samples=args.max_samples,
             )
-            for run_id in args.run_ids
+            for run_id in tqdm(args.run_ids)
         ]
         steps, values = zip(*metrics)
         values_mean = np.mean(values, axis=0)
@@ -46,11 +52,13 @@ def visualize_loss(args):
     for task_transition in get_task_transitions(api.run(args.run_ids[0])):
         ax.axvline(task_transition, color="gray", linestyle="dotted", linewidth=1)
 
-    ax.set_title("Loss (average of 5 runs)")
+    ax.set_title(args.plot_title)
     ax.set_xlabel("Steps")
+    ax.set_xlim(args.xlim)
+    ax.set_ylim(args.ylim)
     ax.legend(loc="upper right")
 
-    plt.savefig(args.output_dir / "train_test.png")
+    plt.savefig(args.out_dir / args.out_name)
 
 
 def get_task_transitions(run):
@@ -84,6 +92,9 @@ def download_metric(run, name, subsample: int = 1, max_samples: int = None):
 
 
 def _main():
+    def float_or_none(x):
+        return None if x == "None" else float(x)
+
     repo_root = Path(__file__).parent.parent
     parser = ArgumentParser()
     parser.add_argument(
@@ -93,7 +104,7 @@ def _main():
         required=True,
         help="Full wandb run IDs, e.g. 'entity/project/run_id'.",
     )
-    parser.add_argument("--output_dir", type=Path, default=repo_root / "img")
+    parser.add_argument("--out_dir", type=Path, default=repo_root / "img")
     parser.add_argument("--metric_name", type=str, default="loss")
     parser.add_argument("--subsample", type=int, default=1, help="Subsample rate.")
     parser.add_argument(
@@ -105,6 +116,17 @@ def _main():
     parser.add_argument(
         "--visualize_std", action="store_true", help="Visualize standard deviation."
     )
+    parser.add_argument(
+        "--plot_title",
+        type=str,
+        default="Loss",
+        help="Title of the plot.",
+    )
+    parser.add_argument(
+        "--out_name", type=str, default="loss.png", help="Output file name."
+    )
+    parser.add_argument("--xlim", type=float_or_none, nargs=2, help="Y-axis limits.")
+    parser.add_argument("--ylim", type=float_or_none, nargs=2, help="Y-axis limits.")
     args = parser.parse_args()
 
     visualize_loss(args)
