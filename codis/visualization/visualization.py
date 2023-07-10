@@ -179,7 +179,9 @@ def draw_shapes(
     for ax in axes.flat:
         ax.axis("off")
         if fill_shape:
-            latents = dataset.sample_latents()
+            latents = dataset.sample_latents()._replace(
+                scale=2.0, orientation=0.0, position_x=0.5, position_y=0.5
+            )
             img = dataset.draw(latents, channels_first=False)
             ax.imshow(img, cmap="Greys_r", interpolation="nearest")
         else:
