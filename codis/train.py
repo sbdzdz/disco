@@ -55,22 +55,21 @@ def train(args):
     else:
         raise ValueError(f"Unknown model {args.model}.")
 
-    train_loaders, val_loaders, test_loaders = build_data_loaders(args, shapes)
     trainer = build_trainer(args, callbacks=callbacks)
+    test_loaders = []
 
-    for train_task_id, (train_loader, val_loader, exemplar) in enumerate(
-        zip(train_loaders, val_loaders, exemplars)
-    ):
+    for train_task_id, (shape, exemplar) in enumerate(zip(shapes, exemplars)):
         print(f"Training on task {train_task_id}...")
+        train_loader, val_loader, test_loader = build_data_loaders(args, shape)
+        test_loaders.append(test_loader)
         model.task_id = train_task_id
         if model.has_buffer:
             model.add_exemplar(exemplar)
         trainer.fit(model, train_loader, val_loader)
         trainer.fit_loop.max_epochs += args.max_epochs
         for test_task_id, test_loader in enumerate(test_loaders):
-            if test_task_id <= train_task_id:
-                model.task_id = test_task_id
-                trainer.test(model, test_loader)
+            model.task_id = test_task_id
+            trainer.test(model, test_loader)
     wandb.finish()
 
 
@@ -114,46 +113,38 @@ def build_trainer(args, callbacks=None):
     )
 
 
-def build_data_loaders(args, shapes):
+def build_data_loaders(args, shape):
     """Build data loaders for a class-incremental continual learning scenario."""
     scale_range = np.linspace(0.5, 1.5, args.factor_resolution)
     orientation_range = np.linspace(0, 2 * np.pi, args.factor_resolution)
     position_x_range = np.linspace(0, 1, args.factor_resolution)
     position_y_range = np.linspace(0, 1, args.factor_resolution)
 
-    datasets = [
-        ContinualDSprites(
-            img_size=args.img_size,
-            shapes=[shape],
-            scale_range=scale_range,
-            orientation_range=orientation_range,
-            position_x_range=position_x_range,
-            position_y_range=position_y_range,
-        )
-        for shape in shapes
-    ]
-    train_datasets, test_datasets = zip(
-        *[random_split(d, [0.8, 0.2]) for d in datasets]
+    dataset = ContinualDSprites(
+        img_size=args.img_size,
+        shapes=[shape],
+        scale_range=scale_range,
+        orientation_range=orientation_range,
+        position_x_range=position_x_range,
+        position_y_range=position_y_range,
     )
-    val_datasets, test_datasets = zip(
-        *[random_split(d, [0.5, 0.5]) for d in test_datasets]
-    )
-    train_loaders = [
-        DataLoader(
-            d, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True
-        )
-        for d in train_datasets
-    ]
-    val_loaders = [
-        DataLoader(d, batch_size=args.batch_size, num_workers=args.num_workers)
-        for d in val_datasets
-    ]
-    test_loaders = [
-        DataLoader(d, batch_size=args.batch_size, num_workers=args.num_workers)
-        for d in test_datasets
-    ]
 
-    return train_loaders, val_loaders, test_loaders
+    train_dataset, test_dataset = random_split(dataset, [0.8, 0.2])
+    val_dataset, test_dataset = random_split(test_dataset, [0.5, 0.5])
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        shuffle=True,
+    )
+    val_loader = DataLoader(
+        val_dataset, batch_size=args.batch_size, num_workers=args.num_workers
+    )
+    test_loader = DataLoader(
+        test_dataset, batch_size=args.batch_size, num_workers=args.num_workers
+    )
+
+    return train_loader, val_loader, test_loader
 
 
 def _main():
