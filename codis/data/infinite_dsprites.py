@@ -22,6 +22,17 @@ class Latents(BaseLatents):
     def __getitem__(self, key):
         return getattr(self, key)
 
+    def to(self, device):
+        """Move the latents to a device."""
+        return Latents(
+            color=self.color.to(device),
+            shape=self.shape.to(device),
+            scale=self.scale.to(device),
+            orientation=self.orientation.to(device),
+            position_x=self.position_x.to(device),
+            position_y=self.position_y.to(device),
+        )
+
 
 # pylint: disable=abstract-method
 class InfiniteDSprites(IterableDataset):
@@ -157,8 +168,8 @@ class InfiniteDSprites(IterableDataset):
         self,
         min_verts: int = 3,
         max_verts: int = 7,
-        radius_std: float = 0.6,
-        angle_std: float = 0.8,
+        radius_std: float = 0.8,
+        angle_std: float = 0.5,
     ):
         """Sample the positions of the vertices of a polygon.
         Args:
