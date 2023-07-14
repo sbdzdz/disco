@@ -147,8 +147,8 @@ class InfiniteDSprites(IterableDataset):
     @classmethod
     def sample_vertex_positions(
         cls,
-        min_verts: int = 3,
-        max_verts: int = 7,
+        min_verts: int = 4,
+        max_verts: int = 8,
         radius_std: float = 0.8,
         angle_std: float = 0.5,
     ):
