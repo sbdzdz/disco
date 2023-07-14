@@ -18,7 +18,6 @@ def main():
         position_x_range=[0.5],
         position_y_range=[0.5],
         color_range=[(0.9, 0.9, 0.9)],
-        img_size=1024,
     )
     images = []
     for img, y in islice(dataset, 10):
