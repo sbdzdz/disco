@@ -23,7 +23,7 @@ torch.set_float32_matmul_precision("medium")
 
 def train(args):
     """Train the model in a continual learning setting."""
-    shapes = [InfiniteDSprites.generate_shape() for _ in range(args.tasks)]
+    shapes = [InfiniteDSprites().generate_shape() for _ in range(args.tasks)]
     exemplars = generate_exemplars(shapes, img_size=args.img_size)
     callbacks = [VisualizationCallback(exemplars), LoggingCallback()]
 
