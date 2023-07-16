@@ -49,5 +49,28 @@ class VisualizationCallback(Callback):
 class LoggingCallback(Callback):
     """Callback for additional logging."""
 
-    def on_train_epoch_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
+    def on_train_epoch_start(
+        self, trainer: pl.Trainer, pl_module: pl.LightningModule
+    ) -> None:
         pl_module.log("task_id", pl_module.task_id)
+
+    def on_train_start(
+        self, trainer: pl.Trainer, pl_module: pl.LightningModule
+    ) -> None:
+        print(f"Training on task {pl_module.task_id},")
+        print(f"Number of batches: {len(trainer.train_dataloader)}.")
+        print(f"Number of samples: {len(trainer.train_dataloader.dataset)}.")
+
+    def on_validation_epoch_start(
+        self, trainer: pl.Trainer, pl_module: pl.LightningModule
+    ) -> None:
+        print(f"Validating on task {pl_module.task_id},")
+        print(f"Number of batches: {len(trainer.val_dataloaders)}.")
+        print(f"Number of samples: {len(trainer.val_dataloaders.dataset)}.")
+
+    def on_test_epoch_start(
+        self, trainer: pl.Trainer, pl_module: pl.LightningModule
+    ) -> None:
+        print(f"Testing on task {pl_module.task_id},")
+        print(f"Number of batches: {len(trainer.test_dataloaders)}.")
+        print(f"Number of samples: {len(trainer.test_dataloaders.dataset)}.")
