@@ -38,7 +38,6 @@ def train(args):
             vae=vae, gamma=args.gamma, factors_to_regress=args.factors_to_regress
         )
     elif args.model == "stn":
-        # mask = torch.tensor([0, 0, 1, 0, 0, 1], dtype=torch.float)
         model = SpatialTransformer(
             img_size=args.img_size,
             mask=None,
@@ -59,12 +58,12 @@ def train(args):
     test_loaders = []
 
     for train_task_id, (shape, exemplar) in enumerate(zip(shapes, exemplars)):
-        print(f"Training on task {train_task_id}...")
         train_loader, val_loader, test_loader = build_data_loaders(args, shape)
         test_loaders.append(test_loader)
         model.task_id = train_task_id
         if model.has_buffer:
             model.add_exemplar(exemplar)
+
         trainer.fit(model, train_loader, val_loader)
         trainer.fit_loop.max_epochs += args.max_epochs
         for test_task_id, test_loader in enumerate(test_loaders):
