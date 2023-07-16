@@ -129,7 +129,7 @@ def build_data_loaders(args, shape):
         position_y_range=position_y_range,
     )
 
-    train_dataset, test_dataset = random_split(dataset, [0.8, 0.2])
+    train_dataset, test_dataset = random_split(dataset, [0.95, 0.05])
     val_dataset, test_dataset = random_split(test_dataset, [0.5, 0.5])
     train_loader = DataLoader(
         train_dataset,
