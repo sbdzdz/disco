@@ -42,7 +42,7 @@ class InfiniteDSprites(IterableDataset):
         self,
         img_size: int = 256,
         color_range=("white",),
-        scale_range=np.linspace(0, 1, 32),
+        scale_range=np.linspace(0.5, 1.5, 32),
         orientation_range=np.linspace(0, 2 * np.pi, 32),
         position_x_range=np.linspace(0, 1, 32),
         position_y_range=np.linspace(0, 1, 32),
