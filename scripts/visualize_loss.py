@@ -20,7 +20,7 @@ def visualize_loss(args):
     stages = ["val", "train"]
 
     if args.include_test:
-        stages.extend([f"test_task_{i}" for i in range(9)])
+        stages.extend([f"test_task_{i}" for i in range(args.num_tasks)])
 
     _, ax = plt.subplots(figsize=(20, 9), layout="tight")
     for stage in stages:
@@ -125,6 +125,7 @@ def _main():
     parser.add_argument(
         "--out_name", type=str, default="loss.png", help="Output file name."
     )
+    parser.add_argument("--num_tasks", type=int, default=9, help="Number of tasks.")
     parser.add_argument("--xlim", type=float_or_none, nargs=2, help="Y-axis limits.")
     parser.add_argument("--ylim", type=float_or_none, nargs=2, help="Y-axis limits.")
     args = parser.parse_args()
