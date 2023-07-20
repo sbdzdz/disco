@@ -42,7 +42,7 @@ class InfiniteDSprites(IterableDataset):
         self,
         img_size: int = 256,
         color_range=("white",),
-        scale_range=np.linspace(0, 1, 32),
+        scale_range=np.linspace(0.5, 1.5, 32),
         orientation_range=np.linspace(0, 2 * np.pi, 32),
         position_x_range=np.linspace(0, 1, 32),
         position_y_range=np.linspace(0, 1, 32),
@@ -79,7 +79,6 @@ class InfiniteDSprites(IterableDataset):
         self.counter = 0
         self.current_shape_index = 0
         self.shapes = shapes
-        self.min_scale = 0.25  # minimum scale to avoid shapes being too tiny
 
     @classmethod
     def from_config(cls, config: dict):
@@ -126,27 +125,47 @@ class InfiniteDSprites(IterableDataset):
                 img = self.draw(latents)
                 yield img, latents
 
-    @classmethod
-    def generate_shape(cls):
+    def generate_shape(self):
         """Generate random vertices and connect them with straight lines or a smooth curve.
         Args:
             None
         Returns:
             An array of shape (2, num_verts).
         """
-        verts = cls.sample_vertex_positions()
+        verts = self.sample_vertex_positions()
         shape = (
-            cls.interpolate(verts)
+            self.interpolate(verts)
             if np.random.rand() < 0.5
-            else cls.interpolate(verts, k=1)
+            else self.interpolate(verts, k=1)
         )
-        shape = shape - np.mean(shape, axis=1, keepdims=True)  # center shape
-        shape = shape / np.max(np.linalg.norm(shape, axis=0))  # normalize scale
+        center, max_dist = self.get_center(shape)
+        shape = shape - center
+        shape = shape / max_dist
+
         return shape
 
-    @classmethod
+    def get_center(self, shape):
+        """Calculate the scale coefficient of a shape."""
+        latents = Latents(
+            color=np.array([0.9, 0.9, 0.9]),
+            shape=shape,
+            scale=1.0,
+            orientation=0.0,
+            position_x=0.5,
+            position_y=0.5,
+        )
+        img = self.draw(latents, channels_first=False)
+        non_black_pixels = np.argwhere(np.any(img != [0, 0, 0], axis=2))
+        center = np.mean(non_black_pixels, axis=0)
+        max_dist = np.max(np.linalg.norm(non_black_pixels - center, axis=1))
+
+        center = np.expand_dims(center - self.img_size / 2, 1) / (0.2 * self.img_size)
+        max_dist = max_dist / (0.2 * self.img_size)
+
+        return center, max_dist
+
     def sample_vertex_positions(
-        cls,
+        self,
         min_verts: int = 4,
         max_verts: int = 8,
         radius_std: float = 0.8,
@@ -175,8 +194,9 @@ class InfiniteDSprites(IterableDataset):
         verts = np.array(verts).T
         return verts
 
-    @classmethod
-    def interpolate(cls, verts: npt.NDArray, k: int = 3, num_spline_points: int = 1000):
+    def interpolate(
+        self, verts: npt.NDArray, k: int = 3, num_spline_points: int = 1000
+    ):
         """Interpolate a set of vertices with a spline.
         Args:
             verts: An array of shape (2, num_verts).
@@ -223,7 +243,7 @@ class InfiniteDSprites(IterableDataset):
     def apply_scale(self, shape: npt.NDArray, scale: float):
         """Apply a scale to a shape."""
         height, _ = self.window.get_size()
-        return 0.2 * height * (self.min_scale + scale) * shape
+        return 0.2 * height * scale * shape
 
     @staticmethod
     def apply_orientation(shape: npt.NDArray, orientation: float):

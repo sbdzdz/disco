@@ -224,7 +224,7 @@ def draw_smooth_shapes(
         for _ in range(nrows * ncols)
     ]
     shapes = [
-        [InfiniteDSprites.generate_shape() for _ in range(num_shapes)]
+        [dataset.generate_shape() for _ in range(num_shapes)]
         for _ in range(nrows * ncols)
     ]
     shape_sequences = interpolate(shapes, num_frames=fps * duration_per_shape)
@@ -300,7 +300,7 @@ def draw_shapes_animated(
         position_x_range=np.linspace(0.0, 1.0, num_frames),
         position_y_range=np.linspace(0.0, 1.0, num_frames),
     )
-    shapes = [InfiniteDSprites.generate_shape() for _ in range(nrows * ncols)]
+    shapes = [dataset.generate_shape() for _ in range(nrows * ncols)]
     colors = [dataset.sample_latents().color for _ in range(nrows * ncols)]
     if factor is None:
         factors = generate_multiple_factor_progression(dataset)

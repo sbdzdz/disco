@@ -229,7 +229,6 @@ class SpatialTransformer(ContinualModule):
 
         # scale
         scale_matrix = self.batched_eye(batch_size)
-        scale = 0.8 * scale + 0.2  # hardcoded to account for dataset min_scale
         scale_matrix[:, 0, 0] = scale
         scale_matrix[:, 1, 1] = scale
         transform_matrix = torch.bmm(scale_matrix, transform_matrix)
