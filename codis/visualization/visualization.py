@@ -177,16 +177,21 @@ def draw_shapes(
     if not isinstance(axes, np.ndarray):
         axes = np.array([axes])
     for ax in axes.flat:
+        shape = dataset.generate_shape()
         ax.axis("off")
         if fill_shape:
-            latents = dataset.sample_latents()._replace(
-                scale=2.0, orientation=0.0, position_x=0.5, position_y=0.5
+            latents = Latents(
+                color=np.array([1.0, 1.0, 1.0]),
+                shape=shape,
+                scale=2.0,
+                orientation=0.0,
+                position_x=0.5,
+                position_y=0.5,
             )
             img = dataset.draw(latents, channels_first=False)
             ax.imshow(img, cmap="Greys_r", interpolation="nearest")
         else:
-            spline = dataset.generate_shape()
-            ax.plot(spline[0], spline[1], label="spline", color=fg_color)
+            ax.plot(shape[0], shape[1], color=fg_color)
 
     path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(path)
