@@ -9,6 +9,7 @@ import pygame
 import pygame.gfxdraw
 from matplotlib import colors
 from scipy.interpolate import splev, splprep
+from sklearn.decomposition import PCA
 from torch.utils.data import Dataset, IterableDataset
 
 BaseLatents = namedtuple(
@@ -138,14 +139,13 @@ class InfiniteDSprites(IterableDataset):
             if np.random.rand() < 0.5
             else self.interpolate(verts, k=1)
         )
-        center, max_dist = self.get_center(shape)
-        shape = shape - center
-        shape = shape / max_dist
+        shape = self.center_and_scale(shape)
+        shape = self.align(shape)
 
         return shape
 
-    def get_center(self, shape):
-        """Calculate the scale coefficient of a shape."""
+    def center_and_scale(self, shape):
+        """Center the shape and normalize scale."""
         latents = Latents(
             color=np.array([0.9, 0.9, 0.9]),
             shape=shape,
@@ -162,7 +162,25 @@ class InfiniteDSprites(IterableDataset):
         center = np.expand_dims(center - self.img_size / 2, 1) / (0.2 * self.img_size)
         max_dist = max_dist / (0.2 * self.img_size)
 
-        return center, max_dist
+        shape = shape - center
+        shape = shape / max_dist
+
+        return shape
+
+    def align(self, shape):
+        """Align the principal axis of the shape with the y-axis."""
+        pca = PCA(n_components=2)
+        pca.fit(shape.T)
+
+        # Get the principal components
+        principal_components = pca.components_
+
+        # Find the angle between the major axis and the y-axis
+        major_axis = principal_components[0]
+        angle_rad = np.arctan2(major_axis[1], major_axis[0])
+        shape = self.apply_orientation(shape, -angle_rad)
+
+        return shape
 
     def sample_vertex_positions(
         self,
