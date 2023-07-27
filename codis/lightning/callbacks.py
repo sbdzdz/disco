@@ -38,10 +38,11 @@ class VisualizationCallback(Callback):
     @staticmethod
     def log_reconstructions(pl_module, x, name, max_imgs=25):
         """Log images and reconstructions"""
-        x = x[:max_imgs]
         pl_module.eval()
         x_hat, *_ = pl_module(x.to(pl_module.device))
-        images = draw_batch_and_reconstructions(to_numpy(x), to_numpy(x_hat))
+        images = draw_batch_and_reconstructions(
+            to_numpy(x[:max_imgs]), to_numpy(x_hat[:max_imgs])
+        )
         pl_module.logger.log_image(name, images=[images])
         pl_module.train()
 
