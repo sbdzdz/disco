@@ -62,7 +62,7 @@ class LoggingCallback(Callback):
         print(f"Number of batches: {len(trainer.train_dataloader)}.")
         print(f"Number of samples: {len(trainer.train_dataloader.dataset)}.")
 
-    def on_validation_epoch_start(
+    def on_validation_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
         print(f"Validating on task {pl_module.task_id},")
