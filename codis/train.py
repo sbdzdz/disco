@@ -25,50 +25,30 @@ def train(args):
     """Train the model in a continual learning setting."""
     shapes = [InfiniteDSprites().generate_shape() for _ in range(args.tasks)]
     exemplars = generate_exemplars(shapes, img_size=args.img_size)
-    callbacks = [VisualizationCallback(exemplars), LoggingCallback()]
-
-    if args.model == "vae":
-        vae = LightningBetaVAE(
-            img_size=args.img_size,
-            latent_dim=args.latent_dim,
-            beta=args.beta,
-            lr=args.lr,
-        )
-        model = SupervisedVAE(
-            vae=vae, gamma=args.gamma, factors_to_regress=args.factors_to_regress
-        )
-    elif args.model == "stn":
-        model = SpatialTransformer(
-            img_size=args.img_size,
-            mask=None,
-            lr=args.lr,
-            factors_to_regress=args.factors_to_regress,
-        )
-    elif args.model == "regressor":
-        model = LatentRegressor(
-            img_size=args.img_size,
-            lr=args.lr,
-            factors_to_regress=args.factors_to_regress,
-        )
-        callbacks = [LoggingCallback()]
-    else:
-        raise ValueError(f"Unknown model {args.model}.")
-
+    model, callbacks = build_model_and_callbacks(args, exemplars)
     trainer = build_trainer(args, callbacks=callbacks)
-    test_loaders = []
 
-    for train_task_id, (shape, exemplar) in enumerate(zip(shapes, exemplars)):
-        train_loader, val_loader, test_loader = build_data_loaders(args, shape)
-        test_loaders.append(test_loader)
-        model.task_id = train_task_id
+    if args.training == "continual":
+        test_loaders = []
+        for train_task_id, (shape, exemplar) in enumerate(zip(shapes, exemplars)):
+            train_loader, val_loader, test_loader = build_data_loaders(args, shape)
+            test_loaders.append(test_loader)
+            model.task_id = train_task_id
+            if model.has_buffer:
+                model.add_exemplar(exemplar)
+            trainer.fit(model, train_loader, val_loader)
+            trainer.fit_loop.max_epochs += args.max_epochs
+            for test_task_id, test_loader in enumerate(test_loaders):
+                model.task_id = test_task_id
+                trainer.test(model, test_loader)
+    elif args.training == "joint":
+        model.task_id = 0
         if model.has_buffer:
-            model.add_exemplar(exemplar)
-
+            for exemplar in exemplars:
+                model.add_exemplar(exemplar)
+        train_loader, val_loader, test_loader = build_data_loaders(args, shapes)
         trainer.fit(model, train_loader, val_loader)
-        trainer.fit_loop.max_epochs += args.max_epochs
-        for test_task_id, test_loader in enumerate(test_loaders):
-            model.task_id = test_task_id
-            trainer.test(model, test_loader)
+        trainer.test(model, test_loader)
     wandb.finish()
 
 
@@ -89,6 +69,39 @@ def generate_exemplars(shapes, img_size):
         for shape in shapes
     ]
     return torch.stack([torch.from_numpy(img) for img in batch])
+
+
+def build_model_and_callbacks(args, exemplars):
+    """Prepare the appropriate model."""
+    callbacks = [VisualizationCallback(exemplars), LoggingCallback()]
+    if args.model == "vae":
+        vae = LightningBetaVAE(
+            img_size=args.img_size,
+            latent_dim=args.latent_dim,
+            beta=args.beta,
+            lr=args.lr,
+        )
+        model = SupervisedVAE(
+            vae=vae, gamma=args.gamma, factors_to_regress=args.factors_to_regress
+        )
+    elif args.model == "stn":
+        model = SpatialTransformer(
+            img_size=args.img_size,
+            mask=None,
+            lr=args.lr,
+            channels=[4, 4, 8, 8, 16],
+            factors_to_regress=args.factors_to_regress,
+        )
+    elif args.model == "regressor":
+        model = LatentRegressor(
+            img_size=args.img_size,
+            lr=args.lr,
+            factors_to_regress=args.factors_to_regress,
+        )
+        callbacks = [LoggingCallback()]
+    else:
+        raise ValueError(f"Unknown model {args.model}.")
+    return model, callbacks
 
 
 def build_trainer(args, callbacks=None):
@@ -112,16 +125,19 @@ def build_trainer(args, callbacks=None):
     )
 
 
-def build_data_loaders(args, shape):
+def build_data_loaders(args, shapes):
     """Build data loaders for a class-incremental continual learning scenario."""
     scale_range = np.linspace(0.5, 1.5, args.factor_resolution)
     orientation_range = np.linspace(0, 2 * np.pi, args.factor_resolution)
     position_x_range = np.linspace(0, 1, args.factor_resolution)
     position_y_range = np.linspace(0, 1, args.factor_resolution)
 
+    if not isinstance(shapes, list):
+        shapes = [shapes]
+
     dataset = ContinualDSprites(
         img_size=args.img_size,
-        shapes=[shape],
+        shapes=shapes,
         scale_range=scale_range,
         orientation_range=orientation_range,
         position_x_range=position_x_range,
@@ -154,6 +170,13 @@ def _main():
         type=int,
         default=50,
         help="How often to log training progress. The metrics will be averaged.",
+    )
+    parser.add_argument(
+        "--training",
+        type=str,
+        default="continual",
+        choices=["continual", "joint"],
+        help="Training mode. One of 'continual' or 'joint'.",
     )
     parser.add_argument(
         "--tasks", type=int, default=5, help="Number of continual learning tasks."
