@@ -47,7 +47,7 @@ class InfiniteDSprites(IterableDataset):
         orientation_range=np.linspace(0, 2 * np.pi, 32),
         position_x_range=np.linspace(0, 1, 32),
         position_y_range=np.linspace(0, 1, 32),
-        dataset_size: int = float("inf"),
+        dataset_size: int = None,
         shapes: list = None,
     ):
         """Create a dataset of images of random shapes.
@@ -116,7 +116,7 @@ class InfiniteDSprites(IterableDataset):
             for color, scale, orientation, position_x, position_y in product(
                 *self.ranges.values()
             ):
-                if self.counter >= self.dataset_size:
+                if self.dataset_size is not None and self.counter >= self.dataset_size:
                     return
                 self.counter += 1
                 color = np.array(colors.to_rgb(color))
@@ -316,14 +316,14 @@ class ContinualDSprites(Dataset):
     def __init__(self, *args, **kwargs):
         self.dataset = InfiniteDSprites(*args, **kwargs)
         assert (
-            self.dataset.dataset_size != float("inf") or self.dataset.shapes is not None
+            self.dataset.dataset_size is not None or self.dataset.shapes is not None
         ), "Dataset size must be finite. Please set dataset_size or pass a list of shapes."
         self.imgs, self.latents = zip(*list(self.dataset))
         self.imgs = list(self.imgs)
         self.latents = list(self.latents)
 
     def __len__(self):
-        if self.dataset.dataset_size != float("inf"):
+        if self.dataset.dataset_size is not None:
             return self.dataset.dataset_size
         return len(list(product(*self.dataset.ranges.values()))) * len(
             self.dataset.shapes
@@ -349,7 +349,7 @@ class RandomDSprites(InfiniteDSprites):
         Yields:
             A tuple of (image, latents).
         """
-        while self.counter < self.dataset_size:
+        while self.dataset_size is None or self.counter < self.dataset_size:
             self.counter += 1
             if self.shapes is not None:
                 shape = self.shapes[np.random.choice(len(self.shapes))]
@@ -375,7 +375,7 @@ class InfiniteDSpritesTriplets(InfiniteDSprites):
         Yields:
             A tuple of ((image_original, image_transform, image_target), action).
         """
-        while self.counter < self.dataset_size:
+        while self.dataset_size is None or self.counter < self.dataset_size:
             action = np.random.choice(list(self.ranges.keys()))
             latents_original = self.sample_latents()
             latents_transform = self.sample_latents()
@@ -414,7 +414,7 @@ class InfiniteDSpritesAnalogies(InfiniteDSprites):
         Yields:
             An image grid as a single numpy array.
         """
-        while self.counter < self.dataset_size:
+        while self.dataset_size is None or self.counter < self.dataset_size:
             self.counter += 1
             source_latents = self.sample_latents()
             target_latents = self.sample_latents()
