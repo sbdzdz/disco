@@ -360,7 +360,7 @@ class RandomDSprites(InfiniteDSprites):
             yield image, latents
 
 
-class RandomDSPritesMap(Dataset):
+class RandomDSpritesMap(Dataset):
     """Map-style (finite) random dsprites dataset."""
 
     def __init__(self, *args, **kwargs) -> None:
