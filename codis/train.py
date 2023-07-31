@@ -9,13 +9,18 @@ from lightning.pytorch.loggers import WandbLogger
 from torch.utils.data import DataLoader, random_split
 
 import wandb
-from codis.data import ContinualDSprites, InfiniteDSprites, Latents
-from codis.lightning.callbacks import VisualizationCallback, LoggingCallback
+from codis.data import (
+    ContinualDSpritesMap,
+    InfiniteDSprites,
+    Latents,
+    RandomDSpritesMap,
+)
+from codis.lightning.callbacks import LoggingCallback, VisualizationCallback
 from codis.lightning.modules import (
-    LightningBetaVAE,
-    SupervisedVAE,
-    SpatialTransformer,
     LatentRegressor,
+    LightningBetaVAE,
+    SpatialTransformer,
+    SupervisedVAE,
 )
 
 torch.set_float32_matmul_precision("medium")
@@ -31,7 +36,7 @@ def train(args):
     if args.training == "continual":
         test_loaders = []
         for train_task_id, (shape, exemplar) in enumerate(zip(shapes, exemplars)):
-            train_loader, val_loader, test_loader = build_data_loaders(args, shape)
+            train_loader, val_loader, test_loader, _ = build_data_loaders(args, shape)
             test_loaders.append(test_loader)
             model.task_id = train_task_id
             if model.has_buffer:
@@ -46,7 +51,7 @@ def train(args):
         if model.has_buffer:
             for exemplar in exemplars:
                 model.add_exemplar(exemplar)
-        train_loader, val_loader, test_loader = build_data_loaders(args, shapes)
+        train_loader, val_loader, _, test_loader = build_data_loaders(args, shapes)
         trainer.fit(model, train_loader, val_loader)
         trainer.test(model, test_loader)
     wandb.finish()
@@ -135,13 +140,33 @@ def build_data_loaders(args, shapes):
     if not isinstance(shapes, list):
         shapes = [shapes]
 
-    dataset = ContinualDSprites(
+    dataset = ContinualDSpritesMap(
         img_size=args.img_size,
         shapes=shapes,
         scale_range=scale_range,
         orientation_range=orientation_range,
         position_x_range=position_x_range,
         position_y_range=position_y_range,
+    )
+    if args.train_dataset_size is not None:
+        dataset = torch.utils.data.Subset(
+            dataset, np.random.choice(len(dataset), args.train_dataset_size)
+        )
+
+    ood_shapes = [
+        InfiniteDSprites().generate_shape() for _ in range(args.num_test_shapes)
+    ]
+    ood_dataset = RandomDSpritesMap(
+        img_size=args.img_size,
+        shapes=ood_shapes,
+        dataset_size=args.test_dataset_size,
+        scale_range=scale_range,
+        orientation_range=orientation_range,
+        position_x_range=position_x_range,
+        position_y_range=position_y_range,
+    )
+    ood_loader = DataLoader(
+        ood_dataset, batch_size=args.batch_size, num_workers=args.num_workers
     )
 
     train_dataset, test_dataset = random_split(dataset, [0.95, 0.05])
@@ -159,7 +184,7 @@ def build_data_loaders(args, shapes):
         test_dataset, batch_size=args.batch_size, num_workers=args.num_workers
     )
 
-    return train_loader, val_loader, test_loader
+    return train_loader, val_loader, test_loader, ood_loader
 
 
 def _main():
@@ -180,6 +205,24 @@ def _main():
     )
     parser.add_argument(
         "--tasks", type=int, default=5, help="Number of continual learning tasks."
+    )
+    parser.add_argument(
+        "--num_test_shapes",
+        type=int,
+        default=1000,
+        help="Number of shapes to use for OOD testing.",
+    )
+    parser.add_argument(
+        "--train_dataset_size",
+        type=int,
+        default=None,
+        help="Number of samples to use from the training dataset. If None, use the entire dataset.",
+    )
+    parser.add_argument(
+        "--test_dataset_size",
+        type=int,
+        default=None,
+        help="Number of samples to use from the test dataset. If None, use the entire dataset.",
     )
     parser.add_argument(
         "--factor_resolution",
