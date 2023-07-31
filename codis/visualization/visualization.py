@@ -20,12 +20,12 @@ from codis.data import (
 repo_root = Path(__file__).parent.parent.parent
 
 COLORS = [
+    "white",
     "purple",
     "maroon",
     "darkblue",
     "teal",
     "peachpuff",
-    "white",
     "darkgreen",
 ]
 
@@ -275,7 +275,7 @@ def draw_shapes_animated(
     fig_height: float = 10,
     img_size: int = 256,
     bg_color: str = "white",
-    duration: int = 2,
+    duration: int = 8,
     fps: int = 60,
     factor: str = None,
     seed: int = 0,
@@ -300,10 +300,10 @@ def draw_shapes_animated(
     dataset = InfiniteDSprites(
         img_size=img_size,
         color_range=COLORS,
-        scale_range=np.linspace(0.0, 1.0, num_frames),
-        orientation_range=np.linspace(0.0, 2 * np.pi, num_frames),
-        position_x_range=np.linspace(0.0, 1.0, num_frames),
-        position_y_range=np.linspace(0.0, 1.0, num_frames),
+        scale_range=np.linspace(0.0, 1.0, num_frames // 4),
+        orientation_range=np.linspace(0.0, 2 * np.pi, num_frames // 4),
+        position_x_range=np.linspace(0.0, 1.0, num_frames // 4),
+        position_y_range=np.linspace(0.0, 1.0, num_frames // 4),
     )
     shapes = [dataset.generate_shape() for _ in range(nrows * ncols)]
     colors = [dataset.sample_latents().color for _ in range(nrows * ncols)]
@@ -329,10 +329,7 @@ def draw_shapes_animated(
 def generate_multiple_factor_progression(dataset):
     """Generate a sequence of factors that can be used to animate a shape.
     Args:
-        scale_range: The range of scales to use.
-        orientation_range: The range of orientations to use.
-        position_x_range: The range of x positions to use.
-        position_y_range: The range of y positions to use.
+        dataset: The dataset to generate the factors for.
     Returns:
         A tuple of factor value sequences representing a smooth animation.
     """
@@ -390,6 +387,104 @@ def generate_single_factor_progression(dataset, factor):
         factors["position_x"],
         factors["position_y"],
     )
+
+
+def draw_normalization_animated(
+    path: Path = repo_root / "img/normalization.gif",
+    nrows: int = 5,
+    ncols: int = 11,
+    fig_height: float = 10,
+    img_size: int = 256,
+    bg_color: str = "white",
+    duration: int = 6,
+    fps: int = 60,
+    seed: int = 0,
+):
+    """Create an animated GIF showing a grid of shapes undergoing normalization.
+    Args:
+        path: The path to save the image to.
+        nrows: The number of rows in the grid.
+        ncols: The number of columns in the grid.
+        fig_height: The height of the figure in inches.
+        img_size: The size of the image in pixels.
+        bg_color: The color of the background plot area.
+        duration: The duration of the animation in seconds.
+        fps: The number of frames per second.
+        seed: The random seed.
+    Returns:
+        None
+    """
+    np.random.seed(seed)
+    num_frames = fps * duration
+    num_shapes = nrows * ncols
+
+    dataset = InfiniteDSprites(
+        img_size=img_size, color_range=["snow"], scale_range=np.linspace(0.5, 1.5, 32)
+    )
+    sequence = generate_normalization_factor_progression(
+        dataset, num_shapes, num_frames
+    )
+
+    frames = [
+        [dataset.draw(l, channels_first=False) for l in latents] for latents in sequence
+    ]
+    save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps)
+
+
+def generate_normalization_factor_progression(dataset, num_shapes, num_frames):
+    """Generate a sequence of factors that shows how shape normalization works."""
+    start_latents = [dataset.sample_latents() for _ in range(num_shapes)]
+
+    sequence = []
+    for latent in start_latents:
+        latents = [
+            Latents(
+                color=latent.color,
+                shape=latent.shape,
+                scale=scale,
+                orientation=orientation,
+                position_x=position_x,
+                position_y=position_y,
+            )
+            for scale, orientation, position_x, position_y in generate_progression(
+                latent, num_frames
+            )
+        ]
+        sequence.append(latents)
+
+    return list(zip(*sequence))  # transpose the nested list
+
+
+def generate_progression(latent, num_frames):
+    """Generate a sequence of factors"""
+    scales, orientations, positions_x, positions_y = (
+        latent.scale * np.ones(num_frames),
+        latent.orientation * np.ones(num_frames),
+        latent.position_x * np.ones(num_frames),
+        latent.position_y * np.ones(num_frames),
+    )
+    chunk = num_frames // 8
+
+    positions_x[chunk : 3 * chunk] = np.linspace(latent.position_x, 0.5, 2 * chunk)
+    positions_x[3 * chunk :] = 0.5
+
+    positions_y[chunk : 3 * chunk] = np.linspace(latent.position_y, 0.5, 2 * chunk)
+    positions_y[3 * chunk :] = 0.5
+
+    scales[3 * chunk : 5 * chunk] = np.linspace(latent.scale, 1.0, 2 * chunk)
+    scales[5 * chunk :] = 1.0
+
+    if latent.orientation <= np.pi:
+        orientations[5 * chunk : 7 * chunk] = np.linspace(
+            latent.orientation, 0.0, 2 * chunk
+        )
+    else:
+        orientations[5 * chunk : 7 * chunk] = np.linspace(
+            latent.orientation, 2 * np.pi, 2 * chunk
+        )
+    orientations[7 * chunk :] = 0.0
+
+    return zip(scales, orientations, positions_x, positions_y)
 
 
 def save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps):
