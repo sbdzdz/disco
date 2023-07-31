@@ -36,7 +36,9 @@ def train(args):
     if args.training == "continual":
         test_loaders = []
         for train_task_id, (shape, exemplar) in enumerate(zip(shapes, exemplars)):
-            train_loader, val_loader, test_loader, _ = build_data_loaders(args, shape)
+            train_loader, val_loader, test_loader = build_continual_data_loaders(
+                args, shape
+            )
             test_loaders.append(test_loader)
             model.task_id = train_task_id
             if model.has_buffer:
@@ -51,7 +53,7 @@ def train(args):
         if model.has_buffer:
             for exemplar in exemplars:
                 model.add_exemplar(exemplar)
-        train_loader, val_loader, _, test_loader = build_data_loaders(args, shapes)
+        train_loader, val_loader, test_loader = build_joint_data_loaders(args, shapes)
         trainer.fit(model, train_loader, val_loader)
         trainer.test(model, test_loader)
     wandb.finish()
@@ -130,7 +132,7 @@ def build_trainer(args, callbacks=None):
     )
 
 
-def build_data_loaders(args, shapes):
+def build_continual_data_loaders(args, shapes):
     """Build data loaders for a class-incremental continual learning scenario."""
     scale_range = np.linspace(0.5, 1.5, args.factor_resolution)
     orientation_range = np.linspace(0, 2 * np.pi, args.factor_resolution)
@@ -153,22 +155,6 @@ def build_data_loaders(args, shapes):
             dataset, np.random.choice(len(dataset), args.train_dataset_size)
         )
 
-    ood_shapes = [
-        InfiniteDSprites().generate_shape() for _ in range(args.num_test_shapes)
-    ]
-    ood_dataset = RandomDSpritesMap(
-        img_size=args.img_size,
-        shapes=ood_shapes,
-        dataset_size=args.test_dataset_size,
-        scale_range=scale_range,
-        orientation_range=orientation_range,
-        position_x_range=position_x_range,
-        position_y_range=position_y_range,
-    )
-    ood_loader = DataLoader(
-        ood_dataset, batch_size=args.batch_size, num_workers=args.num_workers
-    )
-
     train_dataset, test_dataset = random_split(dataset, [0.95, 0.05])
     val_dataset, test_dataset = random_split(test_dataset, [0.5, 0.5])
     train_loader = DataLoader(
@@ -184,7 +170,53 @@ def build_data_loaders(args, shapes):
         test_dataset, batch_size=args.batch_size, num_workers=args.num_workers
     )
 
-    return train_loader, val_loader, test_loader, ood_loader
+    return train_loader, val_loader, test_loader
+
+
+def build_joint_data_loaders(args, shapes):
+    """Build data loaders for a joint training scenario."""
+    scale_range = np.linspace(0.5, 1.5, args.factor_resolution)
+    orientation_range = np.linspace(0, 2 * np.pi, args.factor_resolution)
+    position_x_range = np.linspace(0, 1, args.factor_resolution)
+    position_y_range = np.linspace(0, 1, args.factor_resolution)
+
+    dataset = RandomDSpritesMap(
+        img_size=args.img_size,
+        shapes=shapes,
+        dataset_size=args.train_dataset_size,
+        scale_range=scale_range,
+        orientation_range=orientation_range,
+        position_x_range=position_x_range,
+        position_y_range=position_y_range,
+    )
+    train_dataset, val_dataset = random_split(dataset, [0.95, 0.05])
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        shuffle=True,
+    )
+    val_loader = DataLoader(
+        val_dataset, batch_size=args.batch_size, num_workers=args.num_workers
+    )
+
+    test_shapes = [
+        InfiniteDSprites().generate_shape() for _ in range(args.num_test_shapes)
+    ]
+    test_dataset = RandomDSpritesMap(
+        img_size=args.img_size,
+        shapes=test_shapes,
+        dataset_size=args.test_dataset_size,
+        scale_range=scale_range,
+        orientation_range=orientation_range,
+        position_x_range=position_x_range,
+        position_y_range=position_y_range,
+    )
+    test_loader = DataLoader(
+        test_dataset, batch_size=args.batch_size, num_workers=args.num_workers
+    )
+
+    return train_loader, val_loader, test_loader
 
 
 def _main():
