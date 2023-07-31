@@ -310,7 +310,7 @@ class InfiniteDSprites(IterableDataset):
         )
 
 
-class ContinualDSprites(Dataset):
+class ContinualDSpritesMap(Dataset):
     """Map-style (finite) continual learning dsprites dataset."""
 
     def __init__(self, *args, **kwargs):
@@ -358,6 +358,29 @@ class RandomDSprites(InfiniteDSprites):
             latents = self.sample_latents()._replace(shape=shape)
             image = self.draw(latents)
             yield image, latents
+
+
+class RandomDSPritesMap(Dataset):
+    """Map-style (finite) random dsprites dataset."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        self.dataset = RandomDSprites(*args, **kwargs)
+        assert (
+            self.dataset.dataset_size is not None
+        ), "Dataset size must be finite. Please set dataset_size."
+        self.imgs, self.latents = zip(*list(self.dataset))
+        self.imgs = list(self.imgs)
+        self.latents = list(self.latents)
+
+    def __len__(self):
+        if self.dataset.dataset_size is not None:
+            return self.dataset.dataset_size
+        return len(list(product(*self.dataset.ranges.values()))) * len(
+            self.dataset.shapes
+        )
+
+    def __getitem__(self, index):
+        return self.imgs[index], self.latents[index]
 
 
 class InfiniteDSpritesTriplets(InfiniteDSprites):
