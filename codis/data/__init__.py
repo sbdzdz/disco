@@ -4,7 +4,7 @@ from codis.data.infinite_dsprites import (
     InfiniteDSprites,
     ContinualDSprites,
     InfiniteDSpritesAnalogies,
-    InfiniteDSpritesRandom,
+    RandomDSprites,
     InfiniteDSpritesTriplets,
     Latents,
 )

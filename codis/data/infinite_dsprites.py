@@ -333,7 +333,7 @@ class ContinualDSprites(Dataset):
         return self.imgs[index], self.latents[index]
 
 
-class InfiniteDSpritesRandom(InfiniteDSprites):
+class RandomDSprites(InfiniteDSprites):
     """Infinite dataset of randomly transformed shapes.
     The shape is sampled from a given list or generated procedurally.
     The transformations are sampled randomly at every step.
