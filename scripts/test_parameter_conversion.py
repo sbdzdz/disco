@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from codis.data.infinite_dsprites import InfiniteDSpritesRandom, Latents
+from codis.data.infinite_dsprites import RandomDSprites, Latents
 from codis.lightning.modules import SpatialTransformer
 from codis.visualization import draw_batch_and_reconstructions
 
@@ -14,7 +14,7 @@ def main():
     The transformation maps from the input to the canonical representation.
     """
     batch_size = 16
-    dataset = InfiniteDSpritesRandom()
+    dataset = RandomDSprites()
     transformer = SpatialTransformer()
     dataloader = DataLoader(dataset, batch_size, num_workers=0)
     images, factors = next(iter(dataloader))
