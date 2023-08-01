@@ -9,7 +9,7 @@ import wandb
 
 def visualize_joint_training(args):
     """Visualize joint training results"""
-    runs = get_runs(args.wandb_group)
+    runs = get_runs(args.wandb_entity, args.wandb_group)
     shapes = [run.config["tasks"] for run in runs]
     ood_loss = [run.summary[f"{args.metric_name}_test_task_0"] for run in runs]
     val_loss = [run.summary[f"{args.metric_name}_val"] for run in runs]
@@ -26,10 +26,10 @@ def visualize_joint_training(args):
     plt.savefig(args.out_path, bbox_inches="tight")
 
 
-def get_runs(group):
+def get_runs(entity, group):
     """Get runs from wandb"""
     api = wandb.Api()
-    runs = api.runs("codis/codis", filters={"group": group})
+    runs = api.runs(entity, filters={"group": group})
     runs = list(sorted(runs, key=lambda run: int(run.config["tasks"])))
     return runs
 
@@ -37,6 +37,12 @@ def get_runs(group):
 def _main():
     repo_root = Path(__file__).parent.parent
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--wandb_entity",
+        type=str,
+        help="Wandb entity and project name, e.g. codis/codis",
+        default="codis/codis",
+    )
     parser.add_argument("--wandb_group", type=str, help="Wandb group name")
     parser.add_argument(
         "--metric_name", type=str, help="Metric name", default="regression_loss"
