@@ -58,7 +58,7 @@ def visualize_loss(args):
     ax.set_ylim(args.ylim)
     ax.legend(loc="upper right")
 
-    plt.savefig(args.out_dir / args.out_name)
+    plt.savefig(args.out_dir / args.out_name, bbox_inches="tight")
 
 
 def get_task_transitions(run):
