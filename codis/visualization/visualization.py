@@ -97,7 +97,12 @@ def draw_batch_and_reconstructions(
     if not isinstance(axes, np.ndarray):
         axes = np.array([axes])
 
+    for ax in axes.flat:
+        ax.axis("off")
+
     for i, ax in enumerate(axes.flat):
+        if i >= num_images:
+            break
         images = [img[i] for img in image_arrays]
         concatenated = np.concatenate(images, axis=1)
         border_width = concatenated.shape[1] // 128 or 1
@@ -106,7 +111,6 @@ def draw_batch_and_reconstructions(
             mid = j * concatenated.shape[1] // len(image_arrays)
             concatenated[:, mid - border_width : mid + border_width] = 1.0
         ax.imshow(concatenated, cmap="Greys_r", interpolation="nearest")
-        ax.axis("off")
     if show:
         plt.show()
     if path is not None:
