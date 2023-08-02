@@ -312,10 +312,10 @@ def draw_shapes_animated(
     shapes = [dataset.generate_shape() for _ in range(nrows * ncols)]
     colors = [dataset.sample_latents().color for _ in range(nrows * ncols)]
     if factor is None:
-        factors = generate_multiple_factor_progression(dataset)
+        factors = generate_multi_factor_sequence(dataset)
     else:
         path = path.with_stem(f"{path.stem}_{factor}")
-        factors = generate_single_factor_progression(dataset, factor)
+        factors = generate_single_factor_sequence(dataset, factor)
 
     frames = [
         [
@@ -330,7 +330,7 @@ def draw_shapes_animated(
     save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps)
 
 
-def generate_multiple_factor_progression(dataset):
+def generate_multi_factor_sequence(dataset):
     """Generate a sequence of factors that can be used to animate a shape.
     Args:
         dataset: The dataset to generate the factors for.
@@ -374,7 +374,7 @@ def generate_multiple_factor_progression(dataset):
     return scales, orientations, positions_x, positions_y
 
 
-def generate_single_factor_progression(dataset, factor):
+def generate_single_factor_sequence(dataset, factor):
     """Generate a smooth progression of a single factor."""
     length = 2 * len(dataset.ranges[factor])
     factors = {
@@ -393,8 +393,8 @@ def generate_single_factor_progression(dataset, factor):
     )
 
 
-def draw_normalization_animated(
-    path: Path = repo_root / "img/normalization.gif",
+def draw_orientation_normalization(
+    path: Path = repo_root / "img/orientation_normalization.gif",
     nrows: int = 5,
     ncols: int = 11,
     fig_height: float = 10,
@@ -404,7 +404,7 @@ def draw_normalization_animated(
     fps: int = 60,
     seed: int = 0,
 ):
-    """Create an animated GIF showing a grid of shapes undergoing normalization.
+    """Create an animated GIF showing a grid of shapes undergoing orientation normalization.
     Args:
         path: The path to save the image to.
         nrows: The number of rows in the grid.
@@ -423,22 +423,12 @@ def draw_normalization_animated(
     num_shapes = nrows * ncols
 
     dataset = InfiniteDSprites(
-        img_size=img_size, color_range=["snow"], scale_range=np.linspace(0.5, 1.5, 32)
+        img_size=img_size,
+        color_range=["snow"],
+        orientation_range=np.linspace(0.2 * np.pi, 1.8 * np.pi, 32),
     )
-    sequence = generate_normalization_factor_progression(
-        dataset, num_shapes, num_frames
-    )
 
-    frames = [
-        [dataset.draw(l, channels_first=False) for l in latents] for latents in sequence
-    ]
-    save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps)
-
-
-def generate_normalization_factor_progression(dataset, num_shapes, num_frames):
-    """Generate a sequence of factors that shows how shape normalization works."""
     start_latents = [dataset.sample_latents() for _ in range(num_shapes)]
-
     sequence = []
     for latent in start_latents:
         latents = [
@@ -450,43 +440,41 @@ def generate_normalization_factor_progression(dataset, num_shapes, num_frames):
                 position_x=position_x,
                 position_y=position_y,
             )
-            for scale, orientation, position_x, position_y in generate_progression(
+            for scale, orientation, position_x, position_y in generate_normalization_sequence(
                 latent, num_frames
             )
         ]
         sequence.append(latents)
+    sequence = list(zip(*sequence))  # transpose the nested list
 
-    return list(zip(*sequence))  # transpose the nested list
+    frames = [
+        [dataset.draw(l, channels_first=False) for l in latents] for latents in sequence
+    ]
+    save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps)
 
 
-def generate_progression(latent, num_frames):
+def generate_normalization_sequence(latent, num_frames):
     """Generate a sequence of factors"""
     scales, orientations, positions_x, positions_y = (
-        latent.scale * np.ones(num_frames),
+        2.0 * np.ones(num_frames),
         latent.orientation * np.ones(num_frames),
-        latent.position_x * np.ones(num_frames),
-        latent.position_y * np.ones(num_frames),
+        0.5 * np.ones(num_frames),
+        0.5 * np.ones(num_frames),
     )
-    chunk = num_frames // 8
-
-    positions_x[chunk : 3 * chunk] = np.linspace(latent.position_x, 0.5, 2 * chunk)
-    positions_x[3 * chunk :] = 0.5
-
-    positions_y[chunk : 3 * chunk] = np.linspace(latent.position_y, 0.5, 2 * chunk)
-    positions_y[3 * chunk :] = 0.5
-
-    scales[3 * chunk : 5 * chunk] = np.linspace(latent.scale, 1.0, 2 * chunk)
-    scales[5 * chunk :] = 1.0
+    chunk = num_frames // 4
 
     if latent.orientation <= np.pi:
-        orientations[5 * chunk : 7 * chunk] = np.linspace(
-            latent.orientation, 0.0, 2 * chunk
+        orientations[:chunk] = np.linspace(latent.orientation, 0.0, chunk)
+        orientations[2 * chunk : 3 * chunk] = np.linspace(
+            0.0, latent.orientation, chunk
         )
     else:
-        orientations[5 * chunk : 7 * chunk] = np.linspace(
-            latent.orientation, 2 * np.pi, 2 * chunk
+        orientations[:chunk] = np.linspace(latent.orientation, 2 * np.pi, chunk)
+        orientations[2 * chunk : 3 * chunk] = np.linspace(
+            2 * np.pi, latent.orientation, chunk
         )
-    orientations[7 * chunk :] = 0.0
+    orientations[chunk : 2 * chunk] = 0.0
+    orientations[3 * chunk :] = latent.orientation
 
     return zip(scales, orientations, positions_x, positions_y)
 

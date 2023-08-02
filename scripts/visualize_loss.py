@@ -11,17 +11,17 @@ from tqdm import tqdm
 
 import wandb
 
-plt.style.use("ggplot")
-
 
 def visualize_loss(args):
     """Visualize train, validation, and optionally test losses."""
     api = wandb.Api()
+    runs = api.runs(args.wandb_entity, filters={"group": args.wandb_group})
+
     stages = ["val", "train"]
-
     if args.include_test:
-        stages.extend([f"test_task_{i}" for i in range(args.num_tasks)])
+        stages.extend([f"test_task_{i}" for i in range(runs[0].config["tasks"])])
 
+    plt.style.use("ggplot")
     _, ax = plt.subplots(figsize=(20, 9), layout="tight")
     for stage in stages:
         print(f"Downloading {stage}...")
@@ -29,12 +29,12 @@ def visualize_loss(args):
         subsample = args.subsample if stage in ["val", "train"] else 1
         metrics = [
             download_metric(
-                api.run(run_id),
+                run,
                 metric,
                 subsample=subsample,
                 max_samples=args.max_samples,
             )
-            for run_id in tqdm(args.run_ids)
+            for run in tqdm(runs)
         ]
         steps, values = zip(*metrics)
         values_mean = np.mean(values, axis=0)
@@ -49,16 +49,17 @@ def visualize_loss(args):
                 alpha=0.3,
             )
 
-    for task_transition in get_task_transitions(api.run(args.run_ids[0])):
+    for task_transition in get_task_transitions(runs[0]):
         ax.axvline(task_transition, color="gray", linestyle="dotted", linewidth=1)
 
-    ax.set_title(args.plot_title)
     ax.set_xlabel("Steps")
-    ax.set_xlim(args.xlim)
-    ax.set_ylim(args.ylim)
+    ax.set_xlim([args.xlim, args.xmax])
+    ax.set_ylabel("Loss")
+    ax.set_ylim([args.ymin, args.ymax])
+    ax.set_title(args.plot_title)
     ax.legend(loc="upper right")
 
-    plt.savefig(args.out_dir / args.out_name)
+    plt.savefig(args.out_path, bbox_inches="tight")
 
 
 def get_task_transitions(run):
@@ -92,20 +93,21 @@ def download_metric(run, name, subsample: int = 1, max_samples: int = None):
 
 
 def _main():
-    def float_or_none(x):
-        return None if x == "None" else float(x)
-
     repo_root = Path(__file__).parent.parent
     parser = ArgumentParser()
     parser.add_argument(
-        "--run_ids",
+        "--wandb_entity",
         type=str,
-        nargs="+",
-        required=True,
-        help="Full wandb run IDs, e.g. 'entity/project/run_id'.",
+        help="Wandb entity and project name, e.g. codis/codis",
+        default="codis/codis",
     )
-    parser.add_argument("--out_dir", type=Path, default=repo_root / "img")
-    parser.add_argument("--metric_name", type=str, default="loss")
+    parser.add_argument("--wandb_group", type=str, help="Wandb group name")
+    parser.add_argument(
+        "--metric_name", type=str, help="Metric name", default="regression_loss"
+    )
+    parser.add_argument(
+        "--out_path", type=Path, default=repo_root / "img/joint_training.png"
+    )
     parser.add_argument("--subsample", type=int, default=1, help="Subsample rate.")
     parser.add_argument(
         "--max_samples", type=int, default=None, help="Max number of data points."
@@ -122,14 +124,11 @@ def _main():
         default="Loss",
         help="Title of the plot.",
     )
-    parser.add_argument(
-        "--out_name", type=str, default="loss.png", help="Output file name."
-    )
-    parser.add_argument("--num_tasks", type=int, default=9, help="Number of tasks.")
-    parser.add_argument("--xlim", type=float_or_none, nargs=2, help="Y-axis limits.")
-    parser.add_argument("--ylim", type=float_or_none, nargs=2, help="Y-axis limits.")
+    parser.add_argument("--xmin", type=float, help="X-axis min limit.")
+    parser.add_argument("--xmax", type=float, help="X-axis max limit.")
+    parser.add_argument("--ymin", type=float, help="Y-axis min limit.")
+    parser.add_argument("--ymax", type=float, help="Y-axis max limit.")
     args = parser.parse_args()
-
     visualize_loss(args)
 
 
