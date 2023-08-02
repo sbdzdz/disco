@@ -14,3 +14,6 @@ max-attributes = 15
 
 [TYPECHECK]
 generated-members=torch.*
+
+[MESSAGES CONTROL]
+disable=duplicate-code

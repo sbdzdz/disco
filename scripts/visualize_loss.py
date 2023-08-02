@@ -1,34 +1,40 @@
-"""Pull loss values from a few wandb runs and create an aggregate plot."""
+"""Pull loss values from a few wandb runs and create an aggregate plot.
+Example:
+    python scripts/visualize_loss.py --run_ids entity/project/run_id1 entity/project/run_id2
+"""
 from argparse import ArgumentParser
 from pathlib import Path
 
 import numpy as np
 from matplotlib import pyplot as plt
+from tqdm import tqdm
 
 import wandb
-
-plt.style.use("ggplot")
 
 
 def visualize_loss(args):
     """Visualize train, validation, and optionally test losses."""
     api = wandb.Api()
+    runs = api.runs(args.wandb_entity, filters={"group": args.wandb_group})
+
     stages = ["val", "train"]
-
     if args.include_test:
-        stages.extend([f"test_{i}" for i in range(9)])
+        stages.extend([f"test_task_{i}" for i in range(runs[0].config["tasks"])])
 
+    plt.style.use("ggplot")
     _, ax = plt.subplots(figsize=(20, 9), layout="tight")
     for stage in stages:
+        print(f"Downloading {stage}...")
         metric = f"{args.metric_name}_{stage}"
+        subsample = args.subsample if stage in ["val", "train"] else 1
         metrics = [
             download_metric(
-                api.run(run_id),
+                run,
                 metric,
-                subsample=args.subsample,
+                subsample=subsample,
                 max_samples=args.max_samples,
             )
-            for run_id in args.run_ids
+            for run in tqdm(runs)
         ]
         steps, values = zip(*metrics)
         values_mean = np.mean(values, axis=0)
@@ -43,16 +49,17 @@ def visualize_loss(args):
                 alpha=0.3,
             )
 
-    for task_transition in get_task_transitions(api.run(args.run_ids[0])):
+    for task_transition in get_task_transitions(runs[0]):
         ax.axvline(task_transition, color="gray", linestyle="dotted", linewidth=1)
 
-    ax.set_xlim([-300, 5000])
-    ax.set_ylim([0, 1.0])
-    ax.set_title("Loss (average of 5 runs)")
     ax.set_xlabel("Steps")
+    ax.set_xlim([args.xlim, args.xmax])
+    ax.set_ylabel("Loss")
+    ax.set_ylim([args.ymin, args.ymax])
+    ax.set_title(args.plot_title)
     ax.legend(loc="upper right")
 
-    plt.savefig(args.output_dir / "train_test.png")
+    plt.savefig(args.out_path, bbox_inches="tight")
 
 
 def get_task_transitions(run):
@@ -89,14 +96,18 @@ def _main():
     repo_root = Path(__file__).parent.parent
     parser = ArgumentParser()
     parser.add_argument(
-        "--run_ids",
+        "--wandb_entity",
         type=str,
-        nargs="+",
-        required=True,
-        help="Full wandb run IDs, e.g. 'entity/project/run_id'.",
+        help="Wandb entity and project name, e.g. codis/codis",
+        default="codis/codis",
     )
-    parser.add_argument("--output_dir", type=Path, default=repo_root / "img")
-    parser.add_argument("--metric_name", type=str, default="loss")
+    parser.add_argument("--wandb_group", type=str, help="Wandb group name")
+    parser.add_argument(
+        "--metric_name", type=str, help="Metric name", default="regression_loss"
+    )
+    parser.add_argument(
+        "--out_path", type=Path, default=repo_root / "img/joint_training.png"
+    )
     parser.add_argument("--subsample", type=int, default=1, help="Subsample rate.")
     parser.add_argument(
         "--max_samples", type=int, default=None, help="Max number of data points."
@@ -104,8 +115,20 @@ def _main():
     parser.add_argument(
         "--include_test", action="store_true", help="Include test losses in the plot."
     )
+    parser.add_argument(
+        "--visualize_std", action="store_true", help="Visualize standard deviation."
+    )
+    parser.add_argument(
+        "--plot_title",
+        type=str,
+        default="Loss",
+        help="Title of the plot.",
+    )
+    parser.add_argument("--xmin", type=float, help="X-axis min limit.")
+    parser.add_argument("--xmax", type=float, help="X-axis max limit.")
+    parser.add_argument("--ymin", type=float, help="Y-axis min limit.")
+    parser.add_argument("--ymax", type=float, help="Y-axis max limit.")
     args = parser.parse_args()
-
     visualize_loss(args)
 
 

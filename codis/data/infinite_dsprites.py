@@ -9,6 +9,7 @@ import pygame
 import pygame.gfxdraw
 from matplotlib import colors
 from scipy.interpolate import splev, splprep
+from sklearn.decomposition import PCA
 from torch.utils.data import Dataset, IterableDataset
 
 BaseLatents = namedtuple(
@@ -22,6 +23,17 @@ class Latents(BaseLatents):
     def __getitem__(self, key):
         return getattr(self, key)
 
+    def to(self, device):
+        """Move the latents to a device."""
+        return Latents(
+            color=self.color.to(device),
+            shape=self.shape.to(device),
+            scale=self.scale.to(device),
+            orientation=self.orientation.to(device),
+            position_x=self.position_x.to(device),
+            position_y=self.position_y.to(device),
+        )
+
 
 # pylint: disable=abstract-method
 class InfiniteDSprites(IterableDataset):
@@ -31,11 +43,11 @@ class InfiniteDSprites(IterableDataset):
         self,
         img_size: int = 256,
         color_range=("white",),
-        scale_range=np.linspace(0, 1, 32),
+        scale_range=np.linspace(0.5, 1.5, 32),
         orientation_range=np.linspace(0, 2 * np.pi, 32),
         position_x_range=np.linspace(0, 1, 32),
         position_y_range=np.linspace(0, 1, 32),
-        dataset_size: int = float("inf"),
+        dataset_size: int = None,
         shapes: list = None,
     ):
         """Create a dataset of images of random shapes.
@@ -104,7 +116,7 @@ class InfiniteDSprites(IterableDataset):
             for color, scale, orientation, position_x, position_y in product(
                 *self.ranges.values()
             ):
-                if self.counter >= self.dataset_size:
+                if self.dataset_size is not None and self.counter >= self.dataset_size:
                     return
                 self.counter += 1
                 color = np.array(colors.to_rgb(color))
@@ -114,31 +126,68 @@ class InfiniteDSprites(IterableDataset):
                 img = self.draw(latents)
                 yield img, latents
 
-    @classmethod
-    def generate_shape(cls):
+    def generate_shape(self):
         """Generate random vertices and connect them with straight lines or a smooth curve.
         Args:
             None
         Returns:
             An array of shape (2, num_verts).
         """
-        verts = cls.sample_vertex_positions()
+        verts = self.sample_vertex_positions()
         shape = (
-            cls.interpolate(verts)
+            self.interpolate(verts)
             if np.random.rand() < 0.5
-            else cls.interpolate(verts, k=1)
+            else self.interpolate(verts, k=1)
         )
-        shape = shape / np.max(np.linalg.norm(shape, axis=0))  # normalize scale
-        shape = shape - np.mean(shape, axis=1, keepdims=True)  # center shape
+        shape = self.center_and_scale(shape)
+        shape = self.align(shape)
+
         return shape
 
-    @classmethod
+    def center_and_scale(self, shape):
+        """Center the shape and normalize scale."""
+        latents = Latents(
+            color=np.array([0.9, 0.9, 0.9]),
+            shape=shape,
+            scale=1.0,
+            orientation=0.0,
+            position_x=0.5,
+            position_y=0.5,
+        )
+        img = self.draw(latents, channels_first=False)
+        non_black_pixels = np.argwhere(np.any(img != [0, 0, 0], axis=2))
+        center = np.mean(non_black_pixels, axis=0)
+        max_dist = np.max(np.linalg.norm(non_black_pixels - center, axis=1))
+
+        center = np.expand_dims(center - self.img_size / 2, 1) / (0.2 * self.img_size)
+        max_dist = max_dist / (0.2 * self.img_size)
+
+        shape = shape - center
+        shape = shape / max_dist
+
+        return shape
+
+    def align(self, shape):
+        """Align the principal axis of the shape with the y-axis."""
+        pca = PCA(n_components=2)
+        pca.fit(shape.T)
+
+        # Get the principal components
+        principal_components = pca.components_
+
+        # Find the angle between the major axis and the y-axis
+        major_axis = principal_components[0]
+        angle_rad = np.arctan2(major_axis[1], major_axis[0])
+        shape = self.apply_orientation(shape, -angle_rad)
+
+        return shape
+
     def sample_vertex_positions(
-        cls,
-        min_verts: int = 3,
-        max_verts: int = 7,
-        radius_std: float = 0.6,
-        angle_std: float = 0.8,
+        self,
+        min_verts: int = 4,
+        max_verts: int = 8,
+        radius_std: float = 0.8,
+        angle_std: float = 0.5,
     ):
         """Sample the positions of the vertices of a polygon.
         Args:
@@ -163,8 +212,9 @@ class InfiniteDSprites(IterableDataset):
         verts = np.array(verts).T
         return verts
 
-    @classmethod
-    def interpolate(cls, verts: npt.NDArray, k: int = 3, num_spline_points: int = 1000):
+    def interpolate(
+        self, verts: npt.NDArray, k: int = 3, num_spline_points: int = 1000
+    ):
         """Interpolate a set of vertices with a spline.
         Args:
             verts: An array of shape (2, num_verts).
@@ -211,7 +261,7 @@ class InfiniteDSprites(IterableDataset):
     def apply_scale(self, shape: npt.NDArray, scale: float):
         """Apply a scale to a shape."""
         height, _ = self.window.get_size()
-        return 0.2 * height * (0.3 + scale) * shape
+        return 0.2 * height * scale * shape
 
     @staticmethod
     def apply_orientation(shape: npt.NDArray, orientation: float):
@@ -260,20 +310,20 @@ class InfiniteDSprites(IterableDataset):
         )
 
 
-class ContinualDSprites(Dataset):
+class ContinualDSpritesMap(Dataset):
     """Map-style (finite) continual learning dsprites dataset."""
 
     def __init__(self, *args, **kwargs):
         self.dataset = InfiniteDSprites(*args, **kwargs)
         assert (
-            self.dataset.dataset_size != float("inf") or self.dataset.shapes is not None
+            self.dataset.dataset_size is not None or self.dataset.shapes is not None
         ), "Dataset size must be finite. Please set dataset_size or pass a list of shapes."
         self.imgs, self.latents = zip(*list(self.dataset))
         self.imgs = list(self.imgs)
         self.latents = list(self.latents)
 
     def __len__(self):
-        if self.dataset.dataset_size != float("inf"):
+        if self.dataset.dataset_size is not None:
             return self.dataset.dataset_size
         return len(list(product(*self.dataset.ranges.values()))) * len(
             self.dataset.shapes
@@ -283,7 +333,7 @@ class ContinualDSprites(Dataset):
         return self.imgs[index], self.latents[index]
 
 
-class InfiniteDSpritesRandom(InfiniteDSprites):
+class RandomDSprites(InfiniteDSprites):
     """Infinite dataset of randomly transformed shapes.
     The shape is sampled from a given list or generated procedurally.
     The transformations are sampled randomly at every step.
@@ -299,7 +349,7 @@ class InfiniteDSpritesRandom(InfiniteDSprites):
         Yields:
             A tuple of (image, latents).
         """
-        while self.counter < self.dataset_size:
+        while self.dataset_size is None or self.counter < self.dataset_size:
             self.counter += 1
             if self.shapes is not None:
                 shape = self.shapes[np.random.choice(len(self.shapes))]
@@ -308,6 +358,29 @@ class InfiniteDSpritesRandom(InfiniteDSprites):
             latents = self.sample_latents()._replace(shape=shape)
             image = self.draw(latents)
             yield image, latents
+
+
+class RandomDSpritesMap(Dataset):
+    """Map-style (finite) random dsprites dataset."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        self.dataset = RandomDSprites(*args, **kwargs)
+        assert (
+            self.dataset.dataset_size is not None
+        ), "Dataset size must be finite. Please set dataset_size."
+        self.imgs, self.latents = zip(*list(self.dataset))
+        self.imgs = list(self.imgs)
+        self.latents = list(self.latents)
+
+    def __len__(self):
+        if self.dataset.dataset_size is not None:
+            return self.dataset.dataset_size
+        return len(list(product(*self.dataset.ranges.values()))) * len(
+            self.dataset.shapes
+        )
+
+    def __getitem__(self, index):
+        return self.imgs[index], self.latents[index]
 
 
 class InfiniteDSpritesTriplets(InfiniteDSprites):
@@ -325,7 +398,7 @@ class InfiniteDSpritesTriplets(InfiniteDSprites):
         Yields:
             A tuple of ((image_original, image_transform, image_target), action).
         """
-        while self.counter < self.dataset_size:
+        while self.dataset_size is None or self.counter < self.dataset_size:
             action = np.random.choice(list(self.ranges.keys()))
             latents_original = self.sample_latents()
             latents_transform = self.sample_latents()
@@ -364,7 +437,7 @@ class InfiniteDSpritesAnalogies(InfiniteDSprites):
         Yields:
             An image grid as a single numpy array.
         """
-        while self.counter < self.dataset_size:
+        while self.dataset_size is None or self.counter < self.dataset_size:
             self.counter += 1
             source_latents = self.sample_latents()
             target_latents = self.sample_latents()

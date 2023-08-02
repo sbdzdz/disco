@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from codis.data import ContinualDSprites, InfiniteDSprites
+from codis.data import ContinualDSpritesMap, InfiniteDSprites
 from codis.visualization import draw_batch
 
 
@@ -14,7 +14,7 @@ def main():
     dataset = InfiniteDSprites()
     shapes = [dataset.generate_shape() for _ in range(4)]
 
-    dataset = ContinualDSprites(
+    dataset = ContinualDSpritesMap(
         scale_range=np.array([0.5, 1.5]),
         orientation_range=np.array([0.0, np.pi]),
         position_x_range=np.array([0.5]),

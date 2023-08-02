@@ -122,6 +122,7 @@ class SpatialTransformer(ContinualModule):
         in_channels: int = 1,
         channels: Optional[list] = None,
         mask: torch.Tensor = None,
+        gamma: float = 0.5,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -140,7 +141,12 @@ class SpatialTransformer(ContinualModule):
         self.regressor.model[-1].bias.data.copy_(
             torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float)
         )
-        self.mask = torch.tensor([1, 1, 1, 1, 1, 1]) if mask is None else mask
+        self.mask = (
+            torch.tensor([1, 1, 1, 1, 1, 1], dtype=torch.float)
+            if mask is None
+            else mask
+        )
+        self.gamma = gamma
 
         self._buffer = []
 
@@ -161,7 +167,7 @@ class SpatialTransformer(ContinualModule):
         """Perform the forward pass."""
         xs = self.encoder(x).view(-1, self.encoder_output_dim)
         theta = self.regressor(xs).view(-1, 2, 3)
-        theta = theta * self.mask.view(-1, 2, 3).to(self.device)
+        # theta = theta * self.mask.view(-1, 2, 3).to(self.device)
 
         grid = F.affine_grid(theta, x.size())
         x_hat = F.grid_sample(x, grid)
@@ -171,29 +177,92 @@ class SpatialTransformer(ContinualModule):
     def training_step(self, batch, batch_idx):
         """Perform a training step."""
         loss = self._step(batch)
-        self.log("loss_train", loss, on_step=True)
-        return loss
+        self.log_dict({f"{k}_train": v for k, v in loss.items()})
+        return loss["loss"]
 
     def validation_step(self, batch, batch_idx):
         """Perform a validation step."""
         loss = self._step(batch)
-        self.log("loss_val", loss, on_epoch=True)
-        return loss
+        self.log_dict({f"{k}_val": v for k, v in loss.items()})
+        return loss["loss"]
 
     def test_step(self, batch, batch_idx):
         """Perform a test step."""
         loss = self._step(batch)
-        self.log("loss_{stage}_task_{self.task_id}", loss, on_epoch=True)
-        return loss
+        self.log_dict({f"{k}_test_task_{self.task_id}": v for k, v in loss.items()})
+        return loss["loss"]
 
     def _step(self, batch):
         """Perform a training or validation step."""
-        x, _ = batch
-        x_hat, _ = self.forward(x)
+        x, y = batch
+        x_hat, theta_hat = self.forward(x)
         exemplar_tiled = (
             self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
         )
-        return F.mse_loss(x_hat, exemplar_tiled)
+        theta = self.convert_parameters_to_matrix(y)
+        # theta = theta * self.mask.view(-1, 2, 3).to(self.device)
+        backbone_loss = F.mse_loss(exemplar_tiled, x_hat)
+        regression_loss = F.mse_loss(theta, theta_hat)
+        return {
+            "regression_loss": regression_loss,
+            "backbone_loss": backbone_loss,
+            "loss": self.gamma * regression_loss + (1 - self.gamma) * backbone_loss,
+        }
+
+    def convert_parameters_to_matrix(self, factors):
+        """Convert the ground truth factors to a transformation matrix.
+        The matrix maps from an arbitrary image (defined by factors) to the canonical representation.
+        Args:
+            factors: A namedtuple of factors.
+        Returns:
+            A 2x3 transformation matrix.
+        """
+        scale, orientation, position_x, position_y = (
+            factors.scale,
+            factors.orientation,
+            factors.position_x,
+            factors.position_y,
+        )
+        batch_size = scale.shape[0]
+
+        transform_matrix = self.batched_eye(batch_size)
+
+        # scale
+        scale_matrix = self.batched_eye(batch_size)
+        scale_matrix[:, 0, 0] = scale
+        scale_matrix[:, 1, 1] = scale
+        transform_matrix = torch.bmm(scale_matrix, transform_matrix)
+
+        # rotate
+        orientation_matrix = self.batched_eye(batch_size)
+        orientation_matrix[:, 0, 0] = torch.cos(-orientation)
+        orientation_matrix[:, 0, 1] = -torch.sin(-orientation)
+        orientation_matrix[:, 1, 0] = torch.sin(-orientation)
+        orientation_matrix[:, 1, 1] = torch.cos(-orientation)
+        transform_matrix = torch.bmm(orientation_matrix, transform_matrix)
+
+        # move to the center
+        translation_matrix = self.batched_eye(batch_size)
+        translation_matrix[:, 0, 2] = -0.5
+        translation_matrix[:, 1, 2] = -0.5
+        transform_matrix = torch.bmm(translation_matrix, transform_matrix)
+
+        # move to 0, 0
+        translation_matrix = self.batched_eye(batch_size)
+        translation_matrix[:, 0, 2] = position_x
+        translation_matrix[:, 1, 2] = position_y
+        transform_matrix = torch.bmm(translation_matrix, transform_matrix)
+
+        return transform_matrix[:, :2, :]
+
+    def batched_eye(self, batch_size):
+        """Create a batch of identity matrices."""
+        return (
+            torch.eye(3, dtype=torch.float)
+            .unsqueeze(0)
+            .repeat(batch_size, 1, 1)
+            .to(self.device)
+        )
 
 
 class SupervisedVAE(ContinualModule):
@@ -206,7 +275,7 @@ class SupervisedVAE(ContinualModule):
         gamma: float = 0.5,
         **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.backbone = vae
         self.gamma = gamma
         if regressor is None:
@@ -263,16 +332,13 @@ class SupervisedVAE(ContinualModule):
         y = self._stack_factors(y)
         x_hat, mu, log_var, y_hat = self.forward(x)
         metrics = self._calculate_metrics(y, y_hat)
-        regressor_loss = self.regressor.loss_function(y, y_hat)
-        backbone_loss = self.backbone.loss_function(x, x_hat, mu, log_var)
+        regressor_loss = self.regressor.loss_function(y, y_hat)["loss"]
+        backbone_loss = self.backbone.loss_function(x, x_hat, mu, log_var)["loss"]
         loss = {
-            "regressor_loss": regressor_loss["loss"],
-            "backbone_loss": backbone_loss["loss"],
+            "regression_loss": regressor_loss,
+            "backbone_loss": backbone_loss,
+            "loss": self.gamma * regressor_loss + (1 - self.gamma) * backbone_loss,
         }
-        loss["loss"] = (
-            self.gamma * loss["regressor_loss"]
-            + (1 - self.gamma) * loss["backbone_loss"]
-        )
         return loss, metrics
 
     def _calculate_metrics(self, y, y_hat):

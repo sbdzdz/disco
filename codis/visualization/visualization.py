@@ -1,5 +1,5 @@
 """Visualization utilities for the dSprites and InfiniteDSprites datasets.
-Example usage:
+Example:
     python -c "from codis.data.visualization import draw_shapes; draw_shapes()"
 """
 import io
@@ -20,12 +20,12 @@ from codis.data import (
 repo_root = Path(__file__).parent.parent.parent
 
 COLORS = [
+    "white",
     "purple",
     "maroon",
     "darkblue",
     "teal",
     "peachpuff",
-    "white",
     "darkgreen",
 ]
 
@@ -97,7 +97,12 @@ def draw_batch_and_reconstructions(
     if not isinstance(axes, np.ndarray):
         axes = np.array([axes])
 
+    for ax in axes.flat:
+        ax.axis("off")
+
     for i, ax in enumerate(axes.flat):
+        if i >= num_images:
+            break
         images = [img[i] for img in image_arrays]
         concatenated = np.concatenate(images, axis=1)
         border_width = concatenated.shape[1] // 128 or 1
@@ -106,7 +111,6 @@ def draw_batch_and_reconstructions(
             mid = j * concatenated.shape[1] // len(image_arrays)
             concatenated[:, mid - border_width : mid + border_width] = 1.0
         ax.imshow(concatenated, cmap="Greys_r", interpolation="nearest")
-        ax.axis("off")
     if show:
         plt.show()
     if path is not None:
@@ -177,14 +181,21 @@ def draw_shapes(
     if not isinstance(axes, np.ndarray):
         axes = np.array([axes])
     for ax in axes.flat:
+        shape = dataset.generate_shape()
         ax.axis("off")
         if fill_shape:
-            latents = dataset.sample_latents()
+            latents = Latents(
+                color=np.array([1.0, 1.0, 1.0]),
+                shape=shape,
+                scale=2.0,
+                orientation=0.0,
+                position_x=0.5,
+                position_y=0.5,
+            )
             img = dataset.draw(latents, channels_first=False)
             ax.imshow(img, cmap="Greys_r", interpolation="nearest")
         else:
-            spline = dataset.generate_shape()
-            ax.plot(spline[0], spline[1], label="spline", color=fg_color)
+            ax.plot(shape[0], shape[1], color=fg_color)
 
     path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(path)
@@ -222,7 +233,7 @@ def draw_smooth_shapes(
         for _ in range(nrows * ncols)
     ]
     shapes = [
-        [InfiniteDSprites.generate_shape() for _ in range(num_shapes)]
+        [dataset.generate_shape() for _ in range(num_shapes)]
         for _ in range(nrows * ncols)
     ]
     shape_sequences = interpolate(shapes, num_frames=fps * duration_per_shape)
@@ -268,7 +279,7 @@ def draw_shapes_animated(
     fig_height: float = 10,
     img_size: int = 256,
     bg_color: str = "white",
-    duration: int = 2,
+    duration: int = 8,
     fps: int = 60,
     factor: str = None,
     seed: int = 0,
@@ -293,18 +304,18 @@ def draw_shapes_animated(
     dataset = InfiniteDSprites(
         img_size=img_size,
         color_range=COLORS,
-        scale_range=np.linspace(0.0, 1.0, num_frames),
-        orientation_range=np.linspace(0.0, 2 * np.pi, num_frames),
-        position_x_range=np.linspace(0.0, 1.0, num_frames),
-        position_y_range=np.linspace(0.0, 1.0, num_frames),
+        scale_range=np.linspace(0.0, 1.0, num_frames // 4),
+        orientation_range=np.linspace(0.0, 2 * np.pi, num_frames // 4),
+        position_x_range=np.linspace(0.0, 1.0, num_frames // 4),
+        position_y_range=np.linspace(0.0, 1.0, num_frames // 4),
     )
-    shapes = [InfiniteDSprites.generate_shape() for _ in range(nrows * ncols)]
+    shapes = [dataset.generate_shape() for _ in range(nrows * ncols)]
     colors = [dataset.sample_latents().color for _ in range(nrows * ncols)]
     if factor is None:
-        factors = generate_multiple_factor_progression(dataset)
+        factors = generate_multi_factor_sequence(dataset)
     else:
         path = path.with_stem(f"{path.stem}_{factor}")
-        factors = generate_single_factor_progression(dataset, factor)
+        factors = generate_single_factor_sequence(dataset, factor)
 
     frames = [
         [
@@ -319,13 +330,10 @@ def draw_shapes_animated(
     save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps)
 
 
-def generate_multiple_factor_progression(dataset):
+def generate_multi_factor_sequence(dataset):
     """Generate a sequence of factors that can be used to animate a shape.
     Args:
-        scale_range: The range of scales to use.
-        orientation_range: The range of orientations to use.
-        position_x_range: The range of x positions to use.
-        position_y_range: The range of y positions to use.
+        dataset: The dataset to generate the factors for.
     Returns:
         A tuple of factor value sequences representing a smooth animation.
     """
@@ -366,7 +374,7 @@ def generate_multiple_factor_progression(dataset):
     return scales, orientations, positions_x, positions_y
 
 
-def generate_single_factor_progression(dataset, factor):
+def generate_single_factor_sequence(dataset, factor):
     """Generate a smooth progression of a single factor."""
     length = 2 * len(dataset.ranges[factor])
     factors = {
@@ -383,6 +391,92 @@ def generate_single_factor_progression(dataset, factor):
         factors["position_x"],
         factors["position_y"],
     )
+
+
+def draw_orientation_normalization(
+    path: Path = repo_root / "img/orientation_normalization.gif",
+    nrows: int = 5,
+    ncols: int = 11,
+    fig_height: float = 10,
+    img_size: int = 256,
+    bg_color: str = "white",
+    duration: int = 6,
+    fps: int = 60,
+    seed: int = 0,
+):
+    """Create an animated GIF showing a grid of shapes undergoing orientation normalization.
+    Args:
+        path: The path to save the image to.
+        nrows: The number of rows in the grid.
+        ncols: The number of columns in the grid.
+        fig_height: The height of the figure in inches.
+        img_size: The size of the image in pixels.
+        bg_color: The color of the background plot area.
+        duration: The duration of the animation in seconds.
+        fps: The number of frames per second.
+        seed: The random seed.
+    Returns:
+        None
+    """
+    np.random.seed(seed)
+    num_frames = fps * duration
+    num_shapes = nrows * ncols
+
+    dataset = InfiniteDSprites(
+        img_size=img_size,
+        color_range=["snow"],
+        orientation_range=np.linspace(0.2 * np.pi, 1.8 * np.pi, 32),
+    )
+
+    start_latents = [dataset.sample_latents() for _ in range(num_shapes)]
+    sequence = []
+    for latent in start_latents:
+        latents = [
+            Latents(
+                color=latent.color,
+                shape=latent.shape,
+                scale=scale,
+                orientation=orientation,
+                position_x=position_x,
+                position_y=position_y,
+            )
+            for scale, orientation, position_x, position_y in generate_normalization_sequence(
+                latent, num_frames
+            )
+        ]
+        sequence.append(latents)
+    sequence = list(zip(*sequence))  # transpose the nested list
+
+    frames = [
+        [dataset.draw(l, channels_first=False) for l in latents] for latents in sequence
+    ]
+    save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps)
+
+
+def generate_normalization_sequence(latent, num_frames):
+    """Generate a sequence of factors"""
+    scales, orientations, positions_x, positions_y = (
+        2.0 * np.ones(num_frames),
+        latent.orientation * np.ones(num_frames),
+        0.5 * np.ones(num_frames),
+        0.5 * np.ones(num_frames),
+    )
+    chunk = num_frames // 4
+
+    if latent.orientation <= np.pi:
+        orientations[:chunk] = np.linspace(latent.orientation, 0.0, chunk)
+        orientations[2 * chunk : 3 * chunk] = np.linspace(
+            0.0, latent.orientation, chunk
+        )
+    else:
+        orientations[:chunk] = np.linspace(latent.orientation, 2 * np.pi, chunk)
+        orientations[2 * chunk : 3 * chunk] = np.linspace(
+            2 * np.pi, latent.orientation, chunk
+        )
+    orientations[chunk : 2 * chunk] = 0.0
+    orientations[3 * chunk :] = latent.orientation
+
+    return zip(scales, orientations, positions_x, positions_y)
 
 
 def save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps):
