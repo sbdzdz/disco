@@ -11,8 +11,6 @@ from tqdm import tqdm
 
 import wandb
 
-plt.style.use("ggplot")
-
 
 def visualize_loss(args):
     """Visualize train, validation, and optionally test losses."""
@@ -23,6 +21,7 @@ def visualize_loss(args):
     if args.include_test:
         stages.extend([f"test_task_{i}" for i in range(runs[0].config["tasks"])])
 
+    plt.style.use("ggplot")
     _, ax = plt.subplots(figsize=(20, 9), layout="tight")
     for stage in stages:
         print(f"Downloading {stage}...")
@@ -53,10 +52,11 @@ def visualize_loss(args):
     for task_transition in get_task_transitions(runs[0]):
         ax.axvline(task_transition, color="gray", linestyle="dotted", linewidth=1)
 
-    ax.set_title(args.plot_title)
     ax.set_xlabel("Steps")
-    ax.set_xlim(args.xlim)
-    ax.set_ylim(args.ylim)
+    ax.set_xlim([args.xlim, args.xmax])
+    ax.set_ylabel("Loss")
+    ax.set_ylim([args.ymin, args.ymax])
+    ax.set_title(args.plot_title)
     ax.legend(loc="upper right")
 
     plt.savefig(args.out_path, bbox_inches="tight")
@@ -93,9 +93,6 @@ def download_metric(run, name, subsample: int = 1, max_samples: int = None):
 
 
 def _main():
-    def float_or_none(x):
-        return None if x == "None" else float(x)
-
     repo_root = Path(__file__).parent.parent
     parser = ArgumentParser()
     parser.add_argument(
@@ -127,8 +124,10 @@ def _main():
         default="Loss",
         help="Title of the plot.",
     )
-    parser.add_argument("--xlim", type=float_or_none, nargs=2, help="Y-axis limits.")
-    parser.add_argument("--ylim", type=float_or_none, nargs=2, help="Y-axis limits.")
+    parser.add_argument("--xmin", type=float, help="X-axis min limit.")
+    parser.add_argument("--xmax", type=float, help="X-axis max limit.")
+    parser.add_argument("--ymin", type=float, help="Y-axis min limit.")
+    parser.add_argument("--ymax", type=float, help="Y-axis max limit.")
     args = parser.parse_args()
     visualize_loss(args)
 

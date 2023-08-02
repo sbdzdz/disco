@@ -21,7 +21,9 @@ def visualize_joint_training(args):
 
     ax.legend(loc="upper right")
     ax.set_xlabel("Number of shapes")
+    ax.set_xlim([args.xmin, args.xmax])
     ax.set_ylabel("Minimum loss")
+    ax.set_ylim([args.ymin, args.ymax])
 
     plt.savefig(args.out_path, bbox_inches="tight")
 
@@ -50,6 +52,10 @@ def _main():
     parser.add_argument(
         "--out_path", type=Path, default=repo_root / "img/joint_training.png"
     )
+    parser.add_argument("--xmin", type=float, help="X-axis min limit.")
+    parser.add_argument("--xmax", type=float, help="X-axis max limit.")
+    parser.add_argument("--ymin", type=float, help="Y-axis min limit.")
+    parser.add_argument("--ymax", type=float, help="Y-axis max limit.")
     args = parser.parse_args()
     visualize_joint_training(args)
 
