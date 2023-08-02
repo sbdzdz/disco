@@ -193,8 +193,8 @@ class SpatialTransformer(ContinualModule):
             self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
         )
         theta = self.convert_parameters_to_matrix(y)
-        backbone_loss = F.mse_loss(exemplar_tiled, x_hat)
         regression_loss = F.mse_loss(theta, theta_hat)
+        backbone_loss = F.mse_loss(exemplar_tiled, x_hat)
         return {
             "regression_loss": regression_loss,
             "backbone_loss": backbone_loss,
@@ -249,6 +249,46 @@ class SpatialTransformer(ContinualModule):
             .repeat(batch_size, 1, 1)
             .to(self.device)
         )
+
+
+class SpatialTransformerSimple(SpatialTransformer):
+    """A SpatialTransformer with a simpler regressor."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.regressor = MLP(
+            dims=[self.encoder_output_dim, 64, 32, self.num_factors],
+        )
+
+    def forward(self, x):
+        """Perform the forward pass."""
+        xs = self.encoder(x).view(-1, self.encoder_output_dim)
+        y_hat = self.regressor(xs)
+        theta = self.convert_parameters_to_matrix(y_hat)
+
+        grid = F.affine_grid(theta, x.size())
+        x_hat = F.grid_sample(x, grid)
+        return x_hat, y_hat
+
+    def _step(self, batch):
+        """Perform a training or validation step."""
+        x, y = batch
+        x_hat, y_hat = self.forward(x)
+        exemplar_tiled = (
+            self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
+        )
+        regression_loss = F.mse_loss(self.stack_latents(y), y_hat)
+        backbone_loss = F.mse_loss(exemplar_tiled, x_hat)
+        y_hat = self._unstack_latents(y_hat)
+        return {
+            "regression_loss": regression_loss,
+            "backbone_loss": backbone_loss,
+            "orientation_loss": F.mse_loss(y.orientation, y_hat.orientation),
+            "scale_loss": F.mse_loss(y.scale, y_hat.scale),
+            "position_x_loss": F.mse_loss(y.position_x, y_hat.position_x),
+            "position_y_loss": F.mse_loss(y.position_y, y_hat.position_y),
+            "loss": self.gamma * regression_loss + (1 - self.gamma) * backbone_loss,
+        }
 
 
 class SupervisedVAE(ContinualModule):
