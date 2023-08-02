@@ -235,14 +235,8 @@ class SpatialTransformer(ContinualModule):
 
         # move to the center
         translation_matrix = self.batched_eye(batch_size)
-        translation_matrix[:, 0, 2] = -0.5
-        translation_matrix[:, 1, 2] = -0.5
-        transform_matrix = torch.bmm(translation_matrix, transform_matrix)
-
-        # move to 0, 0
-        translation_matrix = self.batched_eye(batch_size)
-        translation_matrix[:, 0, 2] = position_x
-        translation_matrix[:, 1, 2] = position_y
+        translation_matrix[:, 0, 2] = position_x - 0.5
+        translation_matrix[:, 1, 2] = position_y - 0.5
         transform_matrix = torch.bmm(translation_matrix, transform_matrix)
 
         return transform_matrix[:, :2, :]
