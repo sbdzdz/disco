@@ -20,10 +20,12 @@ def main():
     images, factors = next(iter(dataloader))
     matrices = transformer.convert_parameters_to_matrix(factors)
 
-    # convert torch tensors to numpy arrays
-    factors = Latents(**{k: v.numpy() for k, v in factors._asdict().items()})
-    # convert batched namedtuple to a list of namedtuples
-    factors = [Latents(*items) for items in zip(*factors)]
+    factors = Latents(
+        **{k: v.numpy() for k, v in factors._asdict().items()}
+    )  # convert torch tensors to numpy arrays
+    factors = [
+        Latents(*items) for items in zip(*factors)
+    ]  # convert a batched namedtuple to a list of namedtuples
 
     canonical_factors = [
         f._replace(
