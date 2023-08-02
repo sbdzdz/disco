@@ -94,7 +94,6 @@ def build_model_and_callbacks(args, exemplars):
     elif args.model == "stn":
         model = SpatialTransformer(
             img_size=args.img_size,
-            mask=None,
             lr=args.lr,
             channels=[4, 4, 8, 8, 16],
             factors_to_regress=args.factors_to_regress,

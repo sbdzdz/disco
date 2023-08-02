@@ -121,7 +121,6 @@ class SpatialTransformer(ContinualModule):
         img_size: int = 64,
         in_channels: int = 1,
         channels: Optional[list] = None,
-        mask: torch.Tensor = None,
         gamma: float = 0.5,
         **kwargs,
     ):
@@ -140,11 +139,6 @@ class SpatialTransformer(ContinualModule):
         self.regressor.model[-1].weight.data.zero_()
         self.regressor.model[-1].bias.data.copy_(
             torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float)
-        )
-        self.mask = (
-            torch.tensor([1, 1, 1, 1, 1, 1], dtype=torch.float)
-            if mask is None
-            else mask
         )
         self.gamma = gamma
 
@@ -167,7 +161,6 @@ class SpatialTransformer(ContinualModule):
         """Perform the forward pass."""
         xs = self.encoder(x).view(-1, self.encoder_output_dim)
         theta = self.regressor(xs).view(-1, 2, 3)
-        # theta = theta * self.mask.view(-1, 2, 3).to(self.device)
 
         grid = F.affine_grid(theta, x.size())
         x_hat = F.grid_sample(x, grid)
@@ -200,7 +193,6 @@ class SpatialTransformer(ContinualModule):
             self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
         )
         theta = self.convert_parameters_to_matrix(y)
-        # theta = theta * self.mask.view(-1, 2, 3).to(self.device)
         backbone_loss = F.mse_loss(exemplar_tiled, x_hat)
         regression_loss = F.mse_loss(theta, theta_hat)
         return {
