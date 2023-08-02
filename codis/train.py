@@ -20,6 +20,7 @@ from codis.lightning.modules import (
     LatentRegressor,
     LightningBetaVAE,
     SpatialTransformer,
+    SpatialTransformerSimple,
     SupervisedVAE,
 )
 
@@ -95,7 +96,12 @@ def build_model_and_callbacks(args, exemplars):
         model = SpatialTransformer(
             img_size=args.img_size,
             lr=args.lr,
-            channels=[4, 4, 8, 8, 16],
+            factors_to_regress=args.factors_to_regress,
+        )
+    elif args.model == "stn_simple":
+        model = SpatialTransformerSimple(
+            img_size=args.img_size,
+            lr=args.lr,
             factors_to_regress=args.factors_to_regress,
         )
     elif args.model == "regressor":
@@ -303,7 +309,7 @@ def _main():
         "--model",
         type=str,
         default="stn",
-        choices=["vae", "stn", "regressor"],
+        choices=["vae", "stn", "stn_simple", "regressor"],
         help="Model to train. One of 'vae' or 'stn'.",
     )
     parser.add_argument(
