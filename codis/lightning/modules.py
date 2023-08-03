@@ -192,7 +192,7 @@ class SpatialTransformer(ContinualModule):
         exemplar_tiled = (
             self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
         )
-        theta = self.convert_parameters_to_matrix(self._unstack_factors(y))
+        theta = self.convert_parameters_to_matrix(y)
         regression_loss = F.mse_loss(theta, theta_hat)
         backbone_loss = F.mse_loss(exemplar_tiled, x_hat)
         return {
