@@ -280,7 +280,7 @@ class SpatialTransformerSimple(SpatialTransformer):
         exemplar_tiled = (
             self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
         )
-        regression_loss = F.mse_loss(self.stack_latents(y), y_hat)
+        regression_loss = F.mse_loss(self._stack_factors(y), y_hat)
         backbone_loss = F.mse_loss(exemplar_tiled, x_hat)
         y_hat = self._unstack_factors(y_hat)
         return {
