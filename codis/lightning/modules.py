@@ -9,6 +9,7 @@ from torchmetrics import R2Score
 from codis.models import MLP, BetaVAE
 from codis.models.blocks import Encoder
 from codis.utils import to_numpy
+from codis.data import Latents
 from codis.visualization import draw_batch_and_reconstructions
 
 # pylint: disable=arguments-differ,unused-argument,too-many-ancestors
@@ -46,10 +47,12 @@ class ContinualModule(pl.LightningModule):
 
     def _unstack_factors(self, stacked_factors):
         """Unstack the factors."""
-        return {
-            name: stacked_factors[:, i]
-            for i, name in enumerate(self.factors_to_regress)
-        }
+        return Latents(
+            shape=None,
+            color=None,
+            **{name: stacked_factors[:, i]
+            for i, name in enumerate(self.factors_to_regress)}
+        )
 
 
 class LatentRegressor(ContinualModule):
@@ -264,7 +267,7 @@ class SpatialTransformerSimple(SpatialTransformer):
         """Perform the forward pass."""
         xs = self.encoder(x).view(-1, self.encoder_output_dim)
         y_hat = self.regressor(xs)
-        theta = self.convert_parameters_to_matrix(y_hat)
+        theta = self.convert_parameters_to_matrix(self._unstack_factors(y_hat))
 
         grid = F.affine_grid(theta, x.size())
         x_hat = F.grid_sample(x, grid)
@@ -368,16 +371,14 @@ class SupervisedVAE(ContinualModule):
         return loss, metrics
 
     def _calculate_metrics(self, y, y_hat):
-        unstacked_y = self._unstack_factors(y)
-        unstacked_y_hat = self._unstack_factors(y_hat)
+        y = self._unstack_factors(y)
+        y_hat = self._unstack_factors(y_hat)
         return {
-            "r2_score": self.r2_score(y_hat, y),
-            **{
-                f"r2_score_{name}": self.r2_score(
-                    unstacked_y[name], unstacked_y_hat[name]
-                )
-                for name in self.factors_to_regress
-            },
+            "r2_score": self.r2_score(y, y_hat),
+            "r2_score_orientation": self.r2_score(y.orientation, y_hat.orientation),
+            "r2_score_scale": self.r2_score(y.scale, y_hat.scale),
+            "r2_score_position_x": self.r2_score(y.position_x, y_hat.position_x),
+            "r2_score_position_y": self.r2_score(y.position_y, y_hat.position_y)
         }
 
 
