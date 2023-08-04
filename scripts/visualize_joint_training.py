@@ -3,6 +3,7 @@ import argparse
 from pathlib import Path
 
 from matplotlib import pyplot as plt
+from matplotlib import ticker
 
 import wandb
 
@@ -35,10 +36,14 @@ def visualize_joint_training(args):
         plt.plot(shapes, loss_val, label="Seen shapes, novel transforms")
 
     ax.legend(loc="upper right")
+
     ax.set_xlabel("Number of shapes")
     ax.set_xlim([args.xmin, args.xmax])
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f"{x:.1f}"))
+
     ax.set_ylabel("Minimum loss")
     ax.set_ylim([args.ymin, args.ymax])
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f"{x:.1f}"))
 
     plt.savefig(args.out_path, bbox_inches="tight")
 
