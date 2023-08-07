@@ -204,7 +204,7 @@ def draw_shapes(
 def draw_smooth_shapes(
     path: Path = repo_root / "img/smooth_shapes.gif",
     nrows: int = 5,
-    ncols: int = 11,
+    ncols: int = 12,
     fig_height: float = 10,
     img_size: int = 256,
     bg_color="white",
