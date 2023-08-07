@@ -15,7 +15,9 @@ import wandb
 def visualize_loss(args):
     """Visualize train, validation, and optionally test losses."""
     api = wandb.Api()
-    runs = api.runs(args.wandb_entity, filters={"group": args.wandb_group})
+    runs = api.runs(
+        args.wandb_entity, filters={"group": args.wandb_group, "state": "finished"}
+    )
 
     stages = ["val", "train"]
     if args.include_test:
