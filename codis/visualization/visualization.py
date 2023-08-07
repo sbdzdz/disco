@@ -275,7 +275,7 @@ def interpolate(values, num_frames):
 def draw_shapes_animated(
     path: Path = repo_root / "img/shapes.gif",
     nrows: int = 5,
-    ncols: int = 11,
+    ncols: int = 12,
     fig_height: float = 10,
     img_size: int = 256,
     bg_color: str = "white",
@@ -396,7 +396,7 @@ def generate_single_factor_sequence(dataset, factor):
 def draw_orientation_normalization(
     path: Path = repo_root / "img/orientation_normalization.gif",
     nrows: int = 5,
-    ncols: int = 11,
+    ncols: int = 12,
     fig_height: float = 10,
     img_size: int = 256,
     bg_color: str = "white",
