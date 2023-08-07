@@ -53,7 +53,7 @@ def visualize_loss(args):
         ax.axvline(task_transition, color="gray", linestyle="dotted", linewidth=1)
 
     ax.set_xlabel("Steps")
-    ax.set_xlim([args.xlim, args.xmax])
+    ax.set_xlim([args.xmin, args.xmax])
     ax.set_ylabel("Loss")
     ax.set_ylim([args.ymin, args.ymax])
     ax.set_title(args.plot_title)
@@ -79,9 +79,20 @@ def download_metric(run, name, subsample: int = 1, max_samples: int = None):
         name: Name of the metric to download.
         subsample: Subsample rate.
     """
-    steps, values = zip(
-        *[(row["_step"], row[name]) for row in run.scan_history(keys=["_step", name])]
-    )
+    if "test" in name:
+        steps, values = zip(
+            *[
+                (row["_step"], row[name])
+                for row in run.history(keys=["_step", name], pandas=False)
+            ]
+        )
+    else:
+        steps, values = zip(
+            *[
+                (row["_step"], row[name])
+                for row in run.scan_history(keys=["_step", name])
+            ]
+        )
     steps = steps[::subsample]
     values = values[::subsample]
 
