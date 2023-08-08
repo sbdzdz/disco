@@ -10,6 +10,7 @@ import numpy as np
 import PIL
 from matplotlib import pyplot as plt
 from tqdm import tqdm
+from matplotlib import colors
 
 from codis.data import (
     InfiniteDSprites,
@@ -154,7 +155,7 @@ def draw_shapes(
     fg_color: str = "whitesmoke",
     bg_color: str = "black",
     seed: int = 0,
-    fill_shape: bool = False,
+    fill_shape: bool = True,
 ):
     """Plot an n x n grid of random shapes.
     Args:
@@ -185,7 +186,7 @@ def draw_shapes(
         ax.axis("off")
         if fill_shape:
             latents = Latents(
-                color=np.array([1.0, 1.0, 1.0]),
+                color=colors.to_rgb(fg_color),
                 shape=shape,
                 scale=2.0,
                 orientation=0.0,
