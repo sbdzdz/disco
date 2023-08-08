@@ -9,8 +9,6 @@ import pygame
 import pygame.gfxdraw
 from matplotlib import colors
 from scipy.interpolate import splev, splprep
-from shapely import geometry
-from shapely.ops import unary_union
 from sklearn.decomposition import PCA
 from torch.utils.data import Dataset, IterableDataset
 
@@ -247,23 +245,6 @@ class InfiniteDSprites(IterableDataset):
         color = tuple(int(255 * c) for c in latents.color)
         pygame.gfxdraw.aapolygon(self.window, shape.T.tolist(), color)
         pygame.draw.polygon(self.window, color, shape.T.tolist())
-
-        center = np.mean(shape, axis=1)
-        outline = shape - center.reshape(2, 1)
-        polygon = geometry.Polygon(outline.T)
-
-        offset_polygon = polygon.buffer(0)
-        offset_polygon = offset_polygon.buffer(-2, join_style="mitre")
-
-        if offset_polygon.geom_type == "MultiPolygon":
-            offset_polygon = unary_union(offset_polygon)
-
-        outline = np.array(offset_polygon.exterior.coords)
-        print(outline.shape)
-        outline = outline + center
-
-        pygame.draw.polygon(self.window, pygame.Color("red"), (outline).tolist())
-
         pygame.display.update()
         image = pygame.surfarray.array3d(self.window)
         image = image.astype(np.float32) / 255.0
