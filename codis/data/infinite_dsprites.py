@@ -184,7 +184,7 @@ class InfiniteDSprites(IterableDataset):
 
     def sample_vertex_positions(
         self,
-        min_verts: int = 4,
+        min_verts: int = 5,
         max_verts: int = 8,
         radius_std: float = 0.8,
         angle_std: float = 0.5,
@@ -248,15 +248,11 @@ class InfiniteDSprites(IterableDataset):
         pygame.display.update()
         image = pygame.surfarray.array3d(self.window)
         image = image.astype(np.float32) / 255.0
-        if not self.is_rgb():
+        if color == (255, 255, 255):
             image = image.mean(axis=2, keepdims=True)
         if channels_first:
             image = np.transpose(image, (2, 0, 1))
         return image
-
-    def is_rgb(self):
-        """Return whether the dataset is RGB or binary."""
-        return tuple(self.ranges["color"]) != ("white",)
 
     def apply_scale(self, shape: npt.NDArray, scale: float):
         """Apply a scale to a shape."""
