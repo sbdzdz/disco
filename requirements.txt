@@ -7,6 +7,7 @@ pygame
 pytest
 scipy
 scikit-learn
+shapely
 torch
 torchmetrics
 tqdm
