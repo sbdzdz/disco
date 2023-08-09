@@ -2,6 +2,7 @@ imageio
 lightning
 matplotlib
 numpy
+opencv-python
 pillow
 pygame
 pytest
