@@ -1,13 +1,10 @@
 """Class definitions for the infinite dSprites dataset."""
-import os
 from collections import namedtuple
 from itertools import product
 
 import cv2
 import numpy as np
 import numpy.typing as npt
-import pygame
-import pygame.gfxdraw
 from matplotlib import colors
 from scipy.interpolate import splev, splprep
 from sklearn.decomposition import PCA
@@ -67,8 +64,6 @@ class InfiniteDSprites(IterableDataset):
         Returns:
             None
         """
-        os.environ["SDL_VIDEODRIVER"] = "dummy"
-        pygame.display.init()
         self.img_size = img_size
         self.canvas_size = img_size
         self.ranges = {

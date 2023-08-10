@@ -4,7 +4,6 @@ matplotlib
 numpy
 opencv-python
 pillow
-pygame
 pytest
 scipy
 scikit-learn
