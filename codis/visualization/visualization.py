@@ -10,6 +10,7 @@ import numpy as np
 import PIL
 from matplotlib import pyplot as plt
 from tqdm import tqdm
+from matplotlib import colors
 
 from codis.data import (
     InfiniteDSprites,
@@ -20,7 +21,7 @@ from codis.data import (
 repo_root = Path(__file__).parent.parent.parent
 
 COLORS = [
-    "white",
+    "whitesmoke",
     "purple",
     "maroon",
     "darkblue",
@@ -154,7 +155,7 @@ def draw_shapes(
     fg_color: str = "whitesmoke",
     bg_color: str = "black",
     seed: int = 0,
-    fill_shape: bool = False,
+    fill_shape: bool = True,
 ):
     """Plot an n x n grid of random shapes.
     Args:
@@ -185,7 +186,7 @@ def draw_shapes(
         ax.axis("off")
         if fill_shape:
             latents = Latents(
-                color=np.array([1.0, 1.0, 1.0]),
+                color=colors.to_rgb(fg_color),
                 shape=shape,
                 scale=2.0,
                 orientation=0.0,
@@ -193,7 +194,7 @@ def draw_shapes(
                 position_y=0.5,
             )
             img = dataset.draw(latents, channels_first=False)
-            ax.imshow(img, cmap="Greys_r", interpolation="nearest")
+            ax.imshow(img, cmap="Greys_r", aspect="equal")
         else:
             ax.plot(shape[0], shape[1], color=fg_color)
 
@@ -204,7 +205,7 @@ def draw_shapes(
 def draw_smooth_shapes(
     path: Path = repo_root / "img/smooth_shapes.gif",
     nrows: int = 5,
-    ncols: int = 11,
+    ncols: int = 12,
     fig_height: float = 10,
     img_size: int = 256,
     bg_color="white",
@@ -275,7 +276,7 @@ def interpolate(values, num_frames):
 def draw_shapes_animated(
     path: Path = repo_root / "img/shapes.gif",
     nrows: int = 5,
-    ncols: int = 11,
+    ncols: int = 12,
     fig_height: float = 10,
     img_size: int = 256,
     bg_color: str = "white",
@@ -396,7 +397,7 @@ def generate_single_factor_sequence(dataset, factor):
 def draw_orientation_normalization(
     path: Path = repo_root / "img/orientation_normalization.gif",
     nrows: int = 5,
-    ncols: int = 11,
+    ncols: int = 12,
     fig_height: float = 10,
     img_size: int = 256,
     bg_color: str = "white",
