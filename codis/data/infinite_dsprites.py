@@ -311,17 +311,19 @@ class InfiniteDSprites(IterableDataset):
         ).reshape(2, 1)
         return shape + position
 
-    def draw_orienation_marker(self, canvas, latents, num_lines=50):
+    def draw_orienation_marker(self, canvas, latents, num_lines=30):
         """Draw stripes indicating the orientation of the shape."""
         bounding_box = self.get_unrotated_bounding_box(latents)
         black_pixels = np.where(canvas.sum(axis=2) == 0)
 
-        _, y, w, _ = bounding_box
-        xs = np.linspace(-w, w, num_lines)
+        x, y, w, h = bounding_box
+        diagonal = np.sqrt(w**2 + h**2)
+
+        xs = np.linspace(-diagonal, diagonal, num_lines)
         ys = np.zeros(num_lines)
         start_points = np.array([xs, ys])
 
-        xs = np.linspace(-w, w, num_lines)
+        xs = np.linspace(-diagonal, diagonal, num_lines)
         ys = np.ones(num_lines) * y
         end_points = np.array([xs, ys])
 
