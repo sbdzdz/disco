@@ -58,7 +58,7 @@ def draw_batch(
         axes = np.array([axes])
 
     for ax, img in zip(axes.flat, images[:num_images]):
-        ax.imshow(img, cmap="Greys_r", interpolation="nearest")
+        ax.imshow(img, cmap="Greys_r", aspect="equal")
         ax.axis("off")
     path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(path, bbox_inches="tight")
@@ -111,7 +111,7 @@ def draw_batch_and_reconstructions(
         for j in range(1, len(image_arrays)):
             mid = j * concatenated.shape[1] // len(image_arrays)
             concatenated[:, mid - border_width : mid + border_width] = 1.0
-        ax.imshow(concatenated, cmap="Greys_r", interpolation="nearest")
+        ax.imshow(concatenated, cmap="Greys_r", aspect="equal")
     if show:
         plt.show()
     if path is not None:
@@ -305,7 +305,7 @@ def draw_shapes_animated(
     dataset = InfiniteDSprites(
         img_size=img_size,
         color_range=COLORS,
-        scale_range=np.linspace(0.0, 1.0, num_frames // 4),
+        scale_range=np.linspace(0.0, 1.5, num_frames // 4),
         orientation_range=np.linspace(0.0, 2 * np.pi, num_frames // 4),
         position_x_range=np.linspace(0.0, 1.0, num_frames // 4),
         position_y_range=np.linspace(0.0, 1.0, num_frames // 4),
