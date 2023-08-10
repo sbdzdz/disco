@@ -50,12 +50,10 @@ def main():
         print(f"Object center: {center_of_mass}")
 
         plt.imshow(img)
-        plt.show()
-
         images.append(img)
 
     # create a gif
-    imageio.mimsave("scale.gif", images, fps=1)
+    imageio.mimsave("img/scale.gif", images, fps=1)
 
 
 if __name__ == "__main__":
