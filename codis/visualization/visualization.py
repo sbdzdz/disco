@@ -21,7 +21,7 @@ from codis.data import (
 repo_root = Path(__file__).parent.parent.parent
 
 COLORS = [
-    "white",
+    "whitesmoke",
     "purple",
     "maroon",
     "darkblue",
@@ -194,7 +194,7 @@ def draw_shapes(
                 position_y=0.5,
             )
             img = dataset.draw(latents, channels_first=False)
-            ax.imshow(img, cmap="Greys_r", interpolation="nearest")
+            ax.imshow(img, cmap="Greys_r", aspect="equal")
         else:
             ax.plot(shape[0], shape[1], color=fg_color)
 
