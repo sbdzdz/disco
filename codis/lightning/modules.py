@@ -290,8 +290,10 @@ class SpatialTransformerGF(SpatialTransformer):
             "backbone_loss": backbone_loss,
             "orientation_loss": F.mse_loss(y.orientation, y_hat.orientation),
             "scale_loss": F.mse_loss(y.scale, y_hat.scale),
-            "position_x_loss": F.mse_loss(y.position_x, y_hat.position_x),
-            "position_y_loss": F.mse_loss(y.position_y, y_hat.position_y),
+            "position_loss": F.mse_loss(
+                torch.stack([y.position_x, y.position_y], dim=1),
+                torch.stack([y_hat.position_x, y_hat.position_y], dim=1),
+            ),
             "loss": self.gamma * regression_loss + (1 - self.gamma) * backbone_loss,
         }
 
