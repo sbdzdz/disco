@@ -311,19 +311,18 @@ class InfiniteDSprites(IterableDataset):
         ).reshape(2, 1)
         return shape + position
 
-    def draw_orienation_marker(self, canvas, latents, n=50):
+    def draw_orienation_marker(self, canvas, latents, num_lines=50):
         """Draw stripes indicating the orientation of the shape."""
         bounding_box = self.get_unrotated_bounding_box(latents)
+        black_pixels = np.where(canvas.sum(axis=2) == 0)
 
-        # draw the bounding box
         _, y, w, _ = bounding_box
-
-        xs = np.linspace(-w, w, n)
-        ys = np.zeros(n)
+        xs = np.linspace(-w, w, num_lines)
+        ys = np.zeros(num_lines)
         start_points = np.array([xs, ys])
 
-        xs = np.linspace(-w, w, n)
-        ys = np.ones(n) * y
+        xs = np.linspace(-w, w, num_lines)
+        ys = np.ones(num_lines) * y
         end_points = np.array([xs, ys])
 
         start_points = self.apply_orientation(start_points, latents.orientation)
@@ -339,17 +338,17 @@ class InfiniteDSprites(IterableDataset):
         # draw the lines
         for start, end in zip(start_points.T, end_points.T):
             cv2.line(
-                canvas,
-                tuple(start.astype(np.int32)),
-                tuple(end.astype(np.int32)),
-                (0, 0, 0),
+                img=canvas,
+                pt1=tuple(start.astype(np.int32)),
+                pt2=tuple(end.astype(np.int32)),
+                color=(0, 0, 0),
                 thickness=1,
             )
+        canvas[black_pixels] = 0
 
     def get_unrotated_bounding_box(self, latents):
         """Get the bounding box of the shape before rotation."""
         shape = self.apply_scale(latents.shape, latents.scale)
-        shape = self.apply_orientation(shape, 0)
         return cv2.boundingRect(shape.T.astype(np.int32))
 
     def add_debug_info(self, canvas):
