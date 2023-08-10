@@ -53,10 +53,10 @@ class InfiniteDSprites(IterableDataset):
         """Create a dataset of images of random shapes.
         Args:
             img_size: The size of the images in pixels.
-            scale_range: The range of scales to use.
-            orientation_range: The range of orientations to use.
-            position_x_range: The range of x positions to use.
-            position_y_range: The range of y positions to use.
+            scale_range: The range of scales to sample from.
+            orientation_range: The range of orientations to sample from.
+            position_x_range: The range of x positions to sample from.
+            position_y_range: The range of y positions to sample from.
             dataset_size: The number of images to generate. Note that `shapes` also controls
                 the number of images generated.
             shapes: The number of shapes to generate or a list of shapes to use. Set
