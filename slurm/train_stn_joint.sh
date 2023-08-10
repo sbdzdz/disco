@@ -21,5 +21,5 @@ python -m pip install -r $HOME/codis/requirements.txt
 python -m pip install -e $HOME/codis
 
 srun --gres=gpu:1 python $HOME/codis/codis/train.py --wandb_dir $WORK/projects/codis/wandb --tasks 1 --log_every_n_steps 1 \
---max_epochs 50 --num_workers 16 --img_size 128 --factor_resolution 18 --batch_size 512 --wandb_group stn_joint_simple_large --model stn_simple --gamma 1.0 \
+--max_epochs 50 --num_workers 16 --img_size 128 --factor_resolution 18 --batch_size 512 --wandb_group stn_gf_joint --model stn_gf --gamma 1.0 \
 --train_dataset_size 100000 --test_dataset_size 10000 --factors_to_regress orientation scale position_x position_y --training joint

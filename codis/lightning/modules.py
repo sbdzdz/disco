@@ -50,8 +50,10 @@ class ContinualModule(pl.LightningModule):
         return Latents(
             shape=None,
             color=None,
-            **{name: stacked_factors[:, i]
-            for i, name in enumerate(self.factors_to_regress)}
+            **{
+                name: stacked_factors[:, i]
+                for i, name in enumerate(self.factors_to_regress)
+            },
         )
 
 
@@ -254,8 +256,8 @@ class SpatialTransformer(ContinualModule):
         )
 
 
-class SpatialTransformerSimple(SpatialTransformer):
-    """A SpatialTransformer with a simpler regressor."""
+class SpatialTransformerGF(SpatialTransformer):
+    """A SpatialTransformer that predicts the generative factors instead of a transformation matrix."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -378,7 +380,7 @@ class SupervisedVAE(ContinualModule):
             "r2_score_orientation": self.r2_score(y.orientation, y_hat.orientation),
             "r2_score_scale": self.r2_score(y.scale, y_hat.scale),
             "r2_score_position_x": self.r2_score(y.position_x, y_hat.position_x),
-            "r2_score_position_y": self.r2_score(y.position_y, y_hat.position_y)
+            "r2_score_position_y": self.r2_score(y.position_y, y_hat.position_y),
         }
 
 
