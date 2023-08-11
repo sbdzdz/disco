@@ -163,8 +163,8 @@ class InfiniteDSprites(IterableDataset):
         )
         canvas = canvas.astype(np.float32) / 255.0
 
-        non_black_pixels = np.argwhere(np.any(canvas != [0, 0, 0], axis=2))
-        center = np.mean(non_black_pixels, axis=0)[::-1]
+        foreground_pixels = np.argwhere(np.any(canvas != [0, 0, 0], axis=2))
+        center = np.mean(foreground_pixels, axis=0)[::-1]
         center = np.expand_dims(center - self.canvas_size / 2, 1) / (
             self.scale_factor * self.canvas_size
         )
@@ -254,13 +254,9 @@ class InfiniteDSprites(IterableDataset):
         shape = self.apply_position(shape, latents.position_x, latents.position_y)
         color = tuple(int(255 * c) for c in latents.color)
 
-        # use opencv to draw the shape
-        shape = shape.T.astype(np.int32)
-        cv2.fillPoly(canvas, [shape], color)
-        cv2.polylines(canvas, [shape], True, color, thickness=1)
-
+        self.draw_shape(shape, canvas, color)
         if self.orientation_marker:
-            self.draw_orienation_marker(canvas, latents)
+            self.draw_orientation_marker(canvas, latents)
 
         if debug:
             self.add_debug_info(canvas)
@@ -311,10 +307,33 @@ class InfiniteDSprites(IterableDataset):
         ).reshape(2, 1)
         return shape + position
 
-    def draw_orienation_marker(self, canvas, latents, num_lines=30):
+    @staticmethod
+    def draw_shape(shape, canvas, color):
+        """Draw a shape on a canvas."""
+        shape = shape.T.astype(np.int32)
+        cv2.fillPoly(img=canvas, pts=[shape], color=color)
+        cv2.polylines(img=canvas, pts=[shape], isClosed=True, color=color, thickness=1)
+
+    def draw_orientation_marker(self, canvas, latents, color=(150, 150, 150)):
+        """Draw an orientation marker on the canvas."""
+        center = self.get_center(canvas)
+        shape = self.apply_scale(latents.shape, latents.scale)
+        shape = self.apply_position(shape, latents.position_x, latents.position_y)
+        right_half = shape[:, shape[0, :] > center[0]]
+        right_half = self.apply_orientation(right_half, latents.orientation)
+
+        self.draw_shape(right_half, canvas, color)
+
+    @staticmethod
+    def get_center(canvas):
+        """Get the center of the shape."""
+        foreground_pixels = np.argwhere(np.any(canvas != [0, 0, 0], axis=2))
+        return np.mean(foreground_pixels, axis=0).astype(np.int32)
+
+    def draw_stripes(self, canvas, latents, num_lines=30):
         """Draw stripes indicating the orientation of the shape."""
         bounding_box = self.get_unrotated_bounding_box(latents)
-        black_pixels = np.where(canvas.sum(axis=2) == 0)
+        background_pixels = np.where(canvas.sum(axis=2) == 0)
 
         x, y, w, h = bounding_box
         diagonal = np.sqrt(w**2 + h**2)
@@ -346,7 +365,7 @@ class InfiniteDSprites(IterableDataset):
                 color=(0, 0, 0),
                 thickness=1,
             )
-        canvas[black_pixels] = 0
+        canvas[background_pixels] = 0
 
     def get_unrotated_bounding_box(self, latents):
         """Get the bounding box of the shape before rotation."""
@@ -355,10 +374,7 @@ class InfiniteDSprites(IterableDataset):
 
     def add_debug_info(self, canvas):
         """Add debug info to the canvas."""
-        non_black_pixels = np.argwhere(np.any(canvas != [0, 0, 0], axis=2))
-        shape_center = np.mean(non_black_pixels, axis=0).astype(np.int32)
-        non_black_pixels = np.argwhere(np.any(canvas != [0, 0, 0], axis=2))
-        shape_center = np.mean(non_black_pixels, axis=0).astype(np.int32)
+        shape_center = self.get_center(canvas)
         cv2.circle(
             img=canvas,
             center=tuple(shape_center[::-1]),
