@@ -146,25 +146,15 @@ class InfiniteDSprites(IterableDataset):
 
     def center_and_scale(self, shape):
         """Center and scale a shape."""
+        color = (255, 255, 255)
         canvas = np.zeros((self.canvas_size, self.canvas_size, 3)).astype(np.int32)
         transformed_shape = self.apply_scale(shape, 1.0)
         transformed_shape = self.apply_orientation(transformed_shape, 0.0)
         transformed_shape = self.apply_position(transformed_shape, 0.5, 0.5)
-        color = (51, 51, 51)
-        cv2.fillPoly(
-            img=canvas, pts=[transformed_shape.T.astype(np.int32)], color=color
-        )
-        cv2.polylines(
-            canvas,
-            pts=[transformed_shape.T.astype(np.int32)],
-            isClosed=True,
-            color=color,
-            thickness=2,
-        )
+        self.draw_shape(transformed_shape, canvas, color)
         canvas = canvas.astype(np.float32) / 255.0
 
-        foreground_pixels = np.argwhere(np.any(canvas != [0, 0, 0], axis=2))
-        center = np.mean(foreground_pixels, axis=0)[::-1]
+        center = self.get_center(canvas)[::-1]
         center = np.expand_dims(center - self.canvas_size / 2, 1) / (
             self.scale_factor * self.canvas_size
         )
@@ -256,7 +246,7 @@ class InfiniteDSprites(IterableDataset):
 
         self.draw_shape(shape, canvas, color)
         if self.orientation_marker:
-            self.draw_orientation_marker(canvas, latents)
+            self.draw_orientation_marker(canvas, latents, color)
 
         if debug:
             self.add_debug_info(canvas)
@@ -314,28 +304,24 @@ class InfiniteDSprites(IterableDataset):
         cv2.fillPoly(img=canvas, pts=[shape], color=color)
         cv2.polylines(img=canvas, pts=[shape], isClosed=True, color=color, thickness=1)
 
-    def draw_orientation_marker(self, canvas, latents, color=(150, 150, 150)):
+    def draw_orientation_marker(self, canvas, latents, color):
         """Draw an orientation marker on the canvas."""
-        center = self.get_center(canvas)
         shape = self.apply_scale(latents.shape, latents.scale)
-        shape = self.apply_position(shape, latents.position_x, latents.position_y)
-        right_half = shape[:, shape[0, :] > center[0]]
+        right_half = shape[:, shape[0, :] > 0]
         right_half = self.apply_orientation(right_half, latents.orientation)
+        right_half = self.apply_position(
+            right_half, latents.position_x, latents.position_y
+        )
+        color = tuple(max(c - 100, 0) for c in color)
 
         self.draw_shape(right_half, canvas, color)
-
-    @staticmethod
-    def get_center(canvas):
-        """Get the center of the shape."""
-        foreground_pixels = np.argwhere(np.any(canvas != [0, 0, 0], axis=2))
-        return np.mean(foreground_pixels, axis=0).astype(np.int32)
 
     def draw_stripes(self, canvas, latents, num_lines=30):
         """Draw stripes indicating the orientation of the shape."""
         bounding_box = self.get_unrotated_bounding_box(latents)
         background_pixels = np.where(canvas.sum(axis=2) == 0)
 
-        x, y, w, h = bounding_box
+        _, y, w, h = bounding_box
         diagonal = np.sqrt(w**2 + h**2)
 
         xs = np.linspace(-diagonal, diagonal, num_lines)
@@ -389,6 +375,12 @@ class InfiniteDSprites(IterableDataset):
             color=(0, 255, 0),
             thickness=5,
         )
+
+    @staticmethod
+    def get_center(canvas):
+        """Get the center of the shape."""
+        foreground_pixels = np.argwhere(np.any(canvas != [0, 0, 0], axis=2))
+        return np.mean(foreground_pixels, axis=0).astype(np.int32)
 
     def sample_latents(self):
         """Sample a random set of latents."""
