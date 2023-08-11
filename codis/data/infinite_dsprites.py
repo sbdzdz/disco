@@ -318,43 +318,6 @@ class InfiniteDSprites(IterableDataset):
 
         self.draw_shape(right_half, canvas, color)
 
-    def draw_stripes(self, canvas, latents, num_lines=30):
-        """Draw stripes indicating the orientation of the shape."""
-        bounding_box = self.get_unrotated_bounding_box(latents)
-        background_pixels = np.where(canvas.sum(axis=2) == 0)
-
-        _, y, w, h = bounding_box
-        diagonal = np.sqrt(w**2 + h**2)
-
-        xs = np.linspace(-diagonal, diagonal, num_lines)
-        ys = np.zeros(num_lines)
-        start_points = np.array([xs, ys])
-
-        xs = np.linspace(-diagonal, diagonal, num_lines)
-        ys = np.ones(num_lines) * y
-        end_points = np.array([xs, ys])
-
-        start_points = self.apply_orientation(start_points, latents.orientation)
-        start_points = self.apply_position(
-            start_points, latents.position_x, latents.position_y
-        )
-
-        end_points = self.apply_orientation(end_points, latents.orientation)
-        end_points = self.apply_position(
-            end_points, latents.position_x, latents.position_y
-        )
-
-        # draw the lines
-        for start, end in zip(start_points.T, end_points.T):
-            cv2.line(
-                img=canvas,
-                pt1=tuple(start.astype(np.int32)),
-                pt2=tuple(end.astype(np.int32)),
-                color=(0, 0, 0),
-                thickness=1,
-            )
-        canvas[background_pixels] = 0
-
     def get_unrotated_bounding_box(self, latents):
         """Get the bounding box of the shape before rotation."""
         shape = self.apply_scale(latents.shape, latents.scale)
