@@ -306,7 +306,9 @@ class InfiniteDSprites(IterableDataset):
 
     def draw_orientation_marker(self, canvas, latents, color):
         """Draw an orientation marker on the canvas."""
-        shape = self.apply_scale(latents.shape, latents.scale)
+        shape = latents.shape
+        if abs(latents.scale) < 1e-6:
+            shape = self.apply_scale(shape, latents.scale)
         right_half = shape[:, shape[0, :] > 0]
         right_half = self.apply_orientation(right_half, latents.orientation)
         right_half = self.apply_position(
