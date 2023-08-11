@@ -2,7 +2,7 @@
 extension-pkg-whitelist=cv2
 
 [BASIC]
-good-names=x,xs,y,ys,u,k,ax,to,rs,bn,z,mu,i,j,v,lr,a,b,tx,c,d,ty,ox,oy,sx,sy
+good-names=x,xs,y,ys,w,h,u,k,ax,to,rs,bn,z,mu,i,j,v,lr,a,b,tx,c,d,ty,ox,oy,sx,sy
 max-args = 15
 max-locals = 20
 
