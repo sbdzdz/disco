@@ -249,7 +249,7 @@ class InfiniteDSprites(IterableDataset):
             self.draw_orientation_marker(canvas, latents, color)
 
         if debug:
-            self.add_debug_info(canvas)
+            self.add_debug_info(shape, canvas)
         canvas = canvas.astype(np.float32) / 255.0
         if color == (255, 255, 255):
             canvas = canvas.mean(axis=2, keepdims=True)
@@ -319,14 +319,13 @@ class InfiniteDSprites(IterableDataset):
 
         self.draw_shape(right_half, canvas, color)
 
-    def get_unrotated_bounding_box(self, latents):
-        """Get the bounding box of the shape before rotation."""
-        shape = self.apply_scale(latents.shape, latents.scale)
-        return cv2.boundingRect(shape.T.astype(np.int32))
-
-    def add_debug_info(self, canvas):
+    def add_debug_info(self, shape, canvas):
         """Add debug info to the canvas."""
         shape_center = self.get_center(canvas)
+        x, y, w, h = cv2.boundingRect(shape.T.astype(np.int32))
+        cv2.rectangle(
+            img=canvas, pt1=(x, y), pt2=(x + w, y + h), color=(0, 255, 0), thickness=2
+        )
         cv2.circle(
             img=canvas,
             center=tuple(shape_center[::-1]),
