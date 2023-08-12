@@ -156,6 +156,7 @@ def draw_shapes(
     bg_color: str = "black",
     seed: int = 0,
     fill_shape: bool = True,
+    debug: bool = True,
 ):
     """Plot an n x n grid of random shapes.
     Args:
@@ -164,7 +165,11 @@ def draw_shapes(
         ncols: The number of columns in the grid.
         fig_height: The height of the figure in inches.
         img_size: The size of the image in pixels.
+        fg_color: The color of the shape.
         bg_color: The color of the background plot area.
+        seed: The random seed to use.
+        fill_shape: Whether to fill the shape or just draw the outline.
+        debug: Whether to draw additional debug info.
     Returns:
         None
     """
@@ -193,84 +198,13 @@ def draw_shapes(
                 position_x=0.5,
                 position_y=0.5,
             )
-            img = dataset.draw(latents, channels_first=False)
+            img = dataset.draw(latents, channels_first=False, debug=debug)
             ax.imshow(img, cmap="Greys_r", aspect="equal")
         else:
             ax.plot(shape[0], shape[1], color=fg_color)
 
     path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(path)
-
-
-def draw_smooth_shapes(
-    path: Path = repo_root / "img/smooth_shapes.gif",
-    nrows: int = 5,
-    ncols: int = 12,
-    fig_height: float = 10,
-    img_size: int = 256,
-    bg_color="white",
-    num_shapes: int = 10,
-    duration_per_shape: int = 2,
-    fps: int = 60,
-    seed: int = 0,
-):
-    """Smoothly interpolate between shapes and colors.
-    Args:
-        path: The path to save the animation to.
-        nrows: The number of rows in the grid.
-        ncols: The number of columns in the grid.
-        fig_height: The height of the figure in inches.
-        img_size: The size of the image in pixels.
-        bg_color: The color of the background plot area.
-        num_shapes: The number of shapes to interpolate between.
-        duration_per_shape: The number of seconds per shape transition.
-        fps: The number of frames per second.
-        seed: The random seed.
-    """
-    np.random.seed(seed)
-    dataset = InfiniteDSprites(img_size=img_size, color_range=COLORS)
-    colors = [
-        [dataset.sample_latents().color for _ in range(num_shapes)]
-        for _ in range(nrows * ncols)
-    ]
-    shapes = [
-        [dataset.generate_shape() for _ in range(num_shapes)]
-        for _ in range(nrows * ncols)
-    ]
-    shape_sequences = interpolate(shapes, num_frames=fps * duration_per_shape)
-    color_sequences = interpolate(colors, num_frames=fps * duration_per_shape)
-
-    frames = [
-        [
-            dataset.draw(
-                Latents(
-                    shape=shape,
-                    color=color,
-                    scale=0.7,
-                    orientation=0.8,
-                    position_x=0.5,
-                    position_y=0.5,
-                ),
-                channels_first=False,
-            )
-            for shape, color in zip(shape_sequence, color_sequence)
-        ]
-        for shape_sequence, color_sequence in zip(shape_sequences, color_sequences)
-    ]
-    save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps)
-
-
-def interpolate(values, num_frames):
-    """Interpolate between a sequence of values."""
-    sequences = []
-    for value in values:
-        value.append(value[0])
-        sequence = []
-        for start, end in zip(value[:-1], value[1:]):
-            sequence.extend(np.linspace(start, end, num_frames))
-        sequences.append(sequence)
-
-    return zip(*sequences)
 
 
 def draw_shapes_animated(
@@ -297,6 +231,7 @@ def draw_shapes_animated(
         fps: The number of frames per second.
         factor: The factor to vary. If None, all factors are varied.
         seed: The random seed.
+        debug: Whether to draw additional debug info.
     Returns:
         None
     """
@@ -323,6 +258,7 @@ def draw_shapes_animated(
             dataset.draw(
                 Latents(color, shape, scale, orientation, position_x, position_y),
                 channels_first=False,
+                debug=debug,
             )
             for shape, color in zip(shapes, colors)
         ]
@@ -392,6 +328,77 @@ def generate_single_factor_sequence(dataset, factor):
         factors["position_x"],
         factors["position_y"],
     )
+
+
+def draw_shape_interpolation(
+    path: Path = repo_root / "img/smooth_shapes.gif",
+    nrows: int = 5,
+    ncols: int = 12,
+    fig_height: float = 10,
+    img_size: int = 256,
+    bg_color="white",
+    num_shapes: int = 10,
+    duration_per_shape: int = 2,
+    fps: int = 60,
+    seed: int = 0,
+):
+    """Smoothly interpolate between shapes and colors.
+    Args:
+        path: The path to save the animation to.
+        nrows: The number of rows in the grid.
+        ncols: The number of columns in the grid.
+        fig_height: The height of the figure in inches.
+        img_size: The size of the image in pixels.
+        bg_color: The color of the background plot area.
+        num_shapes: The number of shapes to interpolate between.
+        duration_per_shape: The number of seconds per shape transition.
+        fps: The number of frames per second.
+        seed: The random seed.
+    """
+    np.random.seed(seed)
+    dataset = InfiniteDSprites(img_size=img_size, color_range=COLORS)
+    colors = [
+        [dataset.sample_latents().color for _ in range(num_shapes)]
+        for _ in range(nrows * ncols)
+    ]
+    shapes = [
+        [dataset.generate_shape() for _ in range(num_shapes)]
+        for _ in range(nrows * ncols)
+    ]
+    shape_sequences = interpolate(shapes, num_frames=fps * duration_per_shape)
+    color_sequences = interpolate(colors, num_frames=fps * duration_per_shape)
+
+    frames = [
+        [
+            dataset.draw(
+                Latents(
+                    shape=shape,
+                    color=color,
+                    scale=0.7,
+                    orientation=0.8,
+                    position_x=0.5,
+                    position_y=0.5,
+                ),
+                channels_first=False,
+            )
+            for shape, color in zip(shape_sequence, color_sequence)
+        ]
+        for shape_sequence, color_sequence in zip(shape_sequences, color_sequences)
+    ]
+    save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps)
+
+
+def interpolate(values, num_frames):
+    """Interpolate between a sequence of values."""
+    sequences = []
+    for value in values:
+        value.append(value[0])
+        sequence = []
+        for start, end in zip(value[:-1], value[1:]):
+            sequence.extend(np.linspace(start, end, num_frames))
+        sequences.append(sequence)
+
+    return zip(*sequences)
 
 
 def draw_orientation_normalization(
