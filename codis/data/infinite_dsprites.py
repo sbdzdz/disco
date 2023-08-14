@@ -305,19 +305,27 @@ class InfiniteDSprites(IterableDataset):
         cv2.polylines(img=canvas, pts=[shape], isClosed=True, color=color, thickness=1)
 
     def draw_orientation_marker(self, canvas, latents, color):
-        """Draw an orientation marker on the canvas."""
-        shape = latents.shape
-        shape = self.apply_scale(shape, latents.scale)
-        right_half = shape[:, shape[0, :] > 0]
-        if right_half.shape[1] == 0:
-            return
-        right_half = self.apply_orientation(right_half, latents.orientation)
-        right_half = self.apply_position(
-            right_half, latents.position_x, latents.position_y
-        )
-        color = tuple(max(c - 100, 0) for c in color)
+        """Paint the right half of the shape in a darker color."""
+        theta = latents.orientation
+        center = np.array([0, 0]).reshape(2, 1)
+        y0, x0 = self.apply_position(center, latents.position_x, latents.position_y)
 
-        self.draw_shape(right_half, canvas, color)
+        def rotate_point(x, y):
+            """Rotate the coordinate system by -theta around the center of the shape."""
+            x_prime = (x - x0) * np.cos(-theta) + (y - y0) * np.sin(-theta) + x0
+            y_prime = -(x - x0) * np.sin(-theta) + (y - y0) * np.cos(-theta) + y0
+            return x_prime, y_prime
+
+        # rotate shape pixel coordinates
+        shape_pixels = np.argwhere(np.any(canvas != [0, 0, 0], axis=2))
+        x, _ = rotate_point(shape_pixels[:, 0], shape_pixels[:, 1])
+
+        # select the right half of the shape
+        right_half = shape_pixels[x > x0]
+
+        # paint it a darker color
+        color = tuple(max(c - 50, 0) for c in color)
+        canvas[right_half[:, 0], right_half[:, 1]] = color
 
     def add_debug_info(self, shape, canvas):
         """Add debug info to the canvas."""
