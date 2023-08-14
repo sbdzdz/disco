@@ -328,7 +328,7 @@ class InfiniteDSprites(IterableDataset):
         )
         cv2.circle(
             img=canvas,
-            center=tuple(shape_center[::-1]),
+            center=tuple(shape_center[::-1].astype(np.int32)),
             radius=3,
             color=(255, 0, 0),
             thickness=5,
@@ -345,7 +345,7 @@ class InfiniteDSprites(IterableDataset):
     def get_center(canvas):
         """Get the center of the shape."""
         foreground_pixels = np.argwhere(np.any(canvas != [0, 0, 0], axis=2))
-        return np.mean(foreground_pixels, axis=0).astype(np.int32)
+        return np.mean(foreground_pixels, axis=0)
 
     def sample_latents(self):
         """Sample a random set of latents."""
