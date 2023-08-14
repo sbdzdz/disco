@@ -156,7 +156,7 @@ def draw_shapes(
     bg_color: str = "black",
     seed: int = 0,
     fill_shape: bool = True,
-    debug: bool = True,
+    debug: bool = False,
 ):
     """Plot an n x n grid of random shapes.
     Args:
@@ -218,6 +218,7 @@ def draw_shapes_animated(
     fps: int = 60,
     factor: str = None,
     seed: int = 0,
+    debug: bool = False,
 ):
     """Create an animated GIF showing a grid of shapes undergoing transformations.
     Args:
