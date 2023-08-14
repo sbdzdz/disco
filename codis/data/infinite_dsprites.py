@@ -147,24 +147,21 @@ class InfiniteDSprites(IterableDataset):
     def center_and_scale(self, shape):
         """Center and scale a shape."""
         color = (255, 255, 255)
-        canvas = np.zeros((self.canvas_size, self.canvas_size, 3)).astype(np.int32)
-        transformed_shape = self.apply_scale(shape, 1.0)
-        transformed_shape = self.apply_orientation(transformed_shape, 0.0)
-        transformed_shape = self.apply_position(transformed_shape, 0.5, 0.5)
-        self.draw_shape(transformed_shape, canvas, color)
-        canvas = canvas.astype(np.float32) / 255.0
 
+        shape = shape - shape.mean(axis=1, keepdims=True)
+        _, _, w, h = cv2.boundingRect((shape * 1000).T.astype(np.int32))
+        diagonal = np.sqrt(w**2 + h**2) / 1000
+        shape = shape / diagonal
+
+        transformed_shape = self.apply_scale(shape, 1)
+        transformed_shape = self.apply_position(transformed_shape, 0.5, 0.5)
+        canvas = np.zeros((self.canvas_size, self.canvas_size, 3)).astype(np.int32)
+        self.draw_shape(transformed_shape, canvas, color)
         center = self.get_center(canvas)[::-1]
-        center = np.expand_dims(center - self.canvas_size / 2, 1) / (
+        center = np.expand_dims(center - self.canvas_size // 2, 1) / (
             self.scale_factor * self.canvas_size
         )
-
         shape = shape - center
-
-        # normalize the bounding box diagonal
-        _, _, w, h = cv2.boundingRect(shape.T.astype(np.int32))
-        diagonal = np.sqrt(w**2 + h**2)
-        shape = shape / diagonal
 
         return shape
 
@@ -301,8 +298,7 @@ class InfiniteDSprites(IterableDataset):
     def draw_shape(shape, canvas, color):
         """Draw a shape on a canvas."""
         shape = shape.T.astype(np.int32)
-        cv2.fillPoly(img=canvas, pts=[shape], color=color)
-        cv2.polylines(img=canvas, pts=[shape], isClosed=True, color=color, thickness=1)
+        cv2.fillPoly(img=canvas, pts=[shape], color=color, lineType=cv2.LINE_AA)
 
     def draw_orientation_marker(self, canvas, latents, color):
         """Paint the right half of the shape in a darker color."""
@@ -337,16 +333,16 @@ class InfiniteDSprites(IterableDataset):
         cv2.circle(
             img=canvas,
             center=tuple(shape_center[::-1].astype(np.int32)),
-            radius=3,
+            radius=5,
             color=(255, 0, 0),
-            thickness=5,
+            thickness=-1,
         )
         cv2.circle(
             img=canvas,
             center=(self.canvas_size // 2, self.canvas_size // 2),
-            radius=3,
+            radius=5,
             color=(0, 255, 0),
-            thickness=5,
+            thickness=-1,
         )
 
     @staticmethod
