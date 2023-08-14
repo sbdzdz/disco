@@ -306,7 +306,7 @@ class InfiniteDSprites(IterableDataset):
 
     def draw_orientation_marker(self, canvas, latents, color):
         """Paint the right half of the shape in a darker color."""
-        theta = latents.orientation
+        theta = latents.orientation - np.pi / 2
         center = np.array([0, 0]).reshape(2, 1)
         y0, x0 = self.apply_position(center, latents.position_x, latents.position_y)
 
