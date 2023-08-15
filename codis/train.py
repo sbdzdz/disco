@@ -139,10 +139,11 @@ def build_trainer(args, callbacks=None):
 
 def build_continual_data_loaders(args, shapes):
     """Build data loaders for a class-incremental continual learning scenario."""
-    scale_range = np.linspace(0.5, 1.5, args.factor_resolution)
-    orientation_range = np.linspace(0, 2 * np.pi, args.factor_resolution)
-    position_x_range = np.linspace(0, 1, args.factor_resolution)
-    position_y_range = np.linspace(0, 1, args.factor_resolution)
+    n = args.factor_resolution
+    scale_range = np.linspace(0.5, 1.0, n)
+    orientation_range = np.linspace(0, 2 * np.pi * (n / n + 1), n)
+    position_x_range = np.linspace(0, 1, n)
+    position_y_range = np.linspace(0, 1, n)
 
     if not isinstance(shapes, list):
         shapes = [shapes]
