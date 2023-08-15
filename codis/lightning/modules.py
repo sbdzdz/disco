@@ -232,10 +232,10 @@ class SpatialTransformer(ContinualModule):
 
         # rotate
         orientation_matrix = self.batched_eye(batch_size)
-        orientation_matrix[:, 0, 0] = torch.cos(-orientation)
-        orientation_matrix[:, 0, 1] = -torch.sin(-orientation)
-        orientation_matrix[:, 1, 0] = torch.sin(-orientation)
-        orientation_matrix[:, 1, 1] = torch.cos(-orientation)
+        orientation_matrix[:, 0, 0] = torch.cos(orientation)
+        orientation_matrix[:, 0, 1] = -torch.sin(orientation)
+        orientation_matrix[:, 1, 0] = torch.sin(orientation)
+        orientation_matrix[:, 1, 1] = torch.cos(orientation)
         transform_matrix = torch.bmm(orientation_matrix, transform_matrix)
 
         # move to the center
