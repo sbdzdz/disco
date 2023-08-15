@@ -79,7 +79,7 @@ class InfiniteDSprites(IterableDataset):
         self.current_shape_index = 0
         self.shapes = shapes
         self.orientation_marker = orientation_marker
-        self.scale_factor = 0.3
+        self.scale_factor = 0.45
 
     @classmethod
     def from_config(cls, config: dict):
