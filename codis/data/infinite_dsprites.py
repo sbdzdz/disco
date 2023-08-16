@@ -235,7 +235,7 @@ class InfiniteDSprites(IterableDataset):
         Returns:
             The image as a numpy array.
         """
-        canvas = np.zeros((self.canvas_size, self.canvas_size, 3)).astype(np.int32)
+        canvas = 150 * np.ones((self.canvas_size, self.canvas_size, 3)).astype(np.int32)
         shape = self.apply_scale(latents.shape, latents.scale)
         shape = self.apply_orientation(shape, latents.orientation)
         shape = self.apply_position(shape, latents.position_x, latents.position_y)
@@ -313,14 +313,14 @@ class InfiniteDSprites(IterableDataset):
             return x_prime, y_prime
 
         # rotate shape pixel coordinates
-        shape_pixels = np.argwhere(np.any(canvas != [0, 0, 0], axis=2))
+        shape_pixels = np.argwhere(np.any(canvas != [150, 150, 150], axis=2))
         x, _ = rotate_point(shape_pixels[:, 0], shape_pixels[:, 1])
 
         # select the right half of the shape
         right_half = shape_pixels[x > x0]
 
         # paint it a darker color
-        color = tuple(max(c - 50, 0) for c in color)
+        color = (0, 0, 0)
         canvas[right_half[:, 0], right_half[:, 1]] = color
 
     def add_debug_info(self, shape, canvas):

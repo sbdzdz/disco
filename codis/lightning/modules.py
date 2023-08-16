@@ -133,7 +133,7 @@ class SpatialTransformer(ContinualModule):
         self.has_buffer = True
 
         if channels is None:
-            channels = [8, 8, 16, 16, 32]
+            channels = [16, 16, 32, 32, 64]
         self.encoder = Encoder(channels, in_channels)
         self.encoder_output_dim = (img_size // 2 ** len(channels)) ** 2 * channels[-1]
 
@@ -168,7 +168,7 @@ class SpatialTransformer(ContinualModule):
         theta = self.regressor(xs).view(-1, 2, 3)
 
         grid = F.affine_grid(theta, x.size())
-        x_hat = F.grid_sample(x, grid)
+        x_hat = F.grid_sample(x, grid, padding_mode="border")
 
         return x_hat, theta
 
