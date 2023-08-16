@@ -97,12 +97,14 @@ def build_model_and_callbacks(args, exemplars):
             img_size=args.img_size,
             lr=args.lr,
             factors_to_regress=args.factors_to_regress,
+            gamma=args.gamma,
         )
     elif args.model == "stn_gf":
         model = SpatialTransformerGF(
             img_size=args.img_size,
             lr=args.lr,
             factors_to_regress=args.factors_to_regress,
+            gamma=args.gamma,
         )
     elif args.model == "regressor":
         model = LatentRegressor(
@@ -141,7 +143,7 @@ def build_continual_data_loaders(args, shapes):
     """Build data loaders for a class-incremental continual learning scenario."""
     n = args.factor_resolution
     scale_range = np.linspace(0.5, 1.0, n)
-    orientation_range = np.linspace(0, 2 * np.pi * (n / n + 1), n)
+    orientation_range = np.linspace(0, 2 * np.pi * (n / (n + 1)), n)
     position_x_range = np.linspace(0, 1, n)
     position_y_range = np.linspace(0, 1, n)
 
