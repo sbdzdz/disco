@@ -42,7 +42,7 @@ def visualize_loss(args):
         values_mean = np.mean(values, axis=0)
 
         ax.plot(steps[0], values_mean, label=f"loss_{stage}")
-        if args.visualize_std:
+        if args.include_std:
             values_std = np.std(values, axis=0)
             ax.fill_between(
                 steps[0],
@@ -129,7 +129,7 @@ def _main():
         "--include_test", action="store_true", help="Include test losses in the plot."
     )
     parser.add_argument(
-        "--visualize_std", action="store_true", help="Visualize standard deviation."
+        "--include_std", action="store_true", help="Visualize standard deviation."
     )
     parser.add_argument(
         "--plot_title",
