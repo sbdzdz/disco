@@ -48,6 +48,7 @@ class InfiniteDSprites(IterableDataset):
         dataset_size: int = None,
         shapes: list = None,
         orientation_marker: bool = True,
+        bg_color="darkgray",
     ):
         """Create a dataset of images of random shapes.
         Args:
@@ -79,6 +80,7 @@ class InfiniteDSprites(IterableDataset):
         self.current_shape_index = 0
         self.shapes = shapes
         self.orientation_marker = orientation_marker
+        self.bg_color = bg_color
         self.scale_factor = 0.45
 
     @classmethod
@@ -146,8 +148,6 @@ class InfiniteDSprites(IterableDataset):
 
     def center_and_scale(self, shape):
         """Center and scale a shape."""
-        color = (255, 255, 255)
-
         shape = shape - shape.mean(axis=1, keepdims=True)
         _, _, w, h = cv2.boundingRect((shape * 1000).T.astype(np.int32))
         diagonal = np.sqrt(w**2 + h**2) / 1000
@@ -156,7 +156,7 @@ class InfiniteDSprites(IterableDataset):
         transformed_shape = self.apply_scale(shape, 1)
         transformed_shape = self.apply_position(transformed_shape, 0.5, 0.5)
         canvas = np.zeros((self.canvas_size, self.canvas_size, 3)).astype(np.int32)
-        self.draw_shape(transformed_shape, canvas, color)
+        self.draw_shape(shape=transformed_shape, canvas=canvas, color=(255, 255, 255))
         center = self.get_center(canvas)[::-1]
         center = np.expand_dims(center - self.canvas_size // 2, 1) / (
             self.scale_factor * self.canvas_size
