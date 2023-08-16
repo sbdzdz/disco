@@ -279,6 +279,7 @@ class SpatialTransformerGF(SpatialTransformer):
         """Perform a training or validation step."""
         x, y = batch
         x_hat, y_hat = self.forward(x)
+        y_hat = self.clip(y_hat)
         exemplar_tiled = (
             self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
         )
@@ -298,6 +299,16 @@ class SpatialTransformerGF(SpatialTransformer):
             "orientation_min": y_hat.orientation.detach().cpu().numpy().min(),
             "orientation_max": y_hat.orientation.detach().cpu().numpy().max(),
         }
+
+    def clip(self, y):
+        """Clip the predicted factors to valid ranges."""
+        y = self._unstack_factors(y)
+        y.orientation = torch.clamp(y.orientation, 0, 2 * np.pi)
+        y.scale = torch.clamp(y.scale, 0.5, 1)
+        y.position_x = torch.clamp(y.position_x, 0, 1)
+        y.position_y = torch.clamp(y.position_y, 0, 1)
+        y = self._stack_factors(y)
+        return y
 
 
 class SupervisedVAE(ContinualModule):
