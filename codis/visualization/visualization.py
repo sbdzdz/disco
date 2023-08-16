@@ -193,7 +193,7 @@ def draw_shapes(
             latents = Latents(
                 color=colors.to_rgb(fg_color),
                 shape=shape,
-                scale=2.0,
+                scale=1.0,
                 orientation=0.0,
                 position_x=0.5,
                 position_y=0.5,
@@ -375,8 +375,8 @@ def draw_shape_interpolation(
                 Latents(
                     shape=shape,
                     color=color,
-                    scale=0.7,
-                    orientation=0.8,
+                    scale=1.0,
+                    orientation=0.0,
                     position_x=0.5,
                     position_y=0.5,
                 ),
