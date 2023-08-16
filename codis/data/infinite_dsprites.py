@@ -80,7 +80,7 @@ class InfiniteDSprites(IterableDataset):
         self.current_shape_index = 0
         self.shapes = shapes
         self.orientation_marker = orientation_marker
-        self.bg_color = bg_color
+        self.bg_color = tuple(int(255 * c) for c in colors.to_rgb(bg_color))
         self.scale_factor = 0.45
 
     @classmethod
@@ -235,7 +235,8 @@ class InfiniteDSprites(IterableDataset):
         Returns:
             The image as a numpy array.
         """
-        canvas = 150 * np.ones((self.canvas_size, self.canvas_size, 3)).astype(np.int32)
+        canvas = np.zeros((self.canvas_size, self.canvas_size, 3)).astype(np.int32)
+        canvas[:, :] = self.bg_color
         shape = self.apply_scale(latents.shape, latents.scale)
         shape = self.apply_orientation(shape, latents.orientation)
         shape = self.apply_position(shape, latents.position_x, latents.position_y)
@@ -247,11 +248,11 @@ class InfiniteDSprites(IterableDataset):
 
         if debug:
             self.add_debug_info(shape, canvas)
-        canvas = canvas.astype(np.float32) / 255.0
-        if color == (255, 255, 255):
-            canvas = canvas.mean(axis=2, keepdims=True)
+        if self.is_monochrome(canvas):
+            canvas = canvas[:, :, 0]
         if channels_first:
             canvas = np.transpose(canvas, (2, 0, 1))
+        canvas = canvas.astype(np.float32) / 255.0
         return canvas
 
     def apply_scale(self, shape: npt.NDArray, scale: float):
@@ -313,7 +314,7 @@ class InfiniteDSprites(IterableDataset):
             return x_prime, y_prime
 
         # rotate shape pixel coordinates
-        shape_pixels = np.argwhere(np.any(canvas != [150, 150, 150], axis=2))
+        shape_pixels = np.argwhere(np.any(canvas != self.bg_color, axis=2))
         x, _ = rotate_point(shape_pixels[:, 0], shape_pixels[:, 1])
 
         # select the right half of the shape
@@ -350,6 +351,13 @@ class InfiniteDSprites(IterableDataset):
         """Get the center of the shape."""
         foreground_pixels = np.argwhere(np.any(canvas != [0, 0, 0], axis=2))
         return np.mean(foreground_pixels, axis=0)
+
+    @staticmethod
+    def is_monochrome(canvas):
+        """Check if a canvas is monochrome (all channels are the same)."""
+        return np.allclose(canvas[:, :, 0], canvas[:, :, 1]) and np.allclose(
+            canvas[:, :, 1], canvas[:, :, 2]
+        )
 
     def sample_latents(self):
         """Sample a random set of latents."""
