@@ -248,7 +248,7 @@ class InfiniteDSprites(IterableDataset):
         if debug:
             self.add_debug_info(shape, canvas)
         if self.is_monochrome(canvas):
-            canvas = np.mean(canvas[:, :, 0], axis=2, keepdims=True)
+            canvas = np.mean(canvas, axis=2, keepdims=True)
         if channels_first:
             canvas = np.transpose(canvas, (2, 0, 1))
         canvas = canvas.astype(np.float32) / 255.0
