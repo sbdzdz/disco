@@ -245,11 +245,10 @@ class InfiniteDSprites(IterableDataset):
         self.draw_shape(shape, canvas, color)
         if self.orientation_marker:
             self.draw_orientation_marker(canvas, latents, color)
-
         if debug:
             self.add_debug_info(shape, canvas)
         if self.is_monochrome(canvas):
-            canvas = canvas[:, :, 0]
+            canvas = np.mean(canvas[:, :, 0], axis=2, keepdims=True)
         if channels_first:
             canvas = np.transpose(canvas, (2, 0, 1))
         canvas = canvas.astype(np.float32) / 255.0
