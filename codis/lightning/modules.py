@@ -272,7 +272,7 @@ class SpatialTransformerGF(SpatialTransformer):
         theta = self.convert_parameters_to_matrix(self._unstack_factors(y_hat))
 
         grid = F.affine_grid(theta, x.size())
-        x_hat = F.grid_sample(x, grid)
+        x_hat = F.grid_sample(x, grid, padding_mode="border")
         return x_hat, y_hat
 
     def _step(self, batch):
@@ -295,6 +295,8 @@ class SpatialTransformerGF(SpatialTransformer):
                 torch.stack([y_hat.position_x, y_hat.position_y], dim=1),
             ),
             "loss": self.gamma * regression_loss + (1 - self.gamma) * backbone_loss,
+            "orientation_min": y_hat.orientation.detach().cpu().numpy().min(),
+            "orientation_max": y_hat.orientation.detach().cpu().numpy().max(),
         }
 
 
