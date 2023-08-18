@@ -44,7 +44,7 @@ def test_parameter_conversion(seed):
     canonical_images = np.array([img.numpy() for img in canonical_images])
     transformed_images = np.array([img.numpy() for img in transformed_images])
     diffs = np.mean(np.abs(transformed_images - canonical_images))
-    assert diffs < 0.002
+    assert diffs < 0.003
 
 
 def transform(img, matrix):
@@ -54,4 +54,6 @@ def transform(img, matrix):
         img.unsqueeze(0).size(),
         align_corners=False,
     )
-    return F.grid_sample(img.unsqueeze(0), grid.float(), align_corners=False).squeeze(0)
+    return F.grid_sample(
+        img.unsqueeze(0), grid.float(), align_corners=False, padding_mode="border"
+    ).squeeze(0)

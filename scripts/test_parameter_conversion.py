@@ -57,7 +57,9 @@ def transform(img, matrix):
         img.unsqueeze(0).size(),
         align_corners=False,
     )
-    return F.grid_sample(img.unsqueeze(0), grid.float(), align_corners=False).squeeze(0)
+    return F.grid_sample(
+        img.unsqueeze(0), grid.float(), align_corners=False, padding_mode="border"
+    ).squeeze(0)
 
 
 if __name__ == "__main__":
