@@ -457,7 +457,8 @@ def draw_orientation_normalization(
     sequence = list(zip(*sequence))  # transpose the nested list
 
     frames = [
-        [dataset.draw(l, channels_first=False) for l in latents] for latents in sequence
+        [dataset.draw(latent, channels_first=False) for latent in latents]
+        for latents in sequence
     ]
     save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps)
 

@@ -20,7 +20,7 @@ def main():
         color_range=[(0.9, 0.9, 0.9)],
     )
     images = []
-    for img, y in islice(dataset, 10):
+    for img, _ in islice(dataset, 10):
         img = np.transpose(img, (1, 2, 0))
 
         # get all non-black pixels across all channels

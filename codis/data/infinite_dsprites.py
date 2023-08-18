@@ -41,10 +41,10 @@ class InfiniteDSprites(IterableDataset):
         self,
         img_size: int = 256,
         color_range=("white",),
-        scale_range=np.linspace(0.5, 1.0, 32),
-        orientation_range=np.linspace(0, 2 * np.pi * 32 / 33, 32),
-        position_x_range=np.linspace(0, 1, 32),
-        position_y_range=np.linspace(0, 1, 32),
+        scale_range=None,
+        orientation_range=None,
+        position_x_range=None,
+        position_y_range=None,
         dataset_size: int = None,
         shapes: list = None,
         orientation_marker: bool = True,
@@ -67,6 +67,14 @@ class InfiniteDSprites(IterableDataset):
         """
         self.img_size = img_size
         self.canvas_size = img_size
+        if scale_range is None:
+            scale_range = np.linspace(0.5, 1.0, 32)
+        if orientation_range is None:
+            orientation_range = np.linspace(0, 2 * np.pi * 32 / 33, 32)
+        if position_x_range is None:
+            position_x_range = np.linspace(0, 1, 32)
+        if position_y_range is None:
+            position_y_range = np.linspace(0, 1, 32)
         self.ranges = {
             "color": color_range,
             "scale": scale_range,

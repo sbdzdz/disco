@@ -104,7 +104,7 @@ def test_dataset_size(dataset_class, size):
 
 
 @pytest.mark.parametrize("shapes", [-1, 0, 1, 5])
-def test_dataset_size(shapes):
+def test_dataset_size_shapes(shapes):
     """Test that setting the maximum number of shapes works."""
     dataset = InfiniteDSprites(
         scale_range=[0.5, 1.0],
