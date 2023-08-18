@@ -269,6 +269,7 @@ class SpatialTransformerGF(SpatialTransformer):
         """Perform the forward pass."""
         xs = self.encoder(x).view(-1, self.encoder_output_dim)
         y_hat = self.regressor(xs)
+        y_hat = self.clip(y_hat)
         theta = self.convert_parameters_to_matrix(self._unstack_factors(y_hat))
 
         grid = F.affine_grid(theta, x.size())
@@ -279,7 +280,6 @@ class SpatialTransformerGF(SpatialTransformer):
         """Perform a training or validation step."""
         x, y = batch
         x_hat, y_hat = self.forward(x)
-        y_hat = self.clip(y_hat)
         exemplar_tiled = (
             self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
         )
@@ -301,12 +301,19 @@ class SpatialTransformerGF(SpatialTransformer):
     def clip(self, y):
         """Clip the predicted factors to valid ranges."""
         y = self._unstack_factors(y)
-        y.orientation = torch.clamp(y.orientation, 0, 2 * np.pi)
-        y.scale = torch.clamp(y.scale, 0.5, 1)
-        y.position_x = torch.clamp(y.position_x, 0, 1)
-        y.position_y = torch.clamp(y.position_y, 0, 1)
-        y = self._stack_factors(y)
-        return y
+        orientation = torch.clamp(y.orientation, 0, 2 * torch.pi)
+        scale = torch.clamp(y.scale, 0.5, 1)
+        position_x = torch.clamp(y.position_x, 0, 1)
+        position_y = torch.clamp(y.position_y, 0, 1)
+        y = Latents(
+            shape=None,
+            color=None,
+            orientation=orientation,
+            scale=scale,
+            position_x=position_x,
+            position_y=position_y,
+        )
+        return self._stack_factors(y)
 
 
 class SupervisedVAE(ContinualModule):
