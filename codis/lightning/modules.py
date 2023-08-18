@@ -296,12 +296,6 @@ class SpatialTransformerGF(SpatialTransformer):
                 torch.stack([y_hat.position_x, y_hat.position_y], dim=1),
             ),
             "loss": self.gamma * regression_loss + (1 - self.gamma) * backbone_loss,
-            "orientation_min": y_hat.orientation.detach().cpu().numpy().min(),
-            "orientation_max": y_hat.orientation.detach().cpu().numpy().max(),
-            "orientation_mean": y_hat.orientation.detach().cpu().numpy().mean(),
-            "gt_orientation_min": y.orientation.detach().cpu().numpy().min(),
-            "gt_orientation_max": y.orientation.detach().cpu().numpy().max(),
-            "gt_orientation_mean": y.orientation.detach().cpu().numpy().mean(),
         }
 
     def clip(self, y):
