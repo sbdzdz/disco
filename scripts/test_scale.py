@@ -20,7 +20,7 @@ def main():
         color_range=[(0.9, 0.9, 0.9)],
     )
     images = []
-    for img, y in islice(dataset, 10):
+    for img, _ in islice(dataset, 10):
         img = np.transpose(img, (1, 2, 0))
 
         # get all non-black pixels across all channels
@@ -50,12 +50,10 @@ def main():
         print(f"Object center: {center_of_mass}")
 
         plt.imshow(img)
-        plt.show()
-
         images.append(img)
 
     # create a gif
-    imageio.mimsave("scale.gif", images, fps=1)
+    imageio.mimsave("img/scale.gif", images, fps=1)
 
 
 if __name__ == "__main__":

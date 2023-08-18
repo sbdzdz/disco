@@ -9,6 +9,7 @@ from torchmetrics import R2Score
 from codis.models import MLP, BetaVAE
 from codis.models.blocks import Encoder
 from codis.utils import to_numpy
+from codis.data import Latents
 from codis.visualization import draw_batch_and_reconstructions
 
 # pylint: disable=arguments-differ,unused-argument,too-many-ancestors
@@ -46,10 +47,14 @@ class ContinualModule(pl.LightningModule):
 
     def _unstack_factors(self, stacked_factors):
         """Unstack the factors."""
-        return {
-            name: stacked_factors[:, i]
-            for i, name in enumerate(self.factors_to_regress)
-        }
+        return Latents(
+            shape=None,
+            color=None,
+            **{
+                name: stacked_factors[:, i]
+                for i, name in enumerate(self.factors_to_regress)
+            },
+        )
 
 
 class LatentRegressor(ContinualModule):
@@ -121,7 +126,6 @@ class SpatialTransformer(ContinualModule):
         img_size: int = 64,
         in_channels: int = 1,
         channels: Optional[list] = None,
-        mask: torch.Tensor = None,
         gamma: float = 0.5,
         **kwargs,
     ):
@@ -129,7 +133,7 @@ class SpatialTransformer(ContinualModule):
         self.has_buffer = True
 
         if channels is None:
-            channels = [8, 8, 16, 16, 32]
+            channels = [16, 16, 32, 32, 64]
         self.encoder = Encoder(channels, in_channels)
         self.encoder_output_dim = (img_size // 2 ** len(channels)) ** 2 * channels[-1]
 
@@ -140,11 +144,6 @@ class SpatialTransformer(ContinualModule):
         self.regressor.model[-1].weight.data.zero_()
         self.regressor.model[-1].bias.data.copy_(
             torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float)
-        )
-        self.mask = (
-            torch.tensor([1, 1, 1, 1, 1, 1], dtype=torch.float)
-            if mask is None
-            else mask
         )
         self.gamma = gamma
 
@@ -167,10 +166,9 @@ class SpatialTransformer(ContinualModule):
         """Perform the forward pass."""
         xs = self.encoder(x).view(-1, self.encoder_output_dim)
         theta = self.regressor(xs).view(-1, 2, 3)
-        # theta = theta * self.mask.view(-1, 2, 3).to(self.device)
 
         grid = F.affine_grid(theta, x.size())
-        x_hat = F.grid_sample(x, grid)
+        x_hat = F.grid_sample(x, grid, padding_mode="border")
 
         return x_hat, theta
 
@@ -200,9 +198,8 @@ class SpatialTransformer(ContinualModule):
             self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
         )
         theta = self.convert_parameters_to_matrix(y)
-        # theta = theta * self.mask.view(-1, 2, 3).to(self.device)
-        backbone_loss = F.mse_loss(exemplar_tiled, x_hat)
         regression_loss = F.mse_loss(theta, theta_hat)
+        backbone_loss = F.mse_loss(exemplar_tiled, x_hat)
         return {
             "regression_loss": regression_loss,
             "backbone_loss": backbone_loss,
@@ -235,22 +232,16 @@ class SpatialTransformer(ContinualModule):
 
         # rotate
         orientation_matrix = self.batched_eye(batch_size)
-        orientation_matrix[:, 0, 0] = torch.cos(-orientation)
-        orientation_matrix[:, 0, 1] = -torch.sin(-orientation)
-        orientation_matrix[:, 1, 0] = torch.sin(-orientation)
-        orientation_matrix[:, 1, 1] = torch.cos(-orientation)
+        orientation_matrix[:, 0, 0] = torch.cos(orientation)
+        orientation_matrix[:, 0, 1] = -torch.sin(orientation)
+        orientation_matrix[:, 1, 0] = torch.sin(orientation)
+        orientation_matrix[:, 1, 1] = torch.cos(orientation)
         transform_matrix = torch.bmm(orientation_matrix, transform_matrix)
 
         # move to the center
         translation_matrix = self.batched_eye(batch_size)
-        translation_matrix[:, 0, 2] = -0.5
-        translation_matrix[:, 1, 2] = -0.5
-        transform_matrix = torch.bmm(translation_matrix, transform_matrix)
-
-        # move to 0, 0
-        translation_matrix = self.batched_eye(batch_size)
-        translation_matrix[:, 0, 2] = position_x
-        translation_matrix[:, 1, 2] = position_y
+        translation_matrix[:, 0, 2] = position_x - 0.5
+        translation_matrix[:, 1, 2] = position_y - 0.5
         transform_matrix = torch.bmm(translation_matrix, transform_matrix)
 
         return transform_matrix[:, :2, :]
@@ -263,6 +254,66 @@ class SpatialTransformer(ContinualModule):
             .repeat(batch_size, 1, 1)
             .to(self.device)
         )
+
+
+class SpatialTransformerGF(SpatialTransformer):
+    """A SpatialTransformer that predicts the generative factors instead of a transformation matrix."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.regressor = MLP(
+            dims=[self.encoder_output_dim, 64, 32, self.num_factors],
+        )
+
+    def forward(self, x):
+        """Perform the forward pass."""
+        xs = self.encoder(x).view(-1, self.encoder_output_dim)
+        y_hat = self.regressor(xs)
+        y_hat = self.clip(y_hat)
+        theta = self.convert_parameters_to_matrix(self._unstack_factors(y_hat))
+
+        grid = F.affine_grid(theta, x.size())
+        x_hat = F.grid_sample(x, grid, padding_mode="border")
+        return x_hat, y_hat
+
+    def _step(self, batch):
+        """Perform a training or validation step."""
+        x, y = batch
+        x_hat, y_hat = self.forward(x)
+        exemplar_tiled = (
+            self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
+        )
+        regression_loss = F.mse_loss(self._stack_factors(y), y_hat)
+        backbone_loss = F.mse_loss(exemplar_tiled, x_hat)
+        y_hat = self._unstack_factors(y_hat)
+        return {
+            "regression_loss": regression_loss,
+            "backbone_loss": backbone_loss,
+            "orientation_loss": F.mse_loss(y.orientation, y_hat.orientation),
+            "scale_loss": F.mse_loss(y.scale, y_hat.scale),
+            "position_loss": F.mse_loss(
+                torch.stack([y.position_x, y.position_y], dim=1),
+                torch.stack([y_hat.position_x, y_hat.position_y], dim=1),
+            ),
+            "loss": self.gamma * regression_loss + (1 - self.gamma) * backbone_loss,
+        }
+
+    def clip(self, y):
+        """Clip the predicted factors to valid ranges."""
+        y = self._unstack_factors(y)
+        orientation = torch.clamp(y.orientation, 0, 2 * torch.pi)
+        scale = torch.clamp(y.scale, 0.5, 1)
+        position_x = torch.clamp(y.position_x, 0, 1)
+        position_y = torch.clamp(y.position_y, 0, 1)
+        y = Latents(
+            shape=None,
+            color=None,
+            orientation=orientation,
+            scale=scale,
+            position_x=position_x,
+            position_y=position_y,
+        )
+        return self._stack_factors(y)
 
 
 class SupervisedVAE(ContinualModule):
@@ -342,16 +393,14 @@ class SupervisedVAE(ContinualModule):
         return loss, metrics
 
     def _calculate_metrics(self, y, y_hat):
-        unstacked_y = self._unstack_factors(y)
-        unstacked_y_hat = self._unstack_factors(y_hat)
+        y = self._unstack_factors(y)
+        y_hat = self._unstack_factors(y_hat)
         return {
-            "r2_score": self.r2_score(y_hat, y),
-            **{
-                f"r2_score_{name}": self.r2_score(
-                    unstacked_y[name], unstacked_y_hat[name]
-                )
-                for name in self.factors_to_regress
-            },
+            "r2_score": self.r2_score(y, y_hat),
+            "r2_score_orientation": self.r2_score(y.orientation, y_hat.orientation),
+            "r2_score_scale": self.r2_score(y.scale, y_hat.scale),
+            "r2_score_position_x": self.r2_score(y.position_x, y_hat.position_x),
+            "r2_score_position_y": self.r2_score(y.position_y, y_hat.position_y),
         }
 
 

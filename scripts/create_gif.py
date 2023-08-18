@@ -14,7 +14,7 @@ def create_gif(args):
     run = api.run(args.run_id)
     assert run.state != "running", "Run is not finished yet."
 
-    path = args.output_dir / f"media/{run.id}"
+    path = args.out_path.parent / f"media/{run.id}"
     path.mkdir(parents=True, exist_ok=True)
     for file in tqdm(run.files(), desc="Downloading files"):
         if args.media_name in file.name and file.name.endswith(".png"):
@@ -25,9 +25,7 @@ def create_gif(args):
         key=lambda x: int(x.stem.split("_")[-2]),
     )
 
-    with imageio.get_writer(
-        args.output_dir / f"{args.media_name}.gif", mode="I", fps=5
-    ) as writer:
+    with imageio.get_writer(args.out_path, mode="I", fps=5) as writer:
         for img_path in tqdm(paths, desc="Creating gif"):
             writer.append_data(imageio.imread(img_path))
 
@@ -36,7 +34,9 @@ def _main():
     repo_root = Path(__file__).parent.parent
     parser = ArgumentParser()
     parser.add_argument("--run_id", type=str, required=True)
-    parser.add_argument("--output_dir", type=Path, default=repo_root / "img")
+    parser.add_argument(
+        "--out_path", type=Path, default=repo_root / "img/reconstructions.gif"
+    )
     parser.add_argument("--media_name", type=str, default="reconstructions")
     args = parser.parse_args()
     create_gif(args)
