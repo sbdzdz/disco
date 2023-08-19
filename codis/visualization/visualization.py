@@ -34,18 +34,21 @@ def draw_batch(
     images,
     path: Path = repo_root / "img/batch_grid.png",
     fig_height: float = 10,
-    n_max: int = 16,
+    num_images: int = 16,
     show=False,
 ):
     """Show a batch of images on a grid.
     Only the first n_max images are shown.
     Args:
-        images: A numpy array of shape (N, C, H, W) or (N, H, W).
-        n_max: The maximum number of images to show.
+        images: A numpy array of shape (N, C, H, W) or (N, H, W)
+        path: The path to save the image to
+        fig_height: The height of the figure in inches
+        num_images: The maximum number of images to show
+        show: Whether to show the image
     Returns:
         None
     """
-    num_images = min(images.shape[0], n_max)
+    num_images = min(images.shape[0], num_images)
     if images.ndim == 4:
         images = images.permute(0, 2, 3, 1)
     ncols = int(np.ceil(np.sqrt(num_images)))
@@ -63,26 +66,33 @@ def draw_batch(
     plt.savefig(path, bbox_inches="tight")
     if show:
         plt.show()
+    buffer = io.BytesIO()
+    plt.savefig(buffer, bbox_inches="tight")
     plt.close()
+
+    return PIL.Image.open(buffer)
 
 
 def draw_batch_and_reconstructions(
     *image_arrays,
     fig_height: float = 10,
-    n_max: int = 25,
+    num_images: int = 25,
     path: Path = None,
     show=False,
 ):
     """Show a batch of images and their reconstructions on a grid.
     Only the first n_max images are shown.
     Args:
-        image_arrays: Numpy arrays of shape (N, C, H, W) or (N, H, W).
-        n_max: The maximum number of images to show.
+        image_arrays: Numpy arrays of shape (N, C, H, W) or (N, H, W)
+        fig_height: The height of the figure in inches
+        num_images: The maximum number of images to show
+        path: The path to save the image to
+        show: Whether to show the image
     Returns:
         None
     """
     img = image_arrays[0]
-    num_images = min(img.shape[0], n_max)
+    num_images = min(img.shape[0], num_images)
     if img.ndim == 4:
         image_arrays = [np.transpose(img, (0, 2, 3, 1)) for img in image_arrays]
     ncols = int(np.ceil(np.sqrt(num_images)))
@@ -131,7 +141,10 @@ def draw_batch_density(
 ):
     """Show a batch of images averaged over the batch dimension.
     Args:
-        imgs: A tensor of shape (N, C, H, W) or (N, H, W).
+        images: A tensor of shape (N, C, H, W) or (N, H, W).
+        path: The path to save the image to
+        fig_height: The height of the figure in inches
+        show: Whether to show the image
     Returns:
         None
     """
@@ -158,12 +171,15 @@ def draw_shapes(
 ):
     """Plot an n x n grid of random shapes.
     Args:
-        path: The path to save the image to.
-        nrows: The number of rows in the grid.
-        ncols: The number of columns in the grid.
-        fig_height: The height of the figure in inches.
-        img_size: The size of the image in pixels.
-        bg_color: The color of the background plot area.
+        path: The path to save the image to
+        nrows: The number of rows in the grid
+        ncols: The number of columns in the grid
+        fig_height: The height of the figure in inches
+        img_size: The size of the image in pixels
+        fg_color: The color of the shape
+        bg_color: The color of the background plot area
+        seed: The random seed
+        fill_shape: Whether to fill the shapes
     Returns:
         None
     """
@@ -215,16 +231,16 @@ def draw_smooth_shapes(
 ):
     """Smoothly interpolate between shapes and colors.
     Args:
-        path: The path to save the animation to.
-        nrows: The number of rows in the grid.
-        ncols: The number of columns in the grid.
-        fig_height: The height of the figure in inches.
-        img_size: The size of the image in pixels.
-        bg_color: The color of the background plot area.
-        num_shapes: The number of shapes to interpolate between.
-        duration_per_shape: The number of seconds per shape transition.
-        fps: The number of frames per second.
-        seed: The random seed.
+        path: The path to save the animation to
+        nrows: The number of rows in the grid
+        ncols: The number of columns in the grid
+        fig_height: The height of the figure in inches
+        img_size: The size of the image in pixels
+        bg_color: The color of the background plot area
+        num_shapes: The number of shapes to interpolate between
+        duration_per_shape: The number of seconds per shape transition
+        fps: The number of frames per second
+        seed: The random seed
     """
     np.random.seed(seed)
     dataset = InfiniteDSprites(img_size=img_size, color_range=COLORS)
