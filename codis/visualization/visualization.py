@@ -51,7 +51,7 @@ def draw_batch(
     """
     num_images = min(images.shape[0], num_images)
     if images.ndim == 4:
-        images = images.permute(0, 2, 3, 1)
+        images = np.transpose(images, (0, 2, 3, 1))
     ncols = int(np.ceil(np.sqrt(num_images)))
     nrows = int(np.ceil(num_images / ncols))
     _, axes = plt.subplots(
