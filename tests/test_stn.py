@@ -1,18 +1,18 @@
-"""Test converting between a theta transformation matrix and a ground truth factor representation."""
+"""Tests for the spatial transformer network."""
 import numpy as np
+import pytest
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from codis.data.infinite_dsprites import RandomDSprites, Latents
+from codis.data import Latents, RandomDSprites
 from codis.lightning.modules import SpatialTransformer
-from codis.visualization import draw_batch_and_reconstructions
 
 
-def main():
-    """Compare the original image with the transformed image.
-    The transformation maps from the input to the canonical representation.
-    """
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_parameter_conversion(seed):
+    """Test converting parameters to a transformation matrix."""
+    np.random.seed(seed)
     batch_size = 16
     dataset = RandomDSprites()
     transformer = SpatialTransformer()
@@ -43,11 +43,8 @@ def main():
     images = np.array([img.numpy() for img in images])
     canonical_images = np.array([img.numpy() for img in canonical_images])
     transformed_images = np.array([img.numpy() for img in transformed_images])
-    diffs = np.abs(transformed_images - canonical_images)
-
-    draw_batch_and_reconstructions(
-        images, canonical_images, transformed_images, diffs, show=True
-    )
+    diffs = np.mean(np.abs(transformed_images - canonical_images))
+    assert diffs < 0.003
 
 
 def transform(img, matrix):
@@ -60,7 +57,3 @@ def transform(img, matrix):
     return F.grid_sample(
         img.unsqueeze(0), grid.float(), align_corners=False, padding_mode="border"
     ).squeeze(0)
-
-
-if __name__ == "__main__":
-    main()

@@ -20,6 +20,7 @@ from codis.lightning.modules import (
     LatentRegressor,
     LightningBetaVAE,
     SpatialTransformer,
+    SpatialTransformerGF,
     SupervisedVAE,
 )
 
@@ -94,10 +95,16 @@ def build_model_and_callbacks(args, exemplars):
     elif args.model == "stn":
         model = SpatialTransformer(
             img_size=args.img_size,
-            mask=None,
             lr=args.lr,
-            channels=[4, 4, 8, 8, 16],
             factors_to_regress=args.factors_to_regress,
+            gamma=args.gamma,
+        )
+    elif args.model == "stn_gf":
+        model = SpatialTransformerGF(
+            img_size=args.img_size,
+            lr=args.lr,
+            factors_to_regress=args.factors_to_regress,
+            gamma=args.gamma,
         )
     elif args.model == "regressor":
         model = LatentRegressor(
@@ -134,10 +141,11 @@ def build_trainer(args, callbacks=None):
 
 def build_continual_data_loaders(args, shapes):
     """Build data loaders for a class-incremental continual learning scenario."""
-    scale_range = np.linspace(0.5, 1.5, args.factor_resolution)
-    orientation_range = np.linspace(0, 2 * np.pi, args.factor_resolution)
-    position_x_range = np.linspace(0, 1, args.factor_resolution)
-    position_y_range = np.linspace(0, 1, args.factor_resolution)
+    n = args.factor_resolution
+    scale_range = np.linspace(0.5, 1.0, n)
+    orientation_range = np.linspace(0, 2 * np.pi * (n / (n + 1)), n)
+    position_x_range = np.linspace(0, 1, n)
+    position_y_range = np.linspace(0, 1, n)
 
     if not isinstance(shapes, list):
         shapes = [shapes]
@@ -304,8 +312,8 @@ def _main():
         "--model",
         type=str,
         default="stn",
-        choices=["vae", "stn", "regressor"],
-        help="Model to train. One of 'vae' or 'stn'.",
+        choices=["vae", "stn", "stn_gf", "regressor"],
+        help="Model to train. One of 'vae', 'stn', 'stn_gf', or 'regressor'.",
     )
     parser.add_argument(
         "--factors_to_regress",

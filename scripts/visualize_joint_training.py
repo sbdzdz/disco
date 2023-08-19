@@ -3,6 +3,7 @@ import argparse
 from pathlib import Path
 
 from matplotlib import pyplot as plt
+from matplotlib import ticker
 
 import wandb
 
@@ -11,19 +12,38 @@ def visualize_joint_training(args):
     """Visualize joint training results"""
     runs = get_runs(args.wandb_entity, args.wandb_group)
     shapes = [run.config["tasks"] for run in runs]
-    ood_loss = [run.summary[f"{args.metric_name}_test_task_0"] for run in runs]
-    val_loss = [run.summary[f"{args.metric_name}_val"] for run in runs]
 
     plt.style.use("ggplot")
     _, ax = plt.subplots(figsize=(20, 9), layout="tight")
-    plt.plot(shapes, ood_loss, label="Novel shapes")
-    plt.plot(shapes, val_loss, label="Seen shapes, novel transforms")
+    if args.break_down_factors:
+        for factor in ["orientation", "scale", "position_x", "position_y"]:
+            loss_ood = [run.summary[f"{factor}_loss_test_task_0"] for run in runs]
+            loss_val = [run.summary[f"{factor}_loss_val"] for run in runs]
+            plt.plot(
+                shapes,
+                loss_ood,
+                label=f"{factor.capitalize().replace('_', ' ')} (novel shapes)",
+            )
+            plt.plot(
+                shapes,
+                loss_val,
+                label=f"{factor.capitalize().replace('_', ' ')} (seen shapes, novel factor values)",
+            )
+    else:
+        loss_ood = [run.summary[f"{args.metric_name}_test_task_0"] for run in runs]
+        loss_val = [run.summary[f"{args.metric_name}_val"] for run in runs]
+        plt.plot(shapes, loss_ood, label="Novel shapes")
+        plt.plot(shapes, loss_val, label="Seen shapes, novel transforms")
 
     ax.legend(loc="upper right")
+
     ax.set_xlabel("Number of shapes")
     ax.set_xlim([args.xmin, args.xmax])
+    ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f"{x:.1f}"))
+
     ax.set_ylabel("Minimum loss")
     ax.set_ylim([args.ymin, args.ymax])
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f"{x:.1f}"))
 
     plt.savefig(args.out_path, bbox_inches="tight")
 
@@ -52,6 +72,7 @@ def _main():
     parser.add_argument(
         "--out_path", type=Path, default=repo_root / "img/joint_training.png"
     )
+    parser.add_argument("--break_down_factors", action="store_true")
     parser.add_argument("--xmin", type=float, help="X-axis min limit.")
     parser.add_argument("--xmax", type=float, help="X-axis max limit.")
     parser.add_argument("--ymin", type=float, help="Y-axis min limit.")

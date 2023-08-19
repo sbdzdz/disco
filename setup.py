@@ -16,7 +16,7 @@ setup(
         "matplotlib>=3.7.0",
         "numpy>=1.24.0",
         "pillow>=9.5.0",
-        "pygame>=2.3.0",
+        "opencv-python>=4.8.0",
         "scipy>=1.10.0",
         "scikit-learn",
         "torch>=1.18.0",

@@ -18,8 +18,10 @@ def test_idsprites_instantiation_with_no_parameters(dataset_class):
     dataset = dataset_class()
     assert dataset.img_size == 256
     assert dataset.ranges["color"] == ("white",)
-    assert np.allclose(dataset.ranges["scale"], np.linspace(0.5, 1.5, 32))
-    assert np.allclose(dataset.ranges["orientation"], np.linspace(0, 2 * np.pi, 32))
+    assert np.allclose(dataset.ranges["scale"], np.linspace(0.5, 1.0, 32))
+    assert np.allclose(
+        dataset.ranges["orientation"], np.linspace(0, 2 * np.pi * 32 / 33, 32)
+    )
     assert np.allclose(dataset.ranges["position_x"], np.linspace(0, 1, 32))
     assert np.allclose(dataset.ranges["position_y"], np.linspace(0, 1, 32))
 
@@ -104,7 +106,7 @@ def test_dataset_size(dataset_class, size):
 
 
 @pytest.mark.parametrize("shapes", [-1, 0, 1, 5])
-def test_dataset_size(shapes):
+def test_dataset_size_shapes(shapes):
     """Test that setting the maximum number of shapes works."""
     dataset = InfiniteDSprites(
         scale_range=[0.5, 1.0],

@@ -5,7 +5,7 @@ from codis.visualization.visualization import (
     draw_batch_and_reconstructions,
     draw_shapes,
     draw_shapes_animated,
-    draw_smooth_shapes,
+    draw_shape_interpolation,
     draw_analogy_task,
     draw_orientation_normalization,
 )

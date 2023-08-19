@@ -1,12 +1,10 @@
 """Class definitions for the infinite dSprites dataset."""
-import os
 from collections import namedtuple
 from itertools import product
 
+import cv2
 import numpy as np
 import numpy.typing as npt
-import pygame
-import pygame.gfxdraw
 from matplotlib import colors
 from scipy.interpolate import splev, splprep
 from sklearn.decomposition import PCA
@@ -43,31 +41,40 @@ class InfiniteDSprites(IterableDataset):
         self,
         img_size: int = 256,
         color_range=("white",),
-        scale_range=np.linspace(0.5, 1.5, 32),
-        orientation_range=np.linspace(0, 2 * np.pi, 32),
-        position_x_range=np.linspace(0, 1, 32),
-        position_y_range=np.linspace(0, 1, 32),
+        scale_range=None,
+        orientation_range=None,
+        position_x_range=None,
+        position_y_range=None,
         dataset_size: int = None,
         shapes: list = None,
+        orientation_marker: bool = True,
+        bg_color="darkgray",
     ):
         """Create a dataset of images of random shapes.
         Args:
             img_size: The size of the images in pixels.
-            scale_range: The range of scales to use.
-            orientation_range: The range of orientations to use.
-            position_x_range: The range of x positions to use.
-            position_y_range: The range of y positions to use.
+            scale_range: The range of scales to sample from.
+            orientation_range: The range of orientations to sample from.
+            position_x_range: The range of x positions to sample from.
+            position_y_range: The range of y positions to sample from.
             dataset_size: The number of images to generate. Note that `shapes` also controls
                 the number of images generated.
             shapes: The number of shapes to generate or a list of shapes to use. Set
                 to None to generate random shapes forever.
+            orientation_marker: Whether to draw stripes indicating the orientation of the shape.
         Returns:
             None
         """
-        os.environ["SDL_VIDEODRIVER"] = "dummy"
-        pygame.display.init()
         self.img_size = img_size
-        self.window = pygame.display.set_mode((self.img_size, self.img_size))
+        self.canvas_size = img_size
+        if scale_range is None:
+            scale_range = np.linspace(0.5, 1.0, 32)
+        if orientation_range is None:
+            orientation_range = np.linspace(0, 2 * np.pi * 32 / 33, 32)
+        if position_x_range is None:
+            position_x_range = np.linspace(0, 1, 32)
+        if position_y_range is None:
+            position_y_range = np.linspace(0, 1, 32)
         self.ranges = {
             "color": color_range,
             "scale": scale_range,
@@ -80,6 +87,9 @@ class InfiniteDSprites(IterableDataset):
         self.counter = 0
         self.current_shape_index = 0
         self.shapes = shapes
+        self.orientation_marker = orientation_marker
+        self.bg_color = tuple(int(255 * c) for c in colors.to_rgb(bg_color))
+        self.scale_factor = 0.45
 
     @classmethod
     def from_config(cls, config: dict):
@@ -139,31 +149,27 @@ class InfiniteDSprites(IterableDataset):
             if np.random.rand() < 0.5
             else self.interpolate(verts, k=1)
         )
-        shape = self.center_and_scale(shape)
         shape = self.align(shape)
+        shape = self.center_and_scale(shape)
 
         return shape
 
     def center_and_scale(self, shape):
-        """Center the shape and normalize scale."""
-        latents = Latents(
-            color=np.array([0.9, 0.9, 0.9]),
-            shape=shape,
-            scale=1.0,
-            orientation=0.0,
-            position_x=0.5,
-            position_y=0.5,
+        """Center and scale a shape."""
+        shape = shape - shape.mean(axis=1, keepdims=True)
+        _, _, w, h = cv2.boundingRect((shape * 1000).T.astype(np.int32))
+        diagonal = np.sqrt(w**2 + h**2) / 1000
+        shape = shape / diagonal
+
+        transformed_shape = self.apply_scale(shape, 1)
+        transformed_shape = self.apply_position(transformed_shape, 0.5, 0.5)
+        canvas = np.zeros((self.canvas_size, self.canvas_size, 3)).astype(np.int32)
+        self.draw_shape(shape=transformed_shape, canvas=canvas, color=(255, 255, 255))
+        center = self.get_center(canvas)[::-1]
+        center = np.expand_dims(center - self.canvas_size // 2, 1) / (
+            self.scale_factor * self.canvas_size
         )
-        img = self.draw(latents, channels_first=False)
-        non_black_pixels = np.argwhere(np.any(img != [0, 0, 0], axis=2))
-        center = np.mean(non_black_pixels, axis=0)
-        max_dist = np.max(np.linalg.norm(non_black_pixels - center, axis=1))
-
-        center = np.expand_dims(center - self.img_size / 2, 1) / (0.2 * self.img_size)
-        max_dist = max_dist / (0.2 * self.img_size)
-
         shape = shape - center
-        shape = shape / max_dist
 
         return shape
 
@@ -177,17 +183,17 @@ class InfiniteDSprites(IterableDataset):
 
         # Find the angle between the major axis and the y-axis
         major_axis = principal_components[0]
-        angle_rad = np.arctan2(major_axis[1], major_axis[0])
+        angle_rad = np.arctan2(major_axis[1], major_axis[0]) + 0.5 * np.pi
         shape = self.apply_orientation(shape, -angle_rad)
 
         return shape
 
     def sample_vertex_positions(
         self,
-        min_verts: int = 4,
+        min_verts: int = 5,
         max_verts: int = 8,
-        radius_std: float = 0.8,
-        angle_std: float = 0.5,
+        radius_std: float = 0.6,
+        angle_std: float = 0.6,
     ):
         """Sample the positions of the vertices of a polygon.
         Args:
@@ -229,39 +235,37 @@ class InfiniteDSprites(IterableDataset):
         x, y = splev(u_new, spline_params, der=0)
         return np.array([x, y])
 
-    def draw(self, latents: Latents, channels_first=True):
+    def draw(self, latents: Latents, channels_first=True, debug=False):
         """Draw an image based on the values of the latents.
         Args:
-            window: The pygame window to draw on.
             latents: The latents to use for drawing.
             channels_first: Whether to return the image with the channel dimension first.
         Returns:
             The image as a numpy array.
         """
-        self.window.fill(pygame.Color("black"))
+        canvas = np.zeros((self.canvas_size, self.canvas_size, 3)).astype(np.int32)
+        canvas[:, :] = self.bg_color
         shape = self.apply_scale(latents.shape, latents.scale)
         shape = self.apply_orientation(shape, latents.orientation)
         shape = self.apply_position(shape, latents.position_x, latents.position_y)
         color = tuple(int(255 * c) for c in latents.color)
-        pygame.gfxdraw.aapolygon(self.window, shape.T.tolist(), color)
-        pygame.draw.polygon(self.window, color, shape.T.tolist())
-        pygame.display.update()
-        image = pygame.surfarray.array3d(self.window)
-        image = image.astype(np.float32) / 255.0
-        if not self.is_rgb():
-            image = image.mean(axis=2, keepdims=True)
-        if channels_first:
-            image = np.transpose(image, (2, 0, 1))
-        return image
 
-    def is_rgb(self):
-        """Return whether the dataset is RGB or binary."""
-        return tuple(self.ranges["color"]) != ("white",)
+        self.draw_shape(shape, canvas, color)
+        if self.orientation_marker:
+            self.draw_orientation_marker(canvas, latents, color)
+        if debug:
+            self.add_debug_info(shape, canvas)
+        if self.is_monochrome(canvas):
+            canvas = np.mean(canvas, axis=2, keepdims=True)
+        if channels_first:
+            canvas = np.transpose(canvas, (2, 0, 1))
+        canvas = canvas.astype(np.float32) / 255.0
+        return canvas
 
     def apply_scale(self, shape: npt.NDArray, scale: float):
         """Apply a scale to a shape."""
-        height, _ = self.window.get_size()
-        return 0.2 * height * scale * shape
+        height = self.canvas_size
+        return self.scale_factor * height * scale * shape
 
     @staticmethod
     def apply_orientation(shape: npt.NDArray, orientation: float):
@@ -289,14 +293,78 @@ class InfiniteDSprites(IterableDataset):
         Returns:
             An array of shape (2, num_points).
         """
-        height, width = self.window.get_size()
+        height, width = self.canvas_size, self.canvas_size
         position = np.array(
             [
-                0.25 * height + 0.5 * height * position_y,
                 0.25 * width + 0.5 * width * position_x,
+                0.25 * height + 0.5 * height * position_y,
             ]
         ).reshape(2, 1)
         return shape + position
+
+    @staticmethod
+    def draw_shape(shape, canvas, color):
+        """Draw a shape on a canvas."""
+        shape = shape.T.astype(np.int32)
+        cv2.fillPoly(img=canvas, pts=[shape], color=color, lineType=cv2.LINE_AA)
+
+    def draw_orientation_marker(self, canvas, latents, color):
+        """Paint the right half of the shape in a darker color."""
+        theta = latents.orientation - np.pi / 2
+        center = np.array([0, 0]).reshape(2, 1)
+        y0, x0 = self.apply_position(center, latents.position_x, latents.position_y)
+
+        def rotate_point(x, y):
+            """Rotate the coordinate system by -theta around the center of the shape."""
+            x_prime = (x - x0) * np.cos(-theta) + (y - y0) * np.sin(-theta) + x0
+            y_prime = -(x - x0) * np.sin(-theta) + (y - y0) * np.cos(-theta) + y0
+            return x_prime, y_prime
+
+        # rotate shape pixel coordinates
+        shape_pixels = np.argwhere(np.any(canvas != self.bg_color, axis=2))
+        x, _ = rotate_point(shape_pixels[:, 0], shape_pixels[:, 1])
+
+        # select the right half of the shape
+        right_half = shape_pixels[x > x0]
+
+        # paint it a darker color
+        color = (0, 0, 0)
+        canvas[right_half[:, 0], right_half[:, 1]] = color
+
+    def add_debug_info(self, shape, canvas):
+        """Add debug info to the canvas."""
+        shape_center = self.get_center(canvas)
+        x, y, w, h = cv2.boundingRect(shape.T.astype(np.int32))
+        cv2.rectangle(
+            img=canvas, pt1=(x, y), pt2=(x + w, y + h), color=(0, 255, 0), thickness=2
+        )
+        cv2.circle(
+            img=canvas,
+            center=tuple(shape_center[::-1].astype(np.int32)),
+            radius=5,
+            color=(255, 0, 0),
+            thickness=-1,
+        )
+        cv2.circle(
+            img=canvas,
+            center=(self.canvas_size // 2, self.canvas_size // 2),
+            radius=5,
+            color=(0, 255, 0),
+            thickness=-1,
+        )
+
+    @staticmethod
+    def get_center(canvas):
+        """Get the center of the shape."""
+        foreground_pixels = np.argwhere(np.any(canvas != [0, 0, 0], axis=2))
+        return np.mean(foreground_pixels, axis=0)
+
+    @staticmethod
+    def is_monochrome(canvas):
+        """Check if a canvas is monochrome (all channels are the same)."""
+        return np.allclose(canvas[:, :, 0], canvas[:, :, 1]) and np.allclose(
+            canvas[:, :, 1], canvas[:, :, 2]
+        )
 
     def sample_latents(self):
         """Sample a random set of latents."""
@@ -421,7 +489,7 @@ class InfiniteDSpritesAnalogies(InfiniteDSprites):
 
     def __init__(self, *args, reference_shape=None, query_shape=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.window = pygame.display.set_mode((self.img_size // 2, self.img_size // 2))
+        self.canvas_size = self.img_size // 2
         self.reference_shape = reference_shape
         self.query_shape = query_shape
 
@@ -483,8 +551,8 @@ class InfiniteDSpritesAnalogies(InfiniteDSprites):
             )
 
             # add horizontal and vertical borders
-            border_width = self.img_size // 128 or 1
-            mid = self.img_size // 2
+            border_width = self.canvas_size // 128 or 1
+            mid = self.canvas_size // 2
             grid[:, mid - border_width : mid + border_width, :] = 1.0
             grid[:, :, mid - border_width : mid + border_width] = 1.0
 
