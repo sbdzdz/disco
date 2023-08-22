@@ -65,13 +65,13 @@ class LatentRegressor(ContinualModule):
         self,
         img_size: int = 64,
         in_channels: int = 1,
-        channels: Optional[list] = None,
+        channels: list[int] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
 
         if channels is None:
-            channels = [8, 8, 16, 16, 32]
+            channels = [16, 16, 32, 32, 64]
         self.encoder = Encoder(channels, in_channels)
         self.encoder_output_dim = (img_size // 2 ** len(channels)) ** 2 * channels[-1]
 
