@@ -11,7 +11,7 @@ from sklearn.decomposition import PCA
 from torch.utils.data import Dataset, IterableDataset
 
 BaseLatents = namedtuple(
-    "BaseLatents", "color shape scale orientation position_x, position_y"
+    "BaseLatents", "color shape shape_id scale orientation position_x, position_y"
 )
 
 
@@ -26,6 +26,7 @@ class Latents(BaseLatents):
         return Latents(
             color=self.color.to(device),
             shape=self.shape.to(device),
+            shape_id=self.shape_id.to(device),
             scale=self.scale.to(device),
             orientation=self.orientation.to(device),
             position_x=self.position_x.to(device),
@@ -85,7 +86,7 @@ class InfiniteDSprites(IterableDataset):
         self.num_latents = len(self.ranges) + 1
         self.dataset_size = dataset_size
         self.counter = 0
-        self.current_shape_index = 0
+        self.current_shape_id = 0
         self.shapes = shapes
         self.orientation_marker = orientation_marker
         self.bg_color = tuple(int(255 * c) for c in colors.to_rgb(bg_color))
@@ -113,15 +114,14 @@ class InfiniteDSprites(IterableDataset):
             if self.shapes is None:
                 shape = self.generate_shape()  # infinite variant
             elif isinstance(self.shapes, list):
-                if self.current_shape_index >= len(self.shapes):
+                if self.current_shape_id >= len(self.shapes):
                     return
-                shape = self.shapes[self.current_shape_index]
-                self.current_shape_index += 1
+                shape = self.shapes[self.current_shape_id]
             elif isinstance(self.shapes, int):
-                if self.current_shape_index >= self.shapes:
+                if self.current_shape_id >= self.shapes:
                     return
                 shape = self.generate_shape()
-                self.current_shape_index += 1
+            self.current_shape_id += 1
 
             for color, scale, orientation, position_x, position_y in product(
                 *self.ranges.values()
@@ -131,7 +131,13 @@ class InfiniteDSprites(IterableDataset):
                 self.counter += 1
                 color = np.array(colors.to_rgb(color))
                 latents = Latents(
-                    color, shape, scale, orientation, position_x, position_y
+                    color,
+                    shape,
+                    self.current_shape_id,
+                    scale,
+                    orientation,
+                    position_x,
+                    position_y,
                 )
                 img = self.draw(latents)
                 yield img, latents
@@ -371,6 +377,7 @@ class InfiniteDSprites(IterableDataset):
         return Latents(
             color=np.array(colors.to_rgb(np.random.choice(self.ranges["color"]))),
             shape=self.generate_shape(),
+            shape_id=None,
             scale=np.random.choice(self.ranges["scale"]),
             orientation=np.random.choice(self.ranges["orientation"]),
             position_x=np.random.choice(self.ranges["position_x"]),
@@ -420,10 +427,11 @@ class RandomDSprites(InfiniteDSprites):
         while self.dataset_size is None or self.counter < self.dataset_size:
             self.counter += 1
             if self.shapes is not None:
-                shape = self.shapes[np.random.choice(len(self.shapes))]
+                shape_id = np.random.choice(len(self.shapes))
+                shape = self.shapes[shape_id]
             else:
                 shape = self.generate_shape()
-            latents = self.sample_latents()._replace(shape=shape)
+            latents = self.sample_latents()._replace(shape=shape, shape_id=shape_id)
             image = self.draw(latents)
             yield image, latents
 

@@ -69,6 +69,7 @@ def generate_exemplars(shapes, img_size):
             Latents(
                 color=(1.0, 1.0, 1.0),
                 shape=shape,
+                shape_id=None,
                 scale=1.0,
                 orientation=0.0,
                 position_x=0.5,

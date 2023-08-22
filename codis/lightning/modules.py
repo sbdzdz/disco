@@ -49,6 +49,7 @@ class ContinualModule(pl.LightningModule):
         """Unstack the factors."""
         return Latents(
             shape=None,
+            shape_id=None,
             color=None,
             **{
                 name: stacked_factors[:, i]
@@ -307,6 +308,7 @@ class SpatialTransformerGF(SpatialTransformer):
         position_y = torch.clamp(y.position_y, 0, 1)
         y = Latents(
             shape=None,
+            shape_id=None,
             color=None,
             orientation=orientation,
             scale=scale,

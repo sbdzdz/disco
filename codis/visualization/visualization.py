@@ -206,6 +206,7 @@ def draw_shapes(
             latents = Latents(
                 color=colors.to_rgb(fg_color),
                 shape=shape,
+                shape_id=None,
                 scale=1.0,
                 orientation=0.0,
                 position_x=0.5,
@@ -270,7 +271,15 @@ def draw_shapes_animated(
     frames = [
         [
             dataset.draw(
-                Latents(color, shape, scale, orientation, position_x, position_y),
+                Latents(
+                    color=color,
+                    shape=shape,
+                    shape_id=None,
+                    scale=scale,
+                    orientation=orientation,
+                    position_x=position_x,
+                    position_y=position_y,
+                ),
                 channels_first=False,
                 debug=debug,
             )
@@ -386,8 +395,9 @@ def draw_shape_interpolation(
         [
             dataset.draw(
                 Latents(
-                    shape=shape,
                     color=color,
+                    shape=shape,
+                    shape_id=None,
                     scale=1.0,
                     orientation=0.0,
                     position_x=0.5,
@@ -457,6 +467,7 @@ def draw_orientation_normalization(
             Latents(
                 color=latent.color,
                 shape=latent.shape,
+                shape_id=None,
                 scale=scale,
                 orientation=orientation,
                 position_x=position_x,
