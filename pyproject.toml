@@ -1,3 +1,28 @@
+[build-system]
+requires=["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "codis"
+version = "0.1.0"
+authors = [
+    {name = "Sebastian Dziadzio", email = "dziadzio@hey.com"},
+]
+description = "Disentangling memorization and generalization in continual learning"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "hydra-core",
+    "lightning",
+    "matplotlib",
+    "opencv-python",
+    "torch",
+    "torchvision",
+]
+
+[tool.hatch.build]
+include = ["hvae"]
+
 [tool.ruff]
 select = ["E", "F", "B"]
 ignore = ["B905"] # disable zip-without-explicit-strict
