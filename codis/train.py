@@ -1,11 +1,10 @@
 """Training script."""
-import argparse
-from pathlib import Path
-
+import hydra
 import numpy as np
 import torch
 from lightning.pytorch import Trainer
 from lightning.pytorch.loggers import WandbLogger
+from omegaconf import DictConfig
 from torch.utils.data import DataLoader, random_split
 
 import wandb
@@ -17,17 +16,16 @@ from codis.data import (
 )
 from codis.lightning.callbacks import LoggingCallback, VisualizationCallback
 from codis.lightning.modules import (
-    LatentRegressor,
     LightningBetaVAE,
     SpatialTransformer,
     SpatialTransformerGF,
     SupervisedVAE,
 )
-from omegaconf import DictConfig
 
 torch.set_float32_matmul_precision("medium")
 
 
+@hydra.main(config_path="../configs", config_name="main")
 def train(cfg: DictConfig) -> None:
     """Train the model in a continual learning setting."""
     shapes = [InfiniteDSprites().generate_shape() for _ in range(cfg.dataset.tasks)]

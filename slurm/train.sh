@@ -22,5 +22,5 @@ python -m pip install -e $HOME/codis
 
 export PYTHONPATH=$PYTHONPATH:$HOME/codis
 
-srun --gres=gpu:1 python $HOME/codis/codis/train.py --wandb_dir $WORK/projects/codis/wandb \
-dataset.tasks=16 dataset.factor_resolution=16 wandb.group=stn training.max_epochs=5 model=stn model.gamma=0.5
+srun --gres=gpu:1 python $HOME/codis/codis/train.py hydra.output_subdir=$WORK/projects/codis/hydra wandb.dir=$WORK/projects/codis/wandb \
+dataset.tasks=16 dataset.batch_size=1024 dataset.factor_resolution=16 wandb.group=regressor training.max_epochs=3 model=regressor

@@ -2,6 +2,8 @@ name: idsprites
 batch_size: 512
 factor_resolution: 16
 img_size: 128
-num_workers: 16
 num_channels: 1
+num_workers: 16
 tasks: 16
+test_dataset_size: null
+train_dataset_size: null
