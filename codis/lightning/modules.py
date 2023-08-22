@@ -38,6 +38,15 @@ class ContinualModule(pl.LightningModule):
         """Set the current train task id."""
         self._task_id = value
 
+    def classify(self, x):
+        """Classify the input."""
+        x_hat, *_ = self(x)
+        exemplars = self._buffer
+        exemplars = torch.stack(exemplars).to(self.device)
+        mse = F.mse_loss(x_hat.unsqueeze(1), exemplars, reduction="none")
+        mse = mse.mean(dim=(2, 3, 4))
+        return mse.argmin(dim=1)
+
     def _stack_factors(self, factors):
         """Stack the factors."""
         return torch.cat(
@@ -134,12 +143,10 @@ class SpatialTransformer(ContinualModule):
         """Perform a training or validation step."""
         x, y = batch
         x_hat, theta_hat = self.forward(x)
-        exemplar_tiled = (
-            self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
-        )
+        exemplars = torch.stack([self._buffer[i] for i in y.shape_id])
         theta = self.convert_parameters_to_matrix(y)
         regression_loss = F.mse_loss(theta, theta_hat)
-        backbone_loss = F.mse_loss(exemplar_tiled, x_hat)
+        backbone_loss = F.mse_loss(exemplars, x_hat)
         return {
             "regression_loss": regression_loss,
             "backbone_loss": backbone_loss,
