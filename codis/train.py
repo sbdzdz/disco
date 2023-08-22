@@ -113,15 +113,6 @@ def build_model_and_callbacks(cfg: DictConfig, exemplars: list):
             gamma=cfg.model.gamma,
             lr=cfg.training.lr,
         )
-    elif cfg.model.name == "regressor":
-        model = LatentRegressor(
-            img_size=cfg.dataset.img_size,
-            in_channels=cfg.dataset.num_channels,
-            channels=cfg.model.channels,
-            lr=cfg.training.lr,
-            factors_to_regress=cfg.model.factors_to_regress,
-        )
-        callbacks = [LoggingCallback()]
     else:
         raise ValueError(f"Unknown model {cfg.model.name}.")
     return model, callbacks
