@@ -41,7 +41,7 @@ def visualize_loss(args):
         steps, values = zip(*metrics)
         values_mean = np.mean(values, axis=0)
 
-        ax.plot(steps[0], values_mean, label=f"loss_{stage}")
+        ax.plot(steps[0], values_mean, label=f"{args.metric_name}_{stage}")
         if args.include_std:
             values_std = np.std(values, axis=0)
             ax.fill_between(
