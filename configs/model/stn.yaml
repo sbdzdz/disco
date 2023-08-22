@@ -1,0 +1,7 @@
+name: stn
+gamma: 0.5
+factors_to_regress:
+ - orientation
+ - scale
+ - position_x
+ - position_y

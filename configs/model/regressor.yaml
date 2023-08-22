@@ -1,0 +1,6 @@
+name: regressor
+factors_to_regress:
+ - orientation
+ - scale
+ - position_x
+ - position_y

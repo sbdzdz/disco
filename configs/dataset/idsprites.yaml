@@ -1,0 +1,6 @@
+name: idsprites
+batch_size: 512
+factor_resolution: 16
+img_size: 128
+num_workers: 16
+tasks: 16

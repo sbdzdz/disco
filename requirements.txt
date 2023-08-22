@@ -1,7 +1,9 @@
+hydra-core
 imageio
 lightning
 matplotlib
 numpy
+omegaconf
 opencv-python
 pillow
 pytest
