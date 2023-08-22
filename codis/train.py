@@ -99,20 +99,25 @@ def build_model_and_callbacks(cfg: DictConfig, exemplars: list):
     elif cfg.model.name == "stn":
         model = SpatialTransformer(
             img_size=cfg.dataset.img_size,
+            in_channels=cfg.dataset.num_channels,
+            channels=cfg.model.channels,
+            gamma=cfg.model.gamma,
             lr=cfg.training.lr,
             factors_to_regress=cfg.model.factors_to_regress,
-            gamma=cfg.model.gamma,
         )
     elif cfg.model.name == "stn_gf":
         model = SpatialTransformerGF(
             img_size=cfg.dataset.img_size,
-            lr=cfg.training.lr,
-            factors_to_regress=cfg.model.factors_to_regress,
+            in_channels=cfg.dataset.num_channels,
+            channels=cfg.model.channels,
             gamma=cfg.model.gamma,
+            lr=cfg.training.lr,
         )
     elif cfg.model.name == "regressor":
         model = LatentRegressor(
             img_size=cfg.dataset.img_size,
+            in_channels=cfg.dataset.num_channels,
+            channels=cfg.model.channels,
             lr=cfg.training.lr,
             factors_to_regress=cfg.model.factors_to_regress,
         )
