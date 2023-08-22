@@ -1,0 +1,1 @@
+srun --gres=gpu:1 --job-name "codis" --ntasks=1 --nodes=1 --time 12:00:00 --pty bash
