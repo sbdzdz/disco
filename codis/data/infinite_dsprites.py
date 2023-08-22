@@ -48,6 +48,7 @@ class InfiniteDSprites(IterableDataset):
         position_y_range=None,
         dataset_size: int = None,
         shapes: list = None,
+        shape_ids: list = None,
         orientation_marker: bool = True,
         bg_color="darkgray",
     ):
@@ -62,6 +63,7 @@ class InfiniteDSprites(IterableDataset):
                 the number of images generated.
             shapes: The number of shapes to generate or a list of shapes to use. Set
                 to None to generate random shapes forever.
+            shape_ids: The IDs of the shapes. If None, the shape ID is set to its index.
             orientation_marker: Whether to draw stripes indicating the orientation of the shape.
         Returns:
             None
@@ -86,11 +88,19 @@ class InfiniteDSprites(IterableDataset):
         self.num_latents = len(self.ranges) + 1
         self.dataset_size = dataset_size
         self.counter = 0
-        self.current_shape_id = 0
+        self.current_shape_index = 0
         self.shapes = shapes
+        self.shape_ids = shape_ids
         self.orientation_marker = orientation_marker
         self.bg_color = tuple(int(255 * c) for c in colors.to_rgb(bg_color))
         self.scale_factor = 0.45
+
+    @property
+    def current_shape_id(self):
+        """Return the ID of the current shape."""
+        if self.shape_ids is None:
+            return self.current_shape_index
+        return self.shape_ids[self.current_shape_index]
 
     @classmethod
     def from_config(cls, config: dict):
@@ -114,14 +124,14 @@ class InfiniteDSprites(IterableDataset):
             if self.shapes is None:
                 shape = self.generate_shape()  # infinite variant
             elif isinstance(self.shapes, list):
-                if self.current_shape_id >= len(self.shapes):
+                if self.current_shape_index >= len(self.shapes):
                     return
-                shape = self.shapes[self.current_shape_id]
+                shape = self.shapes[self.current_shape_index]
             elif isinstance(self.shapes, int):
-                if self.current_shape_id >= self.shapes:
+                if self.current_shape_index >= self.shapes:
                     return
                 shape = self.generate_shape()
-            self.current_shape_id += 1
+            self.current_shape_index += 1
 
             for color, scale, orientation, position_x, position_y in product(
                 *self.ranges.values()
@@ -427,11 +437,14 @@ class RandomDSprites(InfiniteDSprites):
         while self.dataset_size is None or self.counter < self.dataset_size:
             self.counter += 1
             if self.shapes is not None:
-                shape_id = np.random.choice(len(self.shapes))
-                shape = self.shapes[shape_id]
+                index = np.random.choice(len(self.shapes))
+                self.current_shape_index = index
+                shape = self.shapes[index]
             else:
                 shape = self.generate_shape()
-            latents = self.sample_latents()._replace(shape=shape, shape_id=shape_id)
+            latents = self.sample_latents()._replace(
+                shape=shape, shape_id=self.current_shape_id
+            )
             image = self.draw(latents)
             yield image, latents
 

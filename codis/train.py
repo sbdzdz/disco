@@ -1,4 +1,6 @@
 """Training script."""
+from itertools import izip_longest
+
 import hydra
 import numpy as np
 import torch
@@ -28,21 +30,32 @@ torch.set_float32_matmul_precision("medium")
 @hydra.main(config_path="../configs", config_name="main")
 def train(cfg: DictConfig) -> None:
     """Train the model in a continual learning setting."""
-    shapes = [InfiniteDSprites().generate_shape() for _ in range(cfg.dataset.tasks)]
+    shapes = [
+        InfiniteDSprites().generate_shape()
+        for _ in range(cfg.dataset.tasks * cfg.dataset.shapes_per_task)
+    ]
+    shape_ids = range(len(shapes))
     exemplars = generate_exemplars(shapes, img_size=cfg.dataset.img_size)
     model, callbacks = build_model_and_callbacks(cfg, exemplars)
     trainer = build_trainer(cfg, callbacks=callbacks)
 
     if cfg.training.mode == "continual":
         test_loaders = []
-        for train_task_id, (shape, exemplar) in enumerate(zip(shapes, exemplars)):
+        for task_id, (task_shapes, task_shape_ids, task_exemplars) in enumerate(
+            zip(
+                grouper(cfg.dataset.shapes_per_task, shapes),
+                grouper(cfg.dataset.shapes_per_task, shape_ids),
+                grouper(cfg.dataset.shapes_per_task, exemplars),
+            )
+        ):
             train_loader, val_loader, test_loader = build_continual_data_loaders(
-                cfg, shape
+                cfg, task_shapes, task_shape_ids
             )
             test_loaders.append(test_loader)
-            model.task_id = train_task_id
+            model.task_id = task_id
             if model.has_buffer:
-                model.add_exemplar(exemplar)
+                for exemplar in task_exemplars:
+                    model.add_exemplar(exemplar)
             trainer.fit(model, train_loader, val_loader)
             trainer.fit_loop.max_epochs += cfg.training.max_epochs
             for test_task_id, test_loader in enumerate(test_loaders):
@@ -57,6 +70,12 @@ def train(cfg: DictConfig) -> None:
         trainer.fit(model, train_loader, val_loader)
         trainer.test(model, test_loader)
     wandb.finish()
+
+
+def grouper(n, iterable):
+    "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return (list(group) for group in izip_longest(*args))
 
 
 def generate_exemplars(shapes, img_size):
@@ -136,7 +155,7 @@ def build_trainer(cfg: DictConfig, callbacks=None):
     )
 
 
-def build_continual_data_loaders(cfg: DictConfig, shapes: list):
+def build_continual_data_loaders(cfg: DictConfig, shapes: list, shape_ids: list):
     """Build data loaders for a class-incremental continual learning scenario."""
     n = cfg.dataset.factor_resolution
     scale_range = np.linspace(0.5, 1.0, n)
@@ -147,9 +166,13 @@ def build_continual_data_loaders(cfg: DictConfig, shapes: list):
     if not isinstance(shapes, list):
         shapes = [shapes]
 
+    if not isinstance(shape_ids, list):
+        shape_ids = [shape_ids]
+
     dataset = ContinualDSpritesMap(
         img_size=cfg.dataset.img_size,
         shapes=shapes,
+        shape_ids=shape_ids,
         scale_range=scale_range,
         orientation_range=orientation_range,
         position_x_range=position_x_range,
