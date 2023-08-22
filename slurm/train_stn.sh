@@ -20,6 +20,8 @@ python -m pip install --upgrade pip setuptools
 python -m pip install -r $HOME/codis/requirements.txt
 python -m pip install -e $HOME/codis
 
+export PYTHONPATH=$PYTHONPATH:$HOME/codis
+
 srun --gres=gpu:1 python $HOME/codis/codis/train.py --wandb_dir $WORK/projects/codis/wandb --tasks 16 --log_every_n_steps 1 \
 --max_epochs 5 --num_workers 16 --img_size 128 --factor_resolution 16 --batch_size 1024 --wandb_group stn_continual --model stn --gamma 0.5 \
 --factors_to_regress orientation scale position_x position_y --training continual
