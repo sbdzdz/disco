@@ -41,8 +41,7 @@ class ContinualModule(pl.LightningModule):
     def classify(self, x):
         """Classify the input."""
         x_hat, *_ = self(x)
-        exemplars = self._buffer
-        exemplars = torch.stack(exemplars).to(self.device)
+        exemplars = torch.stack(self._buffer).to(self.device)
         mse = F.mse_loss(x_hat.unsqueeze(1), exemplars, reduction="none")
         mse = mse.mean(dim=(2, 3, 4))
         return mse.argmin(dim=1)
@@ -136,14 +135,14 @@ class SpatialTransformer(ContinualModule):
     def test_step(self, batch, batch_idx):
         """Perform a test step."""
         loss = self._step(batch)
-        self.log_dict({f"{k}_test_task_{self.task_id}": v for k, v in loss.items()})
+        self.log_dict({f"{k}_test": v for k, v in loss.items()})
         return loss["loss"]
 
     def _step(self, batch):
         """Perform a training or validation step."""
         x, y = batch
         x_hat, theta_hat = self.forward(x)
-        exemplars = torch.stack([self._buffer[i] for i in y.shape_id])
+        exemplars = torch.stack([self._buffer[i] for i in y.shape_id]).to(self.device)
         theta = self.convert_parameters_to_matrix(y)
         regression_loss = F.mse_loss(theta, theta_hat)
         backbone_loss = F.mse_loss(exemplars, x_hat)
