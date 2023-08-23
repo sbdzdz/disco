@@ -19,7 +19,7 @@ class VisualizationCallback(Callback):
     ) -> None:
         """Show the exemplars and the corresponding reconstructions."""
         self.log_reconstructions(
-            pl_module, self._random_images, "reconstructions_canonical"
+            pl_module, self._canonical_images, "reconstructions_canonical"
         )
         self.log_reconstructions(
             pl_module, self._random_images, "reconstructions_random"
