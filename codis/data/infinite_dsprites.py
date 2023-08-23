@@ -384,9 +384,15 @@ class InfiniteDSprites(IterableDataset):
 
     def sample_latents(self):
         """Sample a random set of latents."""
+        if self.shapes is not None:
+            index = np.random.choice(len(self.shapes))
+            self.current_shape_index = index
+            shape = self.shapes[index]
+        else:
+            shape = self.generate_shape()
         return Latents(
             color=np.array(colors.to_rgb(np.random.choice(self.ranges["color"]))),
-            shape=self.generate_shape(),
+            shape=shape,
             shape_id=None,
             scale=np.random.choice(self.ranges["scale"]),
             orientation=np.random.choice(self.ranges["orientation"]),
