@@ -78,7 +78,7 @@ def train(cfg: DictConfig) -> None:
     wandb.finish()
 
 
-def generate_canonical_images(shapes, img_size):
+def generate_canonical_images(shapes, img_size, n=25):
     """Generate a batch of exemplars for visualization."""
     dataset = InfiniteDSprites(img_size=img_size)
     batch = [
@@ -93,15 +93,15 @@ def generate_canonical_images(shapes, img_size):
                 position_y=0.5,
             )
         )
-        for shape in shapes
+        for shape in shapes[:n]
     ]
     return torch.stack([torch.from_numpy(img) for img in batch])
 
 
-def generate_random_images(n, shapes, img_size):
+def generate_random_images(shapes, img_size, n=25):
     """Generate a batch of images for visualization."""
     dataset = InfiniteDSprites(img_size=img_size, shapes=shapes)
-    batch = [dataset.draw(dataset.sample_latents()) for _ in n]
+    batch = [dataset.draw(dataset.sample_latents()) for _ in range(n)]
     return torch.stack([torch.from_numpy(img) for img in batch])
 
 
@@ -163,14 +163,14 @@ def build_model(cfg: DictConfig):
     return model
 
 
-def build_callbacks(cfg: DictConfig, exemplars: list):
+def build_callbacks(cfg: DictConfig, canonical_images: list, random_images: list):
     """Prepare the appropriate callbacks."""
     callbacks = []
     callback_names = cfg.model.callbacks
     if "logging" in callback_names:
         callbacks.append(LoggingCallback())
     if "visualization" in callback_names:
-        callbacks.append(VisualizationCallback(exemplars))
+        callbacks.append(VisualizationCallback(canonical_images, random_images))
     return callbacks
 
 
