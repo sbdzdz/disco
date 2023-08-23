@@ -35,9 +35,10 @@ def train(cfg: DictConfig) -> None:
         for _ in range(cfg.dataset.tasks * cfg.dataset.shapes_per_task)
     ]
     shape_ids = range(len(shapes))
-    exemplars = generate_exemplars(shapes, img_size=cfg.dataset.img_size)
     model = build_model(cfg)
-    callbacks = build_callbacks(cfg, exemplars)
+    canonical_images = generate_canonical_images(shapes, img_size=cfg.dataset.img_size)
+    random_images = generate_random_images(shapes, img_size=cfg.dataset.img_size)
+    callbacks = build_callbacks(cfg, canonical_images, random_images)
     trainer = build_trainer(cfg, callbacks=callbacks)
 
     if cfg.training.mode == "continual":
@@ -46,7 +47,7 @@ def train(cfg: DictConfig) -> None:
             zip(
                 grouper(cfg.dataset.shapes_per_task, shapes),
                 grouper(cfg.dataset.shapes_per_task, shape_ids),
-                grouper(cfg.dataset.shapes_per_task, exemplars),
+                grouper(cfg.dataset.shapes_per_task, canonical_images),
             )
         ):
             train_dataset, val_dataset, test_dataset = build_continual_datasets(
@@ -69,12 +70,39 @@ def train(cfg: DictConfig) -> None:
     elif cfg.training.mode == "joint":
         model.task_id = 0
         if model.has_buffer:
-            for exemplar in exemplars:
+            for exemplar in canonical_images:
                 model.add_exemplar(exemplar)
         train_loader, val_loader, test_loader = build_joint_data_loaders(cfg, shapes)
         trainer.fit(model, train_loader, val_loader)
         trainer.test(model, test_loader)
     wandb.finish()
+
+
+def generate_canonical_images(shapes, img_size):
+    """Generate a batch of exemplars for visualization."""
+    dataset = InfiniteDSprites(img_size=img_size)
+    batch = [
+        dataset.draw(
+            Latents(
+                color=(1.0, 1.0, 1.0),
+                shape=shape,
+                shape_id=None,
+                scale=1.0,
+                orientation=0.0,
+                position_x=0.5,
+                position_y=0.5,
+            )
+        )
+        for shape in shapes
+    ]
+    return torch.stack([torch.from_numpy(img) for img in batch])
+
+
+def generate_random_images(n, shapes, img_size):
+    """Generate a batch of images for visualization."""
+    dataset = InfiniteDSprites(img_size=img_size, shapes=shapes)
+    batch = [dataset.draw(dataset.sample_latents()) for _ in n]
+    return torch.stack([torch.from_numpy(img) for img in batch])
 
 
 def grouper(n, iterable):
@@ -97,26 +125,6 @@ def build_dataloader(cfg: DictConfig, dataset, shuffle=True):
         num_workers=cfg.dataset.num_workers,
         shuffle=shuffle,
     )
-
-
-def generate_exemplars(shapes, img_size):
-    """Generate a batch of exemplars for visualization."""
-    dataset = InfiniteDSprites(img_size=img_size)
-    batch = [
-        dataset.draw(
-            Latents(
-                color=(1.0, 1.0, 1.0),
-                shape=shape,
-                shape_id=None,
-                scale=1.0,
-                orientation=0.0,
-                position_x=0.5,
-                position_y=0.5,
-            )
-        )
-        for shape in shapes
-    ]
-    return torch.stack([torch.from_numpy(img) for img in batch])
 
 
 def build_model(cfg: DictConfig):

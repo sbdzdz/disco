@@ -9,31 +9,21 @@ from codis.utils import to_numpy
 class VisualizationCallback(Callback):
     """Callback for visualizing VAE reconstructions."""
 
-    def __init__(self, exemplars):
+    def __init__(self, canonical_images, random_images):
         super().__init__()
-        self._exemplars = exemplars
+        self._canonical_images = canonical_images
+        self._random_images = random_images
 
-    def on_validation_epoch_end(
+    def on_test_epoch_end(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
-        """Visualize the exemplars and the corresponding reconstructions."""
+        """Show the exemplars and the corresponding reconstructions."""
         self.log_reconstructions(
-            pl_module, self._exemplars, "reconstructions_exemplars"
+            pl_module, self._random_images, "reconstructions_canonical"
         )
-
-    def on_validation_batch_end(
-        self,
-        trainer: pl.Trainer,
-        pl_module: pl.LightningModule,
-        outputs,
-        batch,
-        batch_idx: int,
-        dataloader_idx: int = 0,
-    ):
-        """Visualize the first batch of the validation set and the corresponding reconstructions."""
-        if batch_idx == 0:
-            x, _ = batch
-            self.log_reconstructions(pl_module, x, "reconstructions_validation")
+        self.log_reconstructions(
+            pl_module, self._random_images, "reconstructions_random"
+        )
 
     @staticmethod
     def log_reconstructions(pl_module, x, name, max_imgs=25):
