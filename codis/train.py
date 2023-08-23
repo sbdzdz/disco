@@ -7,7 +7,7 @@ import torch
 from lightning.pytorch import Trainer
 from lightning.pytorch.loggers import WandbLogger
 from omegaconf import DictConfig
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import ConcatDataset, DataLoader, random_split
 
 import wandb
 from codis.data import (
@@ -36,11 +36,12 @@ def train(cfg: DictConfig) -> None:
     ]
     shape_ids = range(len(shapes))
     exemplars = generate_exemplars(shapes, img_size=cfg.dataset.img_size)
-    model, callbacks = build_model_and_callbacks(cfg, exemplars)
+    model = build_model(cfg)
+    callbacks = build_callbacks(cfg, exemplars)
     trainer = build_trainer(cfg, callbacks=callbacks)
 
     if cfg.training.mode == "continual":
-        test_loaders = []
+        test_datasets = []
         for task_id, (task_shapes, task_shape_ids, task_exemplars) in enumerate(
             zip(
                 grouper(cfg.dataset.shapes_per_task, shapes),
@@ -48,19 +49,23 @@ def train(cfg: DictConfig) -> None:
                 grouper(cfg.dataset.shapes_per_task, exemplars),
             )
         ):
-            train_loader, val_loader, test_loader = build_continual_data_loaders(
+            train_dataset, val_dataset, test_dataset = build_continual_datasets(
                 cfg, task_shapes, task_shape_ids
             )
-            test_loaders.append(test_loader)
+            train_loader = build_dataloader(cfg, train_dataset)
+            val_loader = build_dataloader(cfg, val_dataset)
+
+            test_datasets.append(test_dataset)
+            test_dataset = ConcatDataset(test_datasets)
+            test_loader = build_dataloader(cfg, test_dataset)
+
             model.task_id = task_id
             if model.has_buffer:
                 for exemplar in task_exemplars:
                     model.add_exemplar(exemplar)
             trainer.fit(model, train_loader, val_loader)
             trainer.fit_loop.max_epochs += cfg.training.max_epochs
-            for test_task_id, test_loader in enumerate(test_loaders):
-                model.task_id = test_task_id
-                trainer.test(model, test_loader)
+            trainer.test(model, test_loader)
     elif cfg.training.mode == "joint":
         model.task_id = 0
         if model.has_buffer:
@@ -84,6 +89,16 @@ def grouper(n, iterable):
     return (list(group) for group in zip_longest(*args))
 
 
+def build_dataloader(cfg: DictConfig, dataset, shuffle=True):
+    """Prepare a data loader."""
+    return DataLoader(
+        dataset,
+        batch_size=cfg.dataset.batch_size,
+        num_workers=cfg.dataset.num_workers,
+        shuffle=shuffle,
+    )
+
+
 def generate_exemplars(shapes, img_size):
     """Generate a batch of exemplars for visualization."""
     dataset = InfiniteDSprites(img_size=img_size)
@@ -104,9 +119,8 @@ def generate_exemplars(shapes, img_size):
     return torch.stack([torch.from_numpy(img) for img in batch])
 
 
-def build_model_and_callbacks(cfg: DictConfig, exemplars: list):
+def build_model(cfg: DictConfig):
     """Prepare the appropriate model."""
-    callbacks = [VisualizationCallback(exemplars), LoggingCallback()]
     if cfg.model.name == "vae":
         vae = LightningBetaVAE(
             img_size=cfg.dataset.img_size,
@@ -138,7 +152,18 @@ def build_model_and_callbacks(cfg: DictConfig, exemplars: list):
         )
     else:
         raise ValueError(f"Unknown model {cfg.model.name}.")
-    return model, callbacks
+    return model
+
+
+def build_callbacks(cfg: DictConfig, exemplars: list):
+    """Prepare the appropriate callbacks."""
+    callbacks = []
+    callback_names = cfg.model.callbacks
+    if "logging" in callback_names:
+        callbacks.append(LoggingCallback())
+    if "visualization" in callback_names:
+        callbacks.append(VisualizationCallback(exemplars))
+    return callbacks
 
 
 def build_trainer(cfg: DictConfig, callbacks=None):
@@ -157,7 +182,7 @@ def build_trainer(cfg: DictConfig, callbacks=None):
     )
 
 
-def build_continual_data_loaders(cfg: DictConfig, shapes: list, shape_ids: list):
+def build_continual_datasets(cfg: DictConfig, shapes: list, shape_ids: list):
     """Build data loaders for a class-incremental continual learning scenario."""
     n = cfg.dataset.factor_resolution
     scale_range = np.linspace(0.5, 1.0, n)
@@ -180,7 +205,7 @@ def build_continual_data_loaders(cfg: DictConfig, shapes: list, shape_ids: list)
         position_x_range=position_x_range,
         position_y_range=position_y_range,
     )
-    train_dataset, test_dataset, val_dataset = random_split(
+    train_dataset, val_dataset, test_dataset = random_split(
         dataset,
         [
             cfg.dataset.train_split,
@@ -188,25 +213,7 @@ def build_continual_data_loaders(cfg: DictConfig, shapes: list, shape_ids: list)
             cfg.dataset.test_split,
         ],
     )
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=cfg.dataset.batch_size,
-        num_workers=cfg.dataset.num_workers,
-        shuffle=True,
-    )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=cfg.dataset.batch_size,
-        num_workers=cfg.dataset.num_workers,
-    )
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=cfg.dataset.batch_size,
-        num_workers=cfg.dataset.num_workers,
-    )
-
-    return train_loader, val_loader, test_loader
+    return train_dataset, val_dataset, test_dataset
 
 
 def build_joint_data_loaders(cfg: DictConfig, shapes):
