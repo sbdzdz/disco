@@ -198,12 +198,6 @@ def build_continual_datasets(cfg: DictConfig, shapes: list, shape_ids: list):
     position_x_range = np.linspace(0, 1, n)
     position_y_range = np.linspace(0, 1, n)
 
-    if not isinstance(shapes, list):
-        shapes = [shapes]
-
-    if not isinstance(shape_ids, list):
-        shape_ids = [shape_ids]
-
     dataset = ContinualDSpritesMap(
         img_size=cfg.dataset.img_size,
         shapes=shapes,
