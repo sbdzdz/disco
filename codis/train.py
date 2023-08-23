@@ -1,5 +1,5 @@
 """Training script."""
-from itertools import izip_longest
+from itertools import zip_longest
 
 import hydra
 import numpy as np
@@ -75,7 +75,7 @@ def train(cfg: DictConfig) -> None:
 def grouper(n, iterable):
     "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
     args = [iter(iterable)] * n
-    return (list(group) for group in izip_longest(*args))
+    return (list(group) for group in zip_longest(*args))
 
 
 def generate_exemplars(shapes, img_size):
