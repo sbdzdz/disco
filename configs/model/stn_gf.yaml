@@ -1,8 +1,5 @@
 name: stn
+callbacks: [logging, visualization]
 channels: [16, 16, 32, 32, 64]
 gamma: 0.5
-factors_to_regress:
- - orientation
- - scale
- - position_x
- - position_y
+factors_to_regress: [orientation, scale, position_x, position_y]
