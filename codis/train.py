@@ -73,7 +73,13 @@ def train(cfg: DictConfig) -> None:
 
 
 def grouper(n, iterable):
-    "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
+    """Iterate in groups of n elements, e.g. grouper(3, 'ABCDEF') --> ABC DEF.
+    Args:
+        n: The number of elements per group.
+        iterable: The iterable to be grouped.
+    Returns:
+        An iterator over the groups.
+    """
     args = [iter(iterable)] * n
     return (list(group) for group in izip_longest(*args))
 
@@ -140,12 +146,8 @@ def build_trainer(cfg: DictConfig, callbacks=None):
     wandb_logger = WandbLogger(
         project="codis", save_dir=cfg.wandb.dir, group=cfg.wandb.group
     )
-    if callbacks is None:
-        callbacks = []
     return Trainer(
-        accelerator="auto",
         default_root_dir=cfg.wandb.dir,
-        devices=1,
         enable_checkpointing=False,
         enable_progress_bar=False,
         log_every_n_steps=cfg.wandb.log_every_n_steps,
@@ -178,19 +180,14 @@ def build_continual_data_loaders(cfg: DictConfig, shapes: list, shape_ids: list)
         position_x_range=position_x_range,
         position_y_range=position_y_range,
     )
-    train_dataset, test_dataset = random_split(dataset, [0.95, 0.05])
-    val_dataset, test_dataset = random_split(test_dataset, [0.5, 0.5])
-
-    if cfg.dataset.train_dataset_size is not None:
-        dataset = torch.utils.data.Subset(
-            dataset, np.random.choice(len(dataset), cfg.dataset.train_dataset_size)
-        )
-
-    if cfg.dataset.test_dataset_size is not None:
-        test_dataset = torch.utils.data.Subset(
-            test_dataset,
-            np.random.choice(len(test_dataset), cfg.dataset.test_dataset_size),
-        )
+    train_dataset, test_dataset, val_dataset = random_split(
+        dataset,
+        [
+            cfg.dataset.train_split,
+            cfg.dataset.val_split,
+            cfg.dataset.test_split,
+        ],
+    )
 
     train_loader = DataLoader(
         train_dataset,
