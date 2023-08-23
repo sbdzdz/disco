@@ -22,4 +22,4 @@ python -m pip install -e $HOME/codis
 
 export PYTHONPATH=$PYTHONPATH:$HOME/codis
 
-srun --gres=gpu:1 python $HOME/codis/codis/train.py dataset.tasks=1000 dataset.batch_size=512 dataset.factor_resolution=16 dataset.shapes_per_task=1 wandb.group=stn_long_1 training.max_epochs=5 model=stn model.callbacks=[logging]
+srun --gres=gpu:1 python $HOME/codis/codis/train.py dataset.tasks=1000 dataset.batch_size=512 dataset.factor_resolution=16 dataset.shapes_per_task=10 wandb.group=stn_long_10 training.max_epochs=5 model=stn
