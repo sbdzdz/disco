@@ -131,7 +131,6 @@ class InfiniteDSprites(IterableDataset):
                 if self.current_shape_index >= self.shapes:
                     return
                 shape = self.generate_shape()
-            self.current_shape_index += 1
 
             for color, scale, orientation, position_x, position_y in product(
                 *self.ranges.values()
@@ -151,6 +150,7 @@ class InfiniteDSprites(IterableDataset):
                 )
                 img = self.draw(latents)
                 yield img, latents
+            self.current_shape_index += 1
 
     def generate_shape(self):
         """Generate random vertices and connect them with straight lines or a smooth curve.
