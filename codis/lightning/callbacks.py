@@ -29,17 +29,6 @@ class VisualizationCallback(Callback):
             pl_module, self._random_images, "reconstructions_random"
         )
 
-    @staticmethod
-    def log_reconstructions(pl_module, x, name, max_imgs=25):
-        """Log images and reconstructions"""
-        pl_module.eval()
-        x_hat, *_ = pl_module(x.to(pl_module.device))
-        images = draw_batch_and_reconstructions(
-            to_numpy(x[:max_imgs]), to_numpy(x_hat[:max_imgs])
-        )
-        pl_module.logger.log_image(name, images=[images])
-        pl_module.train()
-
     def on_train_batch_end(
         self,
         trainer: pl.Trainer,
@@ -51,6 +40,17 @@ class VisualizationCallback(Callback):
     ) -> None:
         if batch_idx == 0:
             self.log_classification(pl_module, batch, "classification")
+
+    @staticmethod
+    def log_reconstructions(pl_module, x, name, max_imgs=25):
+        """Log images and reconstructions"""
+        pl_module.eval()
+        x_hat, *_ = pl_module(x.to(pl_module.device))
+        images = draw_batch_and_reconstructions(
+            to_numpy(x[:max_imgs]), to_numpy(x_hat[:max_imgs])
+        )
+        pl_module.logger.log_image(name, images=[images])
+        pl_module.train()
 
     @staticmethod
     def log_classification(pl_module, batch, name, max_imgs=20):
