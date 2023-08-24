@@ -4,13 +4,10 @@ from typing import List, Optional
 import lightning.pytorch as pl
 import torch
 import torch.nn.functional as F
-from torchmetrics import R2Score
 
 from codis.models import MLP, BetaVAE
 from codis.models.blocks import Encoder
-from codis.utils import to_numpy
 from codis.data import Latents
-from codis.visualization import draw_batch_and_reconstructions
 
 # pylint: disable=arguments-differ,unused-argument,too-many-ancestors
 
