@@ -58,7 +58,7 @@ def train(cfg: DictConfig) -> None:
 
             test_datasets.append(test_dataset)
             test_dataset = ConcatDataset(test_datasets)
-            test_loader = build_dataloader(cfg, test_dataset, shuffle=False)
+            test_loader = build_dataloader(cfg, test_dataset)  # shuffle for vis
 
             model.task_id = task_id
             for exemplar in task_exemplars:

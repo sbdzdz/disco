@@ -29,7 +29,7 @@ class VisualizationCallback(Callback):
             pl_module, self._random_images, "reconstructions_random"
         )
 
-    def on_train_batch_end(
+    def on_test_batch_end(
         self,
         trainer: pl.Trainer,
         pl_module: pl.LightningModule,
