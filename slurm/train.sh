@@ -22,5 +22,5 @@ python -m pip install -e $HOME/codis
 
 export PYTHONPATH=$PYTHONPATH:$HOME/codis
 
-srun --gres=gpu:1 python $HOME/codis/codis/train.py wandb.group=stn_long_1 training.max_epochs=5 model=stn \
+srun --gres=gpu:1 python $HOME/codis/codis/train.py wandb.group=stn_classification_10 training.max_epochs=10 model=stn \
  dataset.tasks=1000 dataset.batch_size=512 dataset.factor_resolution=16 dataset.shapes_per_task=10 dataset.train_split=649000 dataset.val_split=5360 dataset.test_split=1000
