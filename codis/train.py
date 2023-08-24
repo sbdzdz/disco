@@ -54,11 +54,11 @@ def train(cfg: DictConfig) -> None:
                 cfg, task_shapes, task_shape_ids
             )
             train_loader = build_dataloader(cfg, train_dataset)
-            val_loader = build_dataloader(cfg, val_dataset)
+            val_loader = build_dataloader(cfg, val_dataset, shuffle=False)
 
             test_datasets.append(test_dataset)
             test_dataset = ConcatDataset(test_datasets)
-            test_loader = build_dataloader(cfg, test_dataset)
+            test_loader = build_dataloader(cfg, test_dataset, shuffle=False)
 
             model.task_id = task_id
             if model.has_buffer:
