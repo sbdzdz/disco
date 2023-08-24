@@ -9,8 +9,6 @@ from codis.models import MLP, BetaVAE
 from codis.models.blocks import Encoder
 from codis.data import Latents
 
-# pylint: disable=arguments-differ,unused-argument,too-many-ancestors
-
 
 class ContinualModule(pl.LightningModule):
     """A base class for continual learning modules."""

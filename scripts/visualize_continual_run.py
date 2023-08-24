@@ -175,7 +175,6 @@ def visualize_vae_run(args):
     with tqdm(total=length) as progress_bar:
 
         def callback(current_frame: int, total_frames: int) -> None:
-            # pylint: disable=unused-argument
             progress_bar.update(1)
 
         animation.save(
