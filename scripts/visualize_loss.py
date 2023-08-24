@@ -18,11 +18,15 @@ def visualize_loss(args):
     runs = api.runs(
         args.wandb_entity, filters={"group": args.wandb_group, "state": "finished"}
     )
+    if len(runs) == 0:
+        raise ValueError("No matching runs found.")
 
     stages = ["val", "train"]
     if args.include_test:
-        stages.extend([f"test_task_{i}" for i in range(runs[0].config["tasks"])])
-
+        if args.test_per_task:
+            stages.extend([f"test_task_{i}" for i in range(runs[0].config["tasks"])])
+        else:
+            stages.extend(["test"])
     plt.style.use("ggplot")
     _, ax = plt.subplots(figsize=(20, 9), layout="tight")
     for stage in stages:
@@ -127,6 +131,11 @@ def _main():
     )
     parser.add_argument(
         "--include_test", action="store_true", help="Include test losses in the plot."
+    )
+    parser.add_argument(
+        "--test_per_task",
+        action="store_true",
+        help="Plot test losses per task instead of aggregated.",
     )
     parser.add_argument(
         "--include_std", action="store_true", help="Visualize standard deviation."
