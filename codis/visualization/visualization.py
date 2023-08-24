@@ -96,8 +96,8 @@ def draw_batch_and_reconstructions(
     num_images = min(img.shape[0], num_images)
     if img.ndim == 4:
         image_arrays = [np.transpose(img, (0, 2, 3, 1)) for img in image_arrays]
-    ncols = int(np.ceil(np.sqrt(num_images)))
-    nrows = int(np.ceil(num_images / ncols))
+    nrows = int(np.ceil(np.sqrt(num_images)))
+    ncols = int(np.ceil(num_images / nrows))
 
     fig, axes = plt.subplots(
         nrows,
