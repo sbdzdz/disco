@@ -61,9 +61,8 @@ def train(cfg: DictConfig) -> None:
             test_loader = build_dataloader(cfg, test_dataset, shuffle=False)
 
             model.task_id = task_id
-            if model.has_buffer:
-                for exemplar in task_exemplars:
-                    model.add_exemplar(exemplar)
+            for exemplar in task_exemplars:
+                model.add_exemplar(exemplar)
             trainer.fit(model, train_loader, val_loader)
             trainer.fit_loop.max_epochs += cfg.training.max_epochs
             trainer.test(model, test_loader)
