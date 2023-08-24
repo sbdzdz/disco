@@ -26,7 +26,7 @@ class ContinualModule(pl.LightningModule):
         self.factors_to_regress = factors_to_regress
         self.num_factors = len(self.factors_to_regress)
         self._task_id = None
-        self.has_buffer = False
+        self._buffer = []
 
     @property
     def task_id(self):
@@ -37,6 +37,10 @@ class ContinualModule(pl.LightningModule):
     def task_id(self, value):
         """Set the current train task id."""
         self._task_id = value
+
+    def add_exemplar(self, exemplar):
+        """Add an exemplar to the buffer."""
+        self._buffer.append(exemplar)
 
     def classify(self, x):
         """Classify the input."""
@@ -78,28 +82,20 @@ class SpatialTransformer(ContinualModule):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.has_buffer = True
 
         if channels is None:
             channels = [16, 16, 32, 32, 64]
         self.encoder = Encoder(channels, in_channels)
         self.encoder_output_dim = (img_size // 2 ** len(channels)) ** 2 * channels[-1]
-
-        # build the regressor and initialize its weights to the identity transform
         self.regressor = MLP(
             dims=[self.encoder_output_dim, 64, 32, 6],
         )
+        # initialize the regressor to the identity transform
         self.regressor.model[-1].weight.data.zero_()
         self.regressor.model[-1].bias.data.copy_(
             torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float)
         )
         self.gamma = gamma
-
-        self._buffer = []
-
-    def add_exemplar(self, exemplar):
-        """Add an exemplar to the buffer."""
-        self._buffer.append(exemplar)
 
     def configure_optimizers(self):
         """Configure the optimizers."""
@@ -124,19 +120,19 @@ class SpatialTransformer(ContinualModule):
         """Perform a training step."""
         loss = self._step(batch)
         self.log_dict({f"{k}_train": v for k, v in loss.items()})
-        return loss["loss"]
+        return loss
 
     def validation_step(self, batch, batch_idx):
         """Perform a validation step."""
         loss = self._step(batch)
         self.log_dict({f"{k}_val": v for k, v in loss.items()})
-        return loss["loss"]
+        return loss
 
     def test_step(self, batch, batch_idx):
         """Perform a test step."""
         loss = self._step(batch)
         self.log_dict({f"{k}_test": v for k, v in loss.items()})
-        return loss["loss"]
+        return loss
 
     def _step(self, batch):
         """Perform a training or validation step."""
@@ -150,6 +146,7 @@ class SpatialTransformer(ContinualModule):
             "regression_loss": regression_loss,
             "backbone_loss": backbone_loss,
             "loss": self.gamma * regression_loss + (1 - self.gamma) * backbone_loss,
+            "accuracy": (self.classify(x) == y.shape_id).float().mean(),
         }
 
     def convert_parameters_to_matrix(self, factors):
@@ -241,6 +238,7 @@ class SpatialTransformerGF(SpatialTransformer):
                 torch.stack([y_hat.position_x, y_hat.position_y], dim=1),
             ),
             "loss": self.gamma * regression_loss + (1 - self.gamma) * backbone_loss,
+            "accuracy": (self.classify(x) == y.shape_id).float().mean(),
         }
 
 
@@ -250,20 +248,15 @@ class SupervisedVAE(ContinualModule):
     def __init__(
         self,
         vae: pl.LightningModule,
-        regressor: pl.LightningModule = None,
         gamma: float = 0.5,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.backbone = vae
         self.gamma = gamma
-        if regressor is None:
-            regressor = LightningMLP(
-                dims=[self.backbone.latent_dim, 64, 64, len(self.factors_to_regress)],
-            )
-        self.regressor = regressor
-        self.r2_score = R2Score(num_outputs=self.regressor.model.dims[-1])
-        self.has_buffer = False
+        self.regressor = LightningMLP(
+            dims=[self.backbone.latent_dim, 64, 64, len(self.factors_to_regress)],
+        )
 
     def configure_optimizers(self):
         """Configure the optimizers."""
@@ -283,52 +276,32 @@ class SupervisedVAE(ContinualModule):
         """Perform a training step."""
         loss, _ = self._step(batch)
         self.log_dict({f"{k}_train": v for k, v in loss.items()})
-        return loss["loss"]
+        return loss
 
     def validation_step(self, batch, batch_idx):
         """Perform a validation step."""
-        loss, metrics = self._step(batch)
-        self.log_dict({f"{k}_val": v for k, v in loss.items()}, on_epoch=True)
-        self.log("r2_score_val", metrics["r2_score"], on_epoch=True)
-        return loss["loss"]
+        loss = self._step(batch)
+        self.log_dict({f"{k}_val": v for k, v in loss.items()})
+        return loss
 
     def test_step(self, batch, batch_idx):
         """Perform a test step."""
-        loss, metrics = self._step(batch)
-        self.log_dict(
-            {f"{k}_test_task_{self.task_id}": v for k, v in loss.items()},
-            on_epoch=True,
-        )
-        self.log_dict(
-            {f"{k}_test_task_{self.task_id}": v for k, v in metrics.items()},
-            on_epoch=True,
-        )
-        return loss["loss"]
+        loss = self._step(batch)
+        self.log_dict({f"{k}_test": v for k, v in loss.items()})
+        return loss
 
     def _step(self, batch):
         """Perform a training or validation step."""
         x, y = batch
         y = self._stack_factors(y)
         x_hat, mu, log_var, y_hat = self.forward(x)
-        metrics = self._calculate_metrics(y, y_hat)
         regressor_loss = self.regressor.loss_function(y, y_hat)["loss"]
         backbone_loss = self.backbone.loss_function(x, x_hat, mu, log_var)["loss"]
-        loss = {
+        return {
             "regression_loss": regressor_loss,
             "backbone_loss": backbone_loss,
             "loss": self.gamma * regressor_loss + (1 - self.gamma) * backbone_loss,
-        }
-        return loss, metrics
-
-    def _calculate_metrics(self, y, y_hat):
-        y = self._unstack_factors(y)
-        y_hat = self._unstack_factors(y_hat)
-        return {
-            "r2_score": self.r2_score(y, y_hat),
-            "r2_score_orientation": self.r2_score(y.orientation, y_hat.orientation),
-            "r2_score_scale": self.r2_score(y.scale, y_hat.scale),
-            "r2_score_position_x": self.r2_score(y.position_x, y_hat.position_x),
-            "r2_score_position_y": self.r2_score(y.position_y, y_hat.position_y),
+            "accuracy": (self.classify(x) == y.shape_id).float().mean(),
         }
 
 
@@ -360,45 +333,38 @@ class LightningBetaVAE(pl.LightningModule):
         """Dimensionality of the latent space."""
         return self.model.latent_dim
 
+    def configure_optimizers(self):
+        """Initialize the optimizer."""
+        return torch.optim.Adam(self.parameters(), lr=self.lr)
+
     def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
         """Perform the forward pass."""
         return self.model(x)
-
-    def loss_function(self, *args, **kwargs):
-        """Calculate the loss."""
-        return self.model.loss_function(*args, **kwargs)
 
     def training_step(self, batch, batch_idx):
         # sourcery skip: class-extract-method
         """Perform a training step."""
         loss = self._step(batch)
-        self.log_dict({f"{k}_vae_train": v for k, v in loss.items()})
-        return loss["loss"]
+        self.log_dict({f"{k}_train": v for k, v in loss.items()})
+        return loss
 
     def validation_step(self, batch, batch_idx):
         """Perform a validation step."""
         loss = self._step(batch)
-        self.log_dict({f"{k}_vae_val": v for k, v in loss.items()})
-        if batch_idx == 0:
-            x, _ = batch
-            self._log_reconstructions(x)
-        return loss["loss"]
+        self.log_dict({f"{k}_val": v for k, v in loss.items()})
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        """Perform a validation step."""
+        loss = self._step(batch)
+        self.log_dict({f"{k}_test": v for k, v in loss.items()})
+        return loss
 
     def _step(self, batch):
         """Perform a training or validation step."""
         x, _ = batch
         x_hat, mu, log_var = self.forward(x)
         return self.model.loss_function(x, x_hat, mu, log_var)
-
-    def _log_reconstructions(self, x):
-        """Log reconstructions alongside original images."""
-        x_hat, _, _ = self.forward(x)
-        reconstructions = draw_batch_and_reconstructions(to_numpy(x), to_numpy(x_hat))
-        self.logger.log_image("reconstructions", images=[reconstructions])
-
-    def configure_optimizers(self):
-        """Initialize the optimizer."""
-        return torch.optim.Adam(self.parameters(), lr=self.lr)
 
 
 class LightningMLP(pl.LightningModule):
@@ -408,6 +374,10 @@ class LightningMLP(pl.LightningModule):
         super().__init__()
         self.model = MLP(dims, dropout_rate)
         self.lr = lr
+
+    def configure_optimizers(self):
+        """Initialize the optimizer."""
+        return torch.optim.Adam(self.parameters(), lr=self.lr)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Perform the forward pass."""
@@ -423,7 +393,3 @@ class LightningMLP(pl.LightningModule):
         loss = self.model.loss_function(batch, x_hat)
         self.log(**{f"{k}_mlp_train": v for k, v in loss.items()})
         return loss["loss"]
-
-    def configure_optimizers(self):
-        """Initialize the optimizer."""
-        return torch.optim.Adam(self.parameters(), lr=self.lr)
