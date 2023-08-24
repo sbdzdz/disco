@@ -53,14 +53,17 @@ class VisualizationCallback(Callback):
             self.log_classification(pl_module, batch, "classification")
 
     @staticmethod
-    def log_classification(pl_module, batch, name, max_imgs=25):
-        x, y = batch
+    def log_classification(pl_module, batch, name, max_imgs=20):
         pl_module.eval()
+        x, y = batch
+        x, y = x.to(pl_module.device), y.to(pl_module.device)
+        x_hat, *_ = pl_module(x)
         labels = pl_module.classify(x)
         closest = torch.stack([pl_module._buffer[i] for i in labels])
         actual = torch.stack([pl_module._buffer[i] for i in y.shape_id])
         images = draw_batch_and_reconstructions(
             to_numpy(x[:max_imgs]),
+            to_numpy(x_hat[:max_imgs]),
             to_numpy(actual[:max_imgs]),
             to_numpy(closest[:max_imgs]),
         )
