@@ -1,11 +1,13 @@
 """Lightning callbacks."""
 from typing import Any, Optional
-import lightning.pytorch as pl
-from lightning.pytorch.utilities.types import STEP_OUTPUT
-from lightning.pytorch.callbacks import Callback
 
-from codis.visualization import draw_batch_and_reconstructions
+import lightning.pytorch as pl
+import torch
+from lightning.pytorch.callbacks import Callback
+from lightning.pytorch.utilities.types import STEP_OUTPUT
+
 from codis.utils import to_numpy
+from codis.visualization import draw_batch_and_reconstructions
 
 
 class VisualizationCallback(Callback):
@@ -48,15 +50,15 @@ class VisualizationCallback(Callback):
         dataloader_idx: int = 0,
     ) -> None:
         if batch_idx == 0:
-            self.log_classifications(pl_module, batch, "classification")
+            self.log_classification(pl_module, batch, "classification")
 
     @staticmethod
     def log_classification(pl_module, batch, name, max_imgs=25):
         x, y = batch
         pl_module.eval()
         labels = pl_module.classify(x)
-        closest = [pl_module._buffer[i] for i in labels]
-        actual = [pl_module._buffer[i] for i in y.shape_ids]
+        closest = torch.stack([pl_module._buffer[i] for i in labels])
+        actual = torch.stack([pl_module._buffer[i] for i in y.shape_id])
         images = draw_batch_and_reconstructions(
             to_numpy(x[:max_imgs]),
             to_numpy(actual[:max_imgs]),
