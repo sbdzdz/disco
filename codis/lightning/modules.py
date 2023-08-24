@@ -41,7 +41,7 @@ class ContinualModule(pl.LightningModule):
         """Classify the input."""
         x_hat, *_ = self(x)
         exemplars = torch.stack(self._buffer).to(self.device)
-        mse = F.mse_loss(x_hat.unsqueeze(1), exemplars, reduction="none")
+        mse = F.mse_loss(x_hat.unsqueeze(1), exemplars.unsqueeze(0), reduction="none")
         mse = mse.mean(dim=(2, 3, 4))
         return mse.argmin(dim=1)
 
