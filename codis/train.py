@@ -77,8 +77,8 @@ def train(cfg: DictConfig) -> None:
     wandb.finish()
 
 
-def generate_canonical_images(shapes, img_size, n=25):
-    """Generate a batch of exemplars for visualization."""
+def generate_canonical_images(shapes, img_size):
+    """Generate a batch of exemplars for training and visualization."""
     dataset = InfiniteDSprites(img_size=img_size)
     batch = [
         dataset.draw(
@@ -92,7 +92,7 @@ def generate_canonical_images(shapes, img_size, n=25):
                 position_y=0.5,
             )
         )
-        for shape in shapes[:n]
+        for shape in shapes
     ]
     return torch.stack([torch.from_numpy(img) for img in batch])
 
