@@ -13,20 +13,34 @@ from codis.visualization import draw_batch_and_reconstructions
 class VisualizationCallback(Callback):
     """Callback for visualizing VAE reconstructions."""
 
-    def __init__(self, canonical_images, random_images):
+    def __init__(
+        self,
+        canonical_images,
+        random_images,
+        num_reconstructions: int = 25,
+        num_classifications: int = 15,
+    ):
         super().__init__()
         self._canonical_images = canonical_images
         self._random_images = random_images
+        self._num_reconstructions = num_reconstructions
+        self._num_classifications = num_classifications
 
     def on_test_epoch_end(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
         """Show the exemplars and the corresponding reconstructions."""
         self.log_reconstructions(
-            pl_module, self._canonical_images, "reconstructions_canonical"
+            pl_module,
+            self._canonical_images,
+            name="reconstructions_canonical",
+            num_imgs=self._num_reconstructions,
         )
         self.log_reconstructions(
-            pl_module, self._random_images, "reconstructions_random"
+            pl_module,
+            self._random_images,
+            name="reconstructions_random",
+            num_imgs=self._num_reconstructions,
         )
 
     def on_test_batch_end(
@@ -39,33 +53,38 @@ class VisualizationCallback(Callback):
         dataloader_idx: int = 0,
     ) -> None:
         if batch_idx == 0:
-            self.log_classification(pl_module, batch, "classification")
+            self.log_classification(
+                pl_module,
+                batch,
+                name="classification",
+                num_imgs=self._num_classifications,
+            )
 
     @staticmethod
-    def log_reconstructions(pl_module, x, name, max_imgs=25):
+    def log_reconstructions(pl_module, x, name, num_imgs):
         """Log images and reconstructions"""
         pl_module.eval()
+        x = x[:num_imgs]
         x_hat, *_ = pl_module(x.to(pl_module.device))
-        images = draw_batch_and_reconstructions(
-            to_numpy(x[:max_imgs]), to_numpy(x_hat[:max_imgs])
-        )
+        images = draw_batch_and_reconstructions(to_numpy(x), to_numpy(x_hat))
         pl_module.logger.log_image(name, images=[images])
         pl_module.train()
 
     @staticmethod
-    def log_classification(pl_module, batch, name, max_imgs=20):
+    def log_classification(pl_module, batch, name, num_imgs):
         pl_module.eval()
         x, y = batch
         x, y = x.to(pl_module.device), y.to(pl_module.device)
+        x = x[:num_imgs]
         x_hat, *_ = pl_module(x)
         labels = pl_module.classify(x)
         closest = torch.stack([pl_module._buffer[i] for i in labels])
-        actual = torch.stack([pl_module._buffer[i] for i in y.shape_id])
+        actual = torch.stack([pl_module._buffer[i] for i in y.shape_id[:num_imgs]])
         images = draw_batch_and_reconstructions(
-            to_numpy(x[:max_imgs]),
-            to_numpy(x_hat[:max_imgs]),
-            to_numpy(actual[:max_imgs]),
-            to_numpy(closest[:max_imgs]),
+            to_numpy(x),
+            to_numpy(x_hat),
+            to_numpy(actual),
+            to_numpy(closest),
         )
         pl_module.logger.log_image(name, images=[images])
         pl_module.train()
