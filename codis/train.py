@@ -176,7 +176,10 @@ def build_callbacks(cfg: DictConfig, canonical_images: list, random_images: list
 def build_trainer(cfg: DictConfig, callbacks=None):
     """Configure the model trainer."""
     wandb_logger = WandbLogger(
-        project="codis", save_dir=cfg.wandb.dir, group=cfg.wandb.group
+        project="codis",
+        save_dir=cfg.wandb.dir,
+        group=cfg.wandb.group,
+        mode=cfg.wandb.mode,
     )
     return Trainer(
         default_root_dir=cfg.wandb.dir,

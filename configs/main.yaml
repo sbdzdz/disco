@@ -15,6 +15,7 @@ wandb:
   project: ${project.name}
   group: null
   log_every_n_steps: 1
+  mode: online
 
 training:
   mode: continual
