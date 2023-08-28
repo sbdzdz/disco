@@ -33,6 +33,25 @@ class ContinualModule(pl.LightningModule):
         """Set the current train task id."""
         self._task_id = value
 
+    def training_step(self, batch, batch_idx):
+        """Perform a training step."""
+        loss = self._step(batch)
+        self.log_dict({f"{k}_train": v.item() for k, v in loss.items() if k != "loss"})
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        """Perform a validation step."""
+        loss = self._step(batch)
+        self.log_dict({f"{k}_val": v.item() for k, v in loss.items() if k != "loss"})
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        """Perform a test step."""
+        loss = self._step(batch)
+        self.log_dict({f"{k}_test": v.item() for k, v in loss.items() if k != loss})
+        return loss
+
+
     def add_exemplar(self, exemplar):
         """Add an exemplar to the buffer."""
         self._buffer.append(exemplar)
@@ -118,24 +137,6 @@ class SpatialTransformer(ContinualModule):
         x_hat = F.grid_sample(x, grid, padding_mode="border")
 
         return x_hat, theta
-
-    def training_step(self, batch, batch_idx):
-        """Perform a training step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_train": v.item() for k, v in loss.items()})
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        """Perform a validation step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_val": v.item() for k, v in loss.items()})
-        return loss
-
-    def test_step(self, batch, batch_idx):
-        """Perform a test step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_test": v.item() for k, v in loss.items()})
-        return loss
 
     def _step(self, batch):
         """Perform a training or validation step."""
@@ -284,24 +285,6 @@ class SupervisedVAE(ContinualModule):
         x_hat, mu, log_var = self.backbone(x)
         return x_hat, mu, log_var, self.regressor(mu)
 
-    def training_step(self, batch, batch_idx):
-        """Perform a training step."""
-        loss, _ = self._step(batch)
-        self.log_dict({f"{k}_train": v for k, v in loss.items()})
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        """Perform a validation step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_val": v for k, v in loss.items()})
-        return loss
-
-    def test_step(self, batch, batch_idx):
-        """Perform a test step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_test": v for k, v in loss.items()})
-        return loss
-
     def _step(self, batch):
         """Perform a training or validation step."""
         x, y = batch
@@ -354,25 +337,6 @@ class LightningBetaVAE(pl.LightningModule):
     def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
         """Perform the forward pass."""
         return self.model(x)
-
-    def training_step(self, batch, batch_idx):
-        # sourcery skip: class-extract-method
-        """Perform a training step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_train": v for k, v in loss.items()})
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        """Perform a validation step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_val": v for k, v in loss.items()})
-        return loss
-
-    def test_step(self, batch, batch_idx):
-        """Perform a validation step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_test": v for k, v in loss.items()})
-        return loss
 
     def _step(self, batch):
         """Perform a training or validation step."""
