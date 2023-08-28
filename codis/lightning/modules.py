@@ -122,19 +122,19 @@ class SpatialTransformer(ContinualModule):
     def training_step(self, batch, batch_idx):
         """Perform a training step."""
         loss = self._step(batch)
-        self.log_dict({f"{k}_train": v for k, v in loss.items()})
+        self.log_dict({f"{k}_train": v.item() for k, v in loss.items()})
         return loss
 
     def validation_step(self, batch, batch_idx):
         """Perform a validation step."""
         loss = self._step(batch)
-        self.log_dict({f"{k}_val": v for k, v in loss.items()})
+        self.log_dict({f"{k}_val": v.item() for k, v in loss.items()})
         return loss
 
     def test_step(self, batch, batch_idx):
         """Perform a test step."""
         loss = self._step(batch)
-        self.log_dict({f"{k}_test": v for k, v in loss.items()})
+        self.log_dict({f"{k}_test": v.item() for k, v in loss.items()})
         return loss
 
     def _step(self, batch):
@@ -145,9 +145,11 @@ class SpatialTransformer(ContinualModule):
         theta = self.convert_parameters_to_matrix(y)
         regression_loss = F.mse_loss(theta, theta_hat)
         reconstruction_loss = F.mse_loss(exemplars, x_hat)
+        accuracy = (self.classify(x) == y.shape_id).float().mean()
         return {
-            "regression_loss": regression_loss,
-            "reconstruction_loss": reconstruction_loss,
+            "accuracy": accuracy.item(),
+            "reconstruction_loss": reconstruction_loss.item(),
+            "regression_loss": regression_loss.item(),
             "loss": self.gamma * regression_loss
             + (1 - self.gamma) * reconstruction_loss,
             "accuracy": (self.classify(x) == y.shape_id).float().mean(),
@@ -232,15 +234,20 @@ class SpatialTransformerGF(SpatialTransformer):
         regression_loss = F.mse_loss(self._stack_factors(y), y_hat)
         reconstruction_loss = F.mse_loss(exemplar_tiled, x_hat)
         y_hat = self._unstack_factors(y_hat)
+        orientation_loss = F.mse_loss(y.orientation, y_hat.orientation)
+        scale_loss = F.mse_loss(y.scale, y_hat.scale)
+        position_loss = F.mse_loss(
+            torch.stack([y.position_x, y.position_y], dim=1),
+            torch.stack([y_hat.position_x, y_hat.position_y], dim=1),
+        )
+        accuracy = (self.classify(x) == y.shape_id).float().mean()
         return {
-            "regression_loss": regression_loss,
-            "reconstruction_loss": reconstruction_loss,
-            "orientation_loss": F.mse_loss(y.orientation, y_hat.orientation),
-            "scale_loss": F.mse_loss(y.scale, y_hat.scale),
-            "position_loss": F.mse_loss(
-                torch.stack([y.position_x, y.position_y], dim=1),
-                torch.stack([y_hat.position_x, y_hat.position_y], dim=1),
-            ),
+            "accuracy": accuracy.item(),
+            "orientation_loss": orientation_loss.item(),
+            "position_loss": position_loss.item(),
+            "reconstruction_loss": reconstruction_loss.item(),
+            "regression_loss": regression_loss.item(),
+            "scale_loss": scale_loss.item(),
             "loss": self.gamma * regression_loss
             + (1 - self.gamma) * reconstruction_loss,
             "accuracy": (self.classify(x) == y.shape_id).float().mean(),
@@ -302,9 +309,11 @@ class SupervisedVAE(ContinualModule):
         x_hat, mu, log_var, y_hat = self.forward(x)
         regressor_loss = self.regressor.loss_function(y, y_hat)["loss"]
         vae_loss = self.backbone.loss_function(x, x_hat, mu, log_var)["loss"]
+        accuracy = (self.classify(x) == y.shape_id).float().mean()
         return {
-            "regression_loss": regressor_loss,
-            "vae_loss": vae_loss,
+            "accuracy": accuracy.item(),
+            "regression_loss": regressor_loss.item(),
+            "vae_loss": vae_loss.item(),
             "loss": self.gamma * regressor_loss + (1 - self.gamma) * vae_loss,
             "accuracy": (self.classify(x) == y.shape_id).float().mean(),
         }
