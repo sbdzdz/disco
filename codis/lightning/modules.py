@@ -36,21 +36,20 @@ class ContinualModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         """Perform a training step."""
         loss = self._step(batch)
-        self.log_dict({f"{k}_train": v.item() for k, v in loss.items() if k != "loss"})
+        self.log_dict({f"{k}_train": v for k, v in loss.items() if k != "loss"})
         return loss
 
     def validation_step(self, batch, batch_idx):
         """Perform a validation step."""
         loss = self._step(batch)
-        self.log_dict({f"{k}_val": v.item() for k, v in loss.items() if k != "loss"})
+        self.log_dict({f"{k}_val": v for k, v in loss.items() if k != "loss"})
         return loss
 
     def test_step(self, batch, batch_idx):
         """Perform a test step."""
         loss = self._step(batch)
-        self.log_dict({f"{k}_test": v.item() for k, v in loss.items() if k != loss})
+        self.log_dict({f"{k}_test": v for k, v in loss.items() if k != loss})
         return loss
-
 
     def add_exemplar(self, exemplar):
         """Add an exemplar to the buffer."""
