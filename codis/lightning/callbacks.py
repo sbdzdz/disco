@@ -67,7 +67,7 @@ class VisualizationCallback(Callback):
         pl_module.eval()
         x = np.stack(x[:num_imgs])
         x_hat, *_ = pl_module(torch.from_numpy(x).to(pl_module.device))
-        images = draw_batch_and_reconstructions(to_numpy(x), to_numpy(x_hat))
+        images = draw_batch_and_reconstructions(x, to_numpy(x_hat))
         pl_module.logger.log_image(name, images=[images])
         pl_module.train()
 
