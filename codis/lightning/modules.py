@@ -40,10 +40,18 @@ class ContinualModule(pl.LightningModule):
     def classify(self, x):
         """Classify the input."""
         x_hat, *_ = self(x)
-        exemplars = torch.stack(self._buffer).to(self.device)
-        mse = F.mse_loss(x_hat.unsqueeze(1), exemplars.unsqueeze(0), reduction="none")
-        mse = mse.mean(dim=(2, 3, 4))
-        return mse.argmin(dim=1)
+        x_hat = x_hat.unsqueeze(1)
+        x_hat = x_hat.repeat(1, len(self._buffer), 1, 1, 1)
+
+        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer])
+        buffer = buffer.unsqueeze(0)
+        buffer = buffer.repeat(x.shape[0], 1, 1, 1, 1).to(self.device)
+
+        return (
+            F.mse_loss(x_hat, buffer, reduction="none")
+            .mean(dim=(2, 3, 4))
+            .argmin(dim=1)
+        )
 
     def _stack_factors(self, factors):
         """Stack the factors."""
