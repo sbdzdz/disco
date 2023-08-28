@@ -18,7 +18,7 @@ class VisualizationCallback(Callback):
         canonical_images,
         random_images,
         num_reconstructions: int = 25,
-        num_classifications: int = 15,
+        num_classifications: int = 12,
     ):
         super().__init__()
         self._canonical_images = canonical_images
