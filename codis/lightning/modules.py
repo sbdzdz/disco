@@ -153,7 +153,6 @@ class SpatialTransformer(ContinualModule):
             "regression_loss": regression_loss.item(),
             "loss": self.gamma * regression_loss
             + (1 - self.gamma) * reconstruction_loss,
-            "accuracy": (self.classify(x) == y.shape_id).float().mean(),
         }
 
     def convert_parameters_to_matrix(self, factors):
@@ -251,7 +250,6 @@ class SpatialTransformerGF(SpatialTransformer):
             "scale_loss": scale_loss.item(),
             "loss": self.gamma * regression_loss
             + (1 - self.gamma) * reconstruction_loss,
-            "accuracy": (self.classify(x) == y.shape_id).float().mean(),
         }
 
 
@@ -298,7 +296,6 @@ class SupervisedVAE(ContinualModule):
             "regression_loss": regressor_loss.item(),
             "vae_loss": vae_loss.item(),
             "loss": self.gamma * regressor_loss + (1 - self.gamma) * vae_loss,
-            "accuracy": (self.classify(x) == y.shape_id).float().mean(),
         }
 
 
