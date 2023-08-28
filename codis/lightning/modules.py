@@ -136,11 +136,12 @@ class SpatialTransformer(ContinualModule):
         exemplars = torch.stack([self._buffer[i] for i in y.shape_id]).to(self.device)
         theta = self.convert_parameters_to_matrix(y)
         regression_loss = F.mse_loss(theta, theta_hat)
-        backbone_loss = F.mse_loss(exemplars, x_hat)
+        reconstruction_loss = F.mse_loss(exemplars, x_hat)
         return {
             "regression_loss": regression_loss,
-            "backbone_loss": backbone_loss,
-            "loss": self.gamma * regression_loss + (1 - self.gamma) * backbone_loss,
+            "reconstruction_loss": reconstruction_loss,
+            "loss": self.gamma * regression_loss
+            + (1 - self.gamma) * reconstruction_loss,
             "accuracy": (self.classify(x) == y.shape_id).float().mean(),
         }
 
@@ -221,18 +222,19 @@ class SpatialTransformerGF(SpatialTransformer):
             self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
         )
         regression_loss = F.mse_loss(self._stack_factors(y), y_hat)
-        backbone_loss = F.mse_loss(exemplar_tiled, x_hat)
+        reconstruction_loss = F.mse_loss(exemplar_tiled, x_hat)
         y_hat = self._unstack_factors(y_hat)
         return {
             "regression_loss": regression_loss,
-            "backbone_loss": backbone_loss,
+            "reconstruction_loss": reconstruction_loss,
             "orientation_loss": F.mse_loss(y.orientation, y_hat.orientation),
             "scale_loss": F.mse_loss(y.scale, y_hat.scale),
             "position_loss": F.mse_loss(
                 torch.stack([y.position_x, y.position_y], dim=1),
                 torch.stack([y_hat.position_x, y_hat.position_y], dim=1),
             ),
-            "loss": self.gamma * regression_loss + (1 - self.gamma) * backbone_loss,
+            "loss": self.gamma * regression_loss
+            + (1 - self.gamma) * reconstruction_loss,
             "accuracy": (self.classify(x) == y.shape_id).float().mean(),
         }
 
@@ -291,11 +293,11 @@ class SupervisedVAE(ContinualModule):
         y = self._stack_factors(y)
         x_hat, mu, log_var, y_hat = self.forward(x)
         regressor_loss = self.regressor.loss_function(y, y_hat)["loss"]
-        backbone_loss = self.backbone.loss_function(x, x_hat, mu, log_var)["loss"]
+        vae_loss = self.backbone.loss_function(x, x_hat, mu, log_var)["loss"]
         return {
             "regression_loss": regressor_loss,
-            "backbone_loss": backbone_loss,
-            "loss": self.gamma * regressor_loss + (1 - self.gamma) * backbone_loss,
+            "vae_loss": vae_loss,
+            "loss": self.gamma * regressor_loss + (1 - self.gamma) * vae_loss,
             "accuracy": (self.classify(x) == y.shape_id).float().mean(),
         }
 
