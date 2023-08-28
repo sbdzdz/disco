@@ -142,7 +142,9 @@ class SpatialTransformer(ContinualModule):
         """Perform a training or validation step."""
         x, y = batch
         x_hat, theta_hat = self.forward(x)
-        exemplars = torch.stack([self._buffer[i] for i in y.shape_id]).to(self.device)
+        exemplars = torch.stack(
+            [torch.from_numpy(self._buffer[i]) for i in y.shape_id]
+        ).to(self.device)
         theta = self.convert_parameters_to_matrix(y)
         regression_loss = F.mse_loss(theta, theta_hat)
         reconstruction_loss = F.mse_loss(exemplars, x_hat)
@@ -228,11 +230,11 @@ class SpatialTransformerGF(SpatialTransformer):
         """Perform a training or validation step."""
         x, y = batch
         x_hat, y_hat = self.forward(x)
-        exemplar_tiled = (
-            self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
-        )
+        exemplars = torch.stack(
+            [torch.from_numpy(self._buffer[i]) for i in y.shape_id]
+        ).to(self.device)
         regression_loss = F.mse_loss(self._stack_factors(y), y_hat)
-        reconstruction_loss = F.mse_loss(exemplar_tiled, x_hat)
+        reconstruction_loss = F.mse_loss(exemplars, x_hat)
         y_hat = self._unstack_factors(y_hat)
         orientation_loss = F.mse_loss(y.orientation, y_hat.orientation)
         scale_loss = F.mse_loss(y.scale, y_hat.scale)

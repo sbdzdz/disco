@@ -80,7 +80,7 @@ def train(cfg: DictConfig) -> None:
 def generate_canonical_images(shapes, img_size):
     """Generate a batch of exemplars for training and visualization."""
     dataset = InfiniteDSprites(img_size=img_size)
-    batch = [
+    return [
         dataset.draw(
             Latents(
                 color=(1.0, 1.0, 1.0),
@@ -94,14 +94,12 @@ def generate_canonical_images(shapes, img_size):
         )
         for shape in shapes
     ]
-    return torch.stack([torch.from_numpy(img) for img in batch])
 
 
 def generate_random_images(shapes, img_size, n=25):
     """Generate a batch of images for visualization."""
     dataset = InfiniteDSprites(img_size=img_size, shapes=shapes)
-    batch = [dataset.draw(dataset.sample_latents()) for _ in range(n)]
-    return torch.stack([torch.from_numpy(img) for img in batch])
+    return [dataset.draw(dataset.sample_latents()) for _ in range(n)]
 
 
 def grouper(n, iterable):

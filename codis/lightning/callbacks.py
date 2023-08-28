@@ -2,6 +2,7 @@
 from typing import Any, Optional
 
 import lightning.pytorch as pl
+import numpy as np
 import torch
 from lightning.pytorch.callbacks import Callback
 from lightning.pytorch.utilities.types import STEP_OUTPUT
@@ -64,8 +65,8 @@ class VisualizationCallback(Callback):
     def log_reconstructions(pl_module, x, name, num_imgs):
         """Log images and reconstructions"""
         pl_module.eval()
-        x = x[:num_imgs]
-        x_hat, *_ = pl_module(x.to(pl_module.device))
+        x = np.stack(x[:num_imgs])
+        x_hat, *_ = pl_module(torch.from_numpy(x).to(pl_module.device))
         images = draw_batch_and_reconstructions(to_numpy(x), to_numpy(x_hat))
         pl_module.logger.log_image(name, images=[images])
         pl_module.train()
@@ -78,13 +79,13 @@ class VisualizationCallback(Callback):
         x = x[:num_imgs]
         x_hat, *_ = pl_module(x)
         labels = pl_module.classify(x)
-        closest = torch.stack([pl_module._buffer[i] for i in labels])
-        actual = torch.stack([pl_module._buffer[i] for i in y.shape_id[:num_imgs]])
+        closest = np.stack([pl_module._buffer[i] for i in labels])
+        actual = np.stack([pl_module._buffer[i] for i in y.shape_id[:num_imgs]])
         images = draw_batch_and_reconstructions(
             to_numpy(x),
             to_numpy(x_hat),
-            to_numpy(actual),
-            to_numpy(closest),
+            actual,
+            closest,
         )
         pl_module.logger.log_image(name, images=[images])
         pl_module.train()
