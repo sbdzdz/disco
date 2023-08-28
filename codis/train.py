@@ -41,8 +41,8 @@ def train(cfg: DictConfig) -> None:
     callbacks = build_callbacks(cfg, canonical_images, random_images)
     trainer = build_trainer(cfg, callbacks=callbacks)
 
+    test_dataset = None
     if cfg.training.mode == "continual":
-        test_datasets = []
         for task_id, (task_shapes, task_shape_ids, task_exemplars) in enumerate(
             zip(
                 grouper(cfg.dataset.shapes_per_task, shapes),
@@ -50,14 +50,16 @@ def train(cfg: DictConfig) -> None:
                 grouper(cfg.dataset.shapes_per_task, canonical_images),
             )
         ):
-            train_dataset, val_dataset, test_dataset = build_continual_datasets(
+            train_dataset, val_dataset, task_test_dataset = build_continual_datasets(
                 cfg, task_shapes, task_shape_ids
             )
             train_loader = build_dataloader(cfg, train_dataset)
             val_loader = build_dataloader(cfg, val_dataset, shuffle=False)
 
-            test_datasets.append(test_dataset)
-            test_dataset = ConcatDataset(test_datasets)
+            if test_dataset is None:
+                test_dataset = task_test_dataset
+            else:
+                test_dataset = ConcatDataset([test_dataset, task_test_dataset])
             test_loader = build_dataloader(cfg, test_dataset)  # shuffle for vis
 
             model.task_id = task_id
@@ -66,6 +68,7 @@ def train(cfg: DictConfig) -> None:
             trainer.fit(model, train_loader, val_loader)
             trainer.fit_loop.max_epochs += cfg.training.max_epochs
             trainer.test(model, test_loader)
+
     elif cfg.training.mode == "joint":
         model.task_id = 0
         if model.has_buffer:
