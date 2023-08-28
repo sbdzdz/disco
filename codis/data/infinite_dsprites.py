@@ -173,8 +173,8 @@ class InfiniteDSprites(IterableDataset):
         """Center and scale a shape."""
         shape = shape - shape.mean(axis=1, keepdims=True)
         _, _, w, h = cv2.boundingRect((shape * 1000).T.astype(np.int32))
-        diagonal = np.sqrt(w**2 + h**2) / 1000
-        shape = shape / diagonal
+        shape[0, :] = shape[0, :] / (w / 1000)
+        shape[1, :] = shape[1, :] / (h / 1000)
 
         transformed_shape = self.apply_scale(shape, 1)
         transformed_shape = self.apply_position(transformed_shape, 0.5, 0.5)
