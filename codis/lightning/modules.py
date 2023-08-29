@@ -2,12 +2,13 @@
 from typing import List, Optional
 
 import lightning.pytorch as pl
+import numpy as np
 import torch
 import torch.nn.functional as F
 
+from codis.data import Latents
 from codis.models import MLP, BetaVAE
 from codis.models.blocks import Encoder
-from codis.data import Latents
 
 
 class ContinualModule(pl.LightningModule):
@@ -58,18 +59,10 @@ class ContinualModule(pl.LightningModule):
     def classify(self, x):
         """Classify the input."""
         x_hat, *_ = self(x)
-        x_hat = x_hat.unsqueeze(1)
-        x_hat = x_hat.repeat(1, len(self._buffer), 1, 1, 1)
-
-        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer])
-        buffer = buffer.unsqueeze(0)
-        buffer = buffer.repeat(x.shape[0], 1, 1, 1, 1).to(self.device)
-
-        return (
-            F.mse_loss(x_hat, buffer, reduction="none")
-            .mean(dim=(2, 3, 4))
-            .argmin(dim=1)
-        )
+        x_hat = np.expand_dims(x_hat.detach().cpu().numpy(), axis=1)
+        buffer = np.stack(self._buffer)
+        buffer = np.expand_dims(buffer, axis=0)
+        return np.mean(np.square(x_hat - buffer), axis=(2, 3, 4)).argmin(axis=1)
 
     def _stack_factors(self, factors):
         """Stack the factors."""
@@ -147,9 +140,10 @@ class SpatialTransformer(ContinualModule):
         theta = self.convert_parameters_to_matrix(y)
         regression_loss = F.mse_loss(theta, theta_hat)
         reconstruction_loss = F.mse_loss(exemplars, x_hat)
-        accuracy = (self.classify(x) == y.shape_id).float().mean()
+        predicted = self.classify(x)
+        actual = y.shape_id.detach().cpu().numpy()
         return {
-            "accuracy": accuracy.item(),
+            "accuracy": (predicted == actual).mean(),
             "reconstruction_loss": reconstruction_loss.item(),
             "regression_loss": regression_loss.item(),
             "loss": self.gamma * regression_loss
@@ -241,9 +235,10 @@ class SpatialTransformerGF(SpatialTransformer):
             torch.stack([y.position_x, y.position_y], dim=1),
             torch.stack([y_hat.position_x, y_hat.position_y], dim=1),
         )
-        accuracy = (self.classify(x) == y.shape_id).float().mean()
+        predicted = self.classify(x)
+        actual = y.shape_id.detach().cpu().numpy()
         return {
-            "accuracy": accuracy.item(),
+            "accuracy": (predicted == actual).mean(),
             "orientation_loss": orientation_loss.item(),
             "position_loss": position_loss.item(),
             "reconstruction_loss": reconstruction_loss.item(),
@@ -291,9 +286,10 @@ class SupervisedVAE(ContinualModule):
         x_hat, mu, log_var, y_hat = self.forward(x)
         regressor_loss = self.regressor.loss_function(y, y_hat)["loss"]
         vae_loss = self.backbone.loss_function(x, x_hat, mu, log_var)["loss"]
-        accuracy = (self.classify(x) == y.shape_id).float().mean()
+        predicted = self.classify(x)
+        actual = y.shape_id.detach().cpu().numpy()
         return {
-            "accuracy": accuracy.item(),
+            "accuracy": (predicted == actual).mean(),
             "regression_loss": regressor_loss.item(),
             "vae_loss": vae_loss.item(),
             "loss": self.gamma * regressor_loss + (1 - self.gamma) * vae_loss,
