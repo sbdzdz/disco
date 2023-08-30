@@ -55,7 +55,7 @@ class ContinualModule(pl.LightningModule):
         """Add an exemplar to the buffer."""
         self._buffer.append(exemplar)
 
-    def classify(self, x: torch.Tensor, split_size: int = 64):
+    def classify(self, x: torch.Tensor, split_size: int = 256):
         """Classify the input."""
         x_hat, *_ = self(x)
         x_hat = x_hat.unsqueeze(1).detach()
