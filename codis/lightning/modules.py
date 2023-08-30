@@ -58,23 +58,18 @@ class ContinualModule(pl.LightningModule):
     def classify(self, x: torch.Tensor, split_size: int = 32):
         """Classify the input."""
         x_hat, *_ = self(x)
-        x_hat = x_hat.unsqueeze(1)
+        x_hat = x_hat.unsqueeze(1).detach()
         buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
             self.device
         )
-        buffer = buffer.unsqueeze(0)
+        buffer = buffer.unsqueeze(0).detach()
 
         losses = []
-        split_size = 512
         for chunk in torch.split(buffer, split_size, dim=1):
             chunk = chunk.repeat(x_hat.shape[0], 1, 1, 1, 1)
-            loss = (
-                F.mse_loss(
-                    x_hat.repeat(1, chunk.shape[1], 1, 1, 1), chunk, reduction="none"
-                )
-                .mean(dim=(2, 3, 4))
-                .detach()
-            )
+            loss = F.mse_loss(
+                x_hat.repeat(1, chunk.shape[1], 1, 1, 1), chunk, reduction="none"
+            ).mean(dim=(2, 3, 4))
             losses.append(loss)
         return torch.cat(losses, dim=1).argmin(dim=1)
 
