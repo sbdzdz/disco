@@ -9,3 +9,4 @@ tasks: 16
 train_split: 64000
 val_split: 536
 test_split: 1000
+test_dataset_size: 50000

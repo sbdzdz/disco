@@ -41,7 +41,7 @@ def train(cfg: DictConfig) -> None:
     callbacks = build_callbacks(cfg, canonical_images, random_images)
     trainer = build_trainer(cfg, callbacks=callbacks)
 
-    test_dataset = None
+    test_dataset = BalancedTestDataset(cfg.test_dataset_size)
     if cfg.training.mode == "continual":
         for task_id, (task_shapes, task_shape_ids, task_exemplars) in enumerate(
             zip(
@@ -56,10 +56,7 @@ def train(cfg: DictConfig) -> None:
             train_loader = build_dataloader(cfg, train_dataset)
             val_loader = build_dataloader(cfg, val_dataset, shuffle=False)
 
-            if test_dataset is None:
-                test_dataset = task_test_dataset
-            else:
-                test_dataset = ConcatDataset([test_dataset, task_test_dataset])
+            test_dataset.update(task_test_dataset)
             test_loader = build_dataloader(cfg, test_dataset)  # shuffle for vis
 
             model.task_id = task_id
@@ -78,6 +75,17 @@ def train(cfg: DictConfig) -> None:
         trainer.fit(model, train_loader, val_loader)
         trainer.test(model, test_loader)
     wandb.finish()
+
+
+class BalancedTestDataset:
+    def __init__(self, max_size):
+        self.max_size = max_size
+        self.dataset = None
+
+    def update(self, task_test_dataset):
+        """Class-balanced reservoir sampling."""
+        if self.dataset is None:
+            self.dataset = task_test_dataset
 
 
 def generate_canonical_images(shapes, img_size):
