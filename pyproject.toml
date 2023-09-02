@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [tool.hatch.build]
-include = ["hvae"]
+include = ["codis"]
 
 [tool.ruff]
 select = ["E", "F", "B"]
