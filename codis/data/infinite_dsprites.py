@@ -408,9 +408,9 @@ class ContinualDSpritesMap(Dataset):
         assert (
             self.dataset.dataset_size is not None or self.dataset.shapes is not None
         ), "Dataset size must be finite. Please set dataset_size or pass a list of shapes."
-        self.imgs, self.latents = zip(*list(self.dataset))
-        self.imgs = list(self.imgs)
-        self.latents = list(self.latents)
+        self.data, self.targets = zip(*list(self.dataset))
+        self.data = list(self.data)
+        self.targets = list(self.targets)
 
     def __len__(self):
         if self.dataset.dataset_size is not None:
@@ -420,7 +420,7 @@ class ContinualDSpritesMap(Dataset):
         )
 
     def __getitem__(self, index):
-        return self.imgs[index], self.latents[index]
+        return self.data[index], self.targets[index]
 
 
 class RandomDSprites(InfiniteDSprites):
