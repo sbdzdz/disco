@@ -22,3 +22,6 @@ wandb
 
 # mypy
 .mypy_cache
+
+# logs
+outputs
