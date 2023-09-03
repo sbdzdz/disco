@@ -34,11 +34,13 @@ class BalancedDataset:
                     seen = self.seen_class_counts[class_id]
                     if u <= stored / seen:
                         idx = self.get_random_instance(class_id)
-                        self.dataset.data[idx] = (img, factors)
+                        self.dataset.data[idx] = img
+                        self.dataset.targets[idx] = factors
                 else:
                     largest_class = np.random.choice(self.get_largest_classes())
                     idx = self.get_random_instance(largest_class)
-                    self.dataset.data[idx] = (img, factors)
+                    self.dataset.data[idx] = img
+                    self.dataset.targets[idx] = factors
                     self.stored_class_counts[class_id] += 1
                     self.stored_class_counts[largest_class] -= 1
                 self.seen_class_counts[class_id] += 1
