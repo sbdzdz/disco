@@ -29,7 +29,7 @@ from codis.utils import grouper
 torch.set_float32_matmul_precision("medium")
 
 
-@hydra.main(config_path="../configs", config_name="main")
+@hydra.main(config_path="../configs", config_name="main", version_base=None)
 def train(cfg: DictConfig) -> None:
     """Train the model in a continual learning setting."""
     shapes = [
