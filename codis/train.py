@@ -7,7 +7,8 @@ import torch
 from lightning.pytorch import Trainer
 from lightning.pytorch.loggers import WandbLogger
 from omegaconf import DictConfig
-from torch.utils.data import ConcatDataset, DataLoader, random_split
+from torch.utils.data import DataLoader, random_split
+from codis.data import BalancedDataset
 
 import wandb
 from codis.data import (
@@ -41,7 +42,7 @@ def train(cfg: DictConfig) -> None:
     callbacks = build_callbacks(cfg, canonical_images, random_images)
     trainer = build_trainer(cfg, callbacks=callbacks)
 
-    test_dataset = BalancedTestDataset(cfg.test_dataset_size)
+    test_dataset = BalancedDataset(cfg.test_dataset_size)
     if cfg.training.mode == "continual":
         for task_id, (task_shapes, task_shape_ids, task_exemplars) in enumerate(
             zip(
@@ -75,17 +76,6 @@ def train(cfg: DictConfig) -> None:
         trainer.fit(model, train_loader, val_loader)
         trainer.test(model, test_loader)
     wandb.finish()
-
-
-class BalancedTestDataset:
-    def __init__(self, max_size):
-        self.max_size = max_size
-        self.dataset = None
-
-    def update(self, task_test_dataset):
-        """Class-balanced reservoir sampling."""
-        if self.dataset is None:
-            self.dataset = task_test_dataset
 
 
 def generate_canonical_images(shapes, img_size):
