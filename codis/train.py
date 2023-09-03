@@ -216,7 +216,6 @@ def update_test_dataset(
     cfg: DictConfig,
     test_dataset: Dataset,
     task_test_dataset: Dataset,
-    samples_per_shape: int,
 ):
     """Update the test dataset keeping it class-balanced."""
     samples_per_shape = cfg.dataset.test_dataset_size // (
