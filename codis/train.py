@@ -7,8 +7,8 @@ import torch
 from lightning.pytorch import Trainer
 from lightning.pytorch.loggers import WandbLogger
 from omegaconf import DictConfig
-from torch.utils.data import DataLoader, random_split
-from codis.data import BalancedDataset
+from torch.utils.data import ConcatDataset, DataLoader, Dataset, Subset, random_split
+from collections import Counter
 
 import wandb
 from codis.data import (
@@ -43,7 +43,7 @@ def train(cfg: DictConfig) -> None:
     callbacks = build_callbacks(cfg, canonical_images, random_images)
     trainer = build_trainer(cfg, callbacks=callbacks)
 
-    test_dataset = BalancedDataset(cfg.test_dataset_size)
+    test_dataset = None
     if cfg.training.mode == "continual":
         for task_id, (task_shapes, task_shape_ids, task_exemplars) in enumerate(
             zip(
@@ -58,7 +58,11 @@ def train(cfg: DictConfig) -> None:
             train_loader = build_dataloader(cfg, train_dataset)
             val_loader = build_dataloader(cfg, val_dataset, shuffle=False)
 
-            test_dataset.update(task_test_dataset)
+            test_dataset = update_test_dataset(cfg, test_dataset, task_test_dataset)
+            print(
+                f"Task {task_id}:",
+                Counter([factors.shape_id for _, factors in test_dataset]),
+            )
             test_loader = build_dataloader(cfg, test_dataset)  # shuffle for vis
 
             model.task_id = task_id
@@ -206,6 +210,30 @@ def build_continual_datasets(cfg: DictConfig, shapes: list, shape_ids: list):
         ],
     )
     return train_dataset, val_dataset, test_dataset
+
+
+def update_test_dataset(
+    cfg: DictConfig,
+    test_dataset: Dataset,
+    task_test_dataset: Dataset,
+    samples_per_shape: int,
+):
+    """Update the test dataset keeping it class-balanced."""
+    samples_per_shape = cfg.dataset.test_dataset_size // (
+        cfg.dataset.tasks * cfg.dataset.shapes_per_task
+    )
+    if test_dataset is None:
+        test_dataset = task_test_dataset
+    else:
+        class_indices = defaultdict(list)
+        for i, (_, factors) in enumerate(task_test_dataset):
+            class_indices[factors.shape_id].append(i)
+        subset_indices = []
+        for indices in class_indices.values():
+            subset_indices.extend(np.random.choice(indices, samples_per_shape))
+        test_dataset = ConcatDataset([test_dataset, Subset(task_test_dataset, indices)])
+
+    return test_dataset
 
 
 def build_joint_data_loaders(cfg: DictConfig, shapes):
