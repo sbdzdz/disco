@@ -1,5 +1,5 @@
 """Training script."""
-from itertools import zip_longest
+from collections import defaultdict
 
 import hydra
 import numpy as np
@@ -24,6 +24,7 @@ from codis.lightning.modules import (
     SpatialTransformerGF,
     SupervisedVAE,
 )
+from codis.utils import grouper
 
 torch.set_float32_matmul_precision("medium")
 
@@ -101,18 +102,6 @@ def generate_random_images(shapes, img_size, n=25):
     """Generate a batch of images for visualization."""
     dataset = InfiniteDSprites(img_size=img_size, shapes=shapes)
     return [dataset.draw(dataset.sample_latents()) for _ in range(n)]
-
-
-def grouper(n, iterable):
-    """Iterate in groups of n elements, e.g. grouper(3, 'ABCDEF') --> ABC DEF.
-    Args:
-        n: The number of elements per group.
-        iterable: The iterable to be grouped.
-    Returns:
-        An iterator over the groups.
-    """
-    args = [iter(iterable)] * n
-    return (list(group) for group in zip_longest(*args))
 
 
 def build_dataloader(cfg: DictConfig, dataset, shuffle=True):
