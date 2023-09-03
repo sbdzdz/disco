@@ -59,10 +59,9 @@ def train(cfg: DictConfig) -> None:
             val_loader = build_dataloader(cfg, val_dataset, shuffle=False)
 
             test_dataset = update_test_dataset(cfg, test_dataset, task_test_dataset)
-            print(
-                f"Task {task_id}:",
-                Counter([factors.shape_id for _, factors in test_dataset]),
-            )
+            counter = Counter([factors.shape_id for _, factors in test_dataset])
+            print(f"\n Test dataset length: {len(counter)}")
+            print(f"Class counts: {counter}\n")
             test_loader = build_dataloader(cfg, test_dataset)  # shuffle for vis
 
             model.task_id = task_id
@@ -221,16 +220,17 @@ def update_test_dataset(
     samples_per_shape = cfg.dataset.test_dataset_size // (
         cfg.dataset.tasks * cfg.dataset.shapes_per_task
     )
+    class_indices = defaultdict(list)
+    for i, (_, factors) in enumerate(task_test_dataset):
+        class_indices[factors.shape_id].append(i)
+    subset_indices = []
+    for indices in class_indices.values():
+        subset_indices.extend(np.random.choice(indices, samples_per_shape))
+    subset = Subset(task_test_dataset, subset_indices)
     if test_dataset is None:
-        test_dataset = task_test_dataset
+        test_dataset = subset
     else:
-        class_indices = defaultdict(list)
-        for i, (_, factors) in enumerate(task_test_dataset):
-            class_indices[factors.shape_id].append(i)
-        subset_indices = []
-        for indices in class_indices.values():
-            subset_indices.extend(np.random.choice(indices, samples_per_shape))
-        test_dataset = ConcatDataset([test_dataset, Subset(task_test_dataset, indices)])
+        test_dataset = ConcatDataset([test_dataset, subset])
 
     return test_dataset
 
