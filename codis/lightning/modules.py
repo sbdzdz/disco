@@ -134,8 +134,8 @@ class SpatialTransformer(ContinualModule):
         xs = self.encoder(x).view(-1, self.encoder_output_dim)
         theta = self.regressor(xs).view(-1, 2, 3)
 
-        grid = F.affine_grid(theta, x.size())
-        x_hat = F.grid_sample(x, grid, padding_mode="border")
+        grid = F.affine_grid(theta, x.size(), align_corners=False)
+        x_hat = F.grid_sample(x, grid, padding_mode="border", align_corners=False)
 
         return x_hat, theta
 
@@ -223,8 +223,8 @@ class SpatialTransformerGF(SpatialTransformer):
         y_hat = self.regressor(xs)
         theta = self.convert_parameters_to_matrix(self._unstack_factors(y_hat))
 
-        grid = F.affine_grid(theta, x.size())
-        x_hat = F.grid_sample(x, grid, padding_mode="border")
+        grid = F.affine_grid(theta, x.size(), align_corners=False)
+        x_hat = F.grid_sample(x, grid, padding_mode="border", align_corners=False)
         return x_hat, y_hat
 
     def _step(self, batch):
