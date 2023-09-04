@@ -8,7 +8,6 @@ from lightning.pytorch import Trainer
 from lightning.pytorch.loggers import WandbLogger
 from omegaconf import DictConfig
 from torch.utils.data import ConcatDataset, DataLoader, Dataset, Subset, random_split
-from collections import Counter
 
 import wandb
 from codis.data import (
