@@ -59,9 +59,6 @@ def train(cfg: DictConfig) -> None:
             val_loader = build_dataloader(cfg, val_dataset, shuffle=False)
 
             test_dataset = update_test_dataset(cfg, test_dataset, task_test_dataset)
-            counter = Counter([factors.shape_id for _, factors in test_dataset])
-            print(f"\n Test dataset length: {len(counter)}")
-            print(f"Class counts: {counter}\n")
             test_loader = build_dataloader(cfg, test_dataset)  # shuffle for vis
 
             model.task_id = task_id
