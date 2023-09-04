@@ -40,7 +40,7 @@ class InfiniteDSprites(IterableDataset):
     def __init__(
         self,
         img_size: int = 256,
-        color_range=("white",),
+        color_range=None,
         scale_range=None,
         orientation_range=None,
         position_x_range=None,
@@ -49,7 +49,8 @@ class InfiniteDSprites(IterableDataset):
         shapes: list = None,
         shape_ids: list = None,
         orientation_marker: bool = True,
-        bg_color="darkgray",
+        orientation_marker_color="black",
+        background_color="darkgray",
     ):
         """Create a dataset of images of random shapes.
         Args:
@@ -69,6 +70,8 @@ class InfiniteDSprites(IterableDataset):
         """
         self.img_size = img_size
         self.canvas_size = img_size
+        if color_range is None:
+            color_range = ["white"]
         if scale_range is None:
             scale_range = np.linspace(0.5, 1.0, 32)
         if orientation_range is None:
@@ -91,7 +94,12 @@ class InfiniteDSprites(IterableDataset):
         self.shapes = shapes
         self.shape_ids = shape_ids
         self.orientation_marker = orientation_marker
-        self.bg_color = tuple(int(255 * c) for c in colors.to_rgb(bg_color))
+        self.orientation_marker_color = tuple(
+            int(255 * c) for c in colors.to_rgb(orientation_marker_color)
+        )
+        self.background_color = tuple(
+            int(255 * c) for c in colors.to_rgb(background_color)
+        )
         self.scale_factor = 0.45
 
     @property
@@ -259,7 +267,7 @@ class InfiniteDSprites(IterableDataset):
             The image as a numpy array.
         """
         canvas = np.zeros((self.canvas_size, self.canvas_size, 3)).astype(np.int32)
-        canvas[:, :] = self.bg_color
+        canvas[:, :] = self.background_color
         shape = self.apply_scale(latents.shape, latents.scale)
         shape = self.apply_orientation(shape, latents.orientation)
         shape = self.apply_position(shape, latents.position_x, latents.position_y)
@@ -267,7 +275,7 @@ class InfiniteDSprites(IterableDataset):
 
         self.draw_shape(shape, canvas, color)
         if self.orientation_marker:
-            self.draw_orientation_marker(canvas, latents, color)
+            self.draw_orientation_marker(canvas, latents)
         if debug:
             self.add_debug_info(shape, canvas)
         if self.is_monochrome(canvas):
@@ -323,8 +331,8 @@ class InfiniteDSprites(IterableDataset):
         shape = shape.T.astype(np.int32)
         cv2.fillPoly(img=canvas, pts=[shape], color=color, lineType=cv2.LINE_AA)
 
-    def draw_orientation_marker(self, canvas, latents, color):
-        """Paint the right half of the shape in a darker color."""
+    def draw_orientation_marker(self, canvas, latents):
+        """Mark the right half of the shape."""
         theta = latents.orientation - np.pi / 2
         center = np.array([0, 0]).reshape(2, 1)
         y0, x0 = self.apply_position(center, latents.position_x, latents.position_y)
@@ -336,15 +344,13 @@ class InfiniteDSprites(IterableDataset):
             return x_prime, y_prime
 
         # rotate shape pixel coordinates
-        shape_pixels = np.argwhere(np.any(canvas != self.bg_color, axis=2))
+        shape_pixels = np.argwhere(np.any(canvas != self.background_color, axis=2))
         x, _ = rotate_point(shape_pixels[:, 0], shape_pixels[:, 1])
 
         # select the right half of the shape
         right_half = shape_pixels[x > x0]
 
-        # paint it a darker color
-        color = (0, 0, 0)
-        canvas[right_half[:, 0], right_half[:, 1]] = color
+        canvas[right_half[:, 0], right_half[:, 1]] = self.orientation_marker_color
 
     def add_debug_info(self, shape, canvas):
         """Add debug info to the canvas."""
