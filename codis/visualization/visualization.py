@@ -21,6 +21,7 @@ from codis.data import (
 repo_root = Path(__file__).parent.parent.parent
 
 COLORS = [
+    "white",
     "whitesmoke",
     "purple",
     "maroon",
@@ -227,7 +228,9 @@ def draw_shapes_animated(
     ncols: int = 12,
     fig_height: float = 10,
     img_size: int = 256,
-    bg_color: str = "white",
+    frame_color: str = "black",
+    background_color: str = "lightgray",
+    orientation_marker_color: str = "black",
     duration: int = 8,
     fps: int = 60,
     factor: str = None,
@@ -255,10 +258,12 @@ def draw_shapes_animated(
     dataset = InfiniteDSprites(
         img_size=img_size,
         color_range=COLORS,
-        scale_range=np.linspace(0.0, 1.5, num_frames // 4),
+        scale_range=np.linspace(0.1, 0.9, num_frames // 4),
         orientation_range=np.linspace(0.0, 2 * np.pi, num_frames // 4),
         position_x_range=np.linspace(0.0, 1.0, num_frames // 4),
         position_y_range=np.linspace(0.0, 1.0, num_frames // 4),
+        background_color=background_color,
+        orientation_marker_color=orientation_marker_color,
     )
     shapes = [dataset.generate_shape() for _ in range(nrows * ncols)]
     colors = [dataset.sample_latents().color for _ in range(nrows * ncols)]
@@ -287,7 +292,7 @@ def draw_shapes_animated(
         ]
         for scale, orientation, position_x, position_y in zip(*factors)
     ]
-    save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps)
+    save_animation(path, frames, nrows, ncols, fig_height, frame_color, fps)
 
 
 def generate_multi_factor_sequence(dataset):
@@ -532,7 +537,7 @@ def save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps):
 
             for ax, image in zip(axes.flat, frame):
                 ax.axis("off")
-                ax.imshow(image)
+                ax.imshow(image, cmap="Greys_r")
             plt.savefig(buffer, format="png")
             plt.close()
             writer.append_data(imageio.imread(buffer))  # type: ignore
