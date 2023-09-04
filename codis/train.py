@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from lightning.pytorch import Trainer
 from lightning.pytorch.loggers import WandbLogger
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import ConcatDataset, DataLoader, Dataset, Subset, random_split
 
 import wandb
@@ -162,9 +162,11 @@ def build_callbacks(cfg: DictConfig, canonical_images: list, random_images: list
 
 def build_trainer(cfg: DictConfig, callbacks=None):
     """Configure the model trainer."""
+    config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
     wandb_logger = WandbLogger(
         project="codis",
         save_dir=cfg.wandb.dir,
+        config=config,
         group=cfg.wandb.group,
         mode=cfg.wandb.mode,
     )
