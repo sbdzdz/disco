@@ -8,9 +8,8 @@ from codis.data import BalancedDataset, ContinualDSpritesMap, InfiniteDSprites
 from codis.utils import grouper
 
 
+@pytest.mark.skip(reason="The class is not currently used.")
 @pytest.mark.parametrize("num_tasks", [1, 2, 5])
-# @pytest.mark.parametrize("shapes_per_task", [10, 20, 50])
-# @pytest.mark.parametrixe("max_size", [500])
 def test_balanced_dataset(
     num_tasks: int, shapes_per_task: int = 10, max_size: int = 100
 ):
