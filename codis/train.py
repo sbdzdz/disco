@@ -2,6 +2,7 @@
 from collections import defaultdict
 
 import hydra
+from hydra.utils import instantiate
 import numpy as np
 import torch
 from lightning.pytorch import Trainer
@@ -40,7 +41,8 @@ def train(cfg: DictConfig) -> None:
     canonical_images = generate_canonical_images(shapes, img_size=cfg.dataset.img_size)
     random_images = generate_random_images(shapes, img_size=cfg.dataset.img_size)
     callbacks = build_callbacks(cfg, canonical_images, random_images)
-    trainer = build_trainer(cfg, callbacks=callbacks)
+    config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
+    trainer = instantiate(cfg.trainer, callbacks=callbacks, logger={"config": config})
 
     test_dataset = None
     if cfg.training.mode == "continual":
@@ -64,7 +66,7 @@ def train(cfg: DictConfig) -> None:
             for exemplar in task_exemplars:
                 model.add_exemplar(exemplar)
             trainer.fit(model, train_loader, val_loader)
-            trainer.fit_loop.max_epochs += cfg.training.max_epochs
+            trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
             trainer.test(model, test_loader)
 
     elif cfg.training.mode == "joint":
@@ -158,27 +160,6 @@ def build_callbacks(cfg: DictConfig, canonical_images: list, random_images: list
     if "visualization" in callback_names:
         callbacks.append(VisualizationCallback(canonical_images, random_images))
     return callbacks
-
-
-def build_trainer(cfg: DictConfig, callbacks=None):
-    """Configure the model trainer."""
-    config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
-    wandb_logger = WandbLogger(
-        project="codis",
-        save_dir=cfg.wandb.dir,
-        config=config,
-        group=cfg.wandb.group,
-        mode=cfg.wandb.mode,
-    )
-    return Trainer(
-        default_root_dir=cfg.wandb.dir,
-        enable_checkpointing=False,
-        enable_progress_bar=False,
-        log_every_n_steps=cfg.wandb.log_every_n_steps,
-        logger=wandb_logger,
-        max_epochs=cfg.training.max_epochs,
-        callbacks=callbacks,
-    )
 
 
 def build_continual_datasets(cfg: DictConfig, shapes: list, shape_ids: list):
