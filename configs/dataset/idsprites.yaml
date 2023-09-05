@@ -1,0 +1,12 @@
+name: idsprites
+batch_size: 512
+factor_resolution: 16
+img_size: 128
+num_channels: 1
+num_workers: 8
+shapes_per_task: 1
+tasks: 16
+train_split: 64000
+val_split: 536
+test_split: 1000
+test_dataset_size: 50000

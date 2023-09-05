@@ -21,6 +21,7 @@ from codis.data import (
 repo_root = Path(__file__).parent.parent.parent
 
 COLORS = [
+    "white",
     "whitesmoke",
     "purple",
     "maroon",
@@ -35,20 +36,23 @@ def draw_batch(
     images,
     path: Path = repo_root / "img/batch_grid.png",
     fig_height: float = 10,
-    n_max: int = 16,
+    num_images: int = 16,
     show=False,
 ):
     """Show a batch of images on a grid.
     Only the first n_max images are shown.
     Args:
-        images: A numpy array of shape (N, C, H, W) or (N, H, W).
-        n_max: The maximum number of images to show.
+        images: A numpy array of shape (N, C, H, W) or (N, H, W)
+        path: The path to save the image to
+        fig_height: The height of the figure in inches
+        num_images: The maximum number of images to show
+        show: Whether to show the image
     Returns:
         None
     """
-    num_images = min(images.shape[0], n_max)
+    num_images = min(images.shape[0], num_images)
     if images.ndim == 4:
-        images = images.permute(0, 2, 3, 1)
+        images = np.transpose(images, (0, 2, 3, 1))
     ncols = int(np.ceil(np.sqrt(num_images)))
     nrows = int(np.ceil(num_images / ncols))
     _, axes = plt.subplots(
@@ -64,30 +68,37 @@ def draw_batch(
     plt.savefig(path, bbox_inches="tight")
     if show:
         plt.show()
+    buffer = io.BytesIO()
+    plt.savefig(buffer, bbox_inches="tight")
     plt.close()
+
+    return PIL.Image.open(buffer)
 
 
 def draw_batch_and_reconstructions(
     *image_arrays,
     fig_height: float = 10,
-    n_max: int = 25,
+    num_images: int = 25,
     path: Path = None,
     show=False,
 ):
     """Show a batch of images and their reconstructions on a grid.
     Only the first n_max images are shown.
     Args:
-        image_arrays: Numpy arrays of shape (N, C, H, W) or (N, H, W).
-        n_max: The maximum number of images to show.
+        image_arrays: Numpy arrays of shape (N, C, H, W) or (N, H, W)
+        fig_height: The height of the figure in inches
+        num_images: The maximum number of images to show
+        path: The path to save the image to
+        show: Whether to show the image
     Returns:
         None
     """
     img = image_arrays[0]
-    num_images = min(img.shape[0], n_max)
+    num_images = min(img.shape[0], num_images)
     if img.ndim == 4:
         image_arrays = [np.transpose(img, (0, 2, 3, 1)) for img in image_arrays]
-    ncols = int(np.ceil(np.sqrt(num_images)))
-    nrows = int(np.ceil(num_images / ncols))
+    nrows = int(np.ceil(np.sqrt(num_images)))
+    ncols = int(np.ceil(num_images / nrows))
 
     fig, axes = plt.subplots(
         nrows,
@@ -132,7 +143,10 @@ def draw_batch_density(
 ):
     """Show a batch of images averaged over the batch dimension.
     Args:
-        imgs: A tensor of shape (N, C, H, W) or (N, H, W).
+        images: A tensor of shape (N, C, H, W) or (N, H, W).
+        path: The path to save the image to
+        fig_height: The height of the figure in inches
+        show: Whether to show the image
     Returns:
         None
     """
@@ -160,16 +174,16 @@ def draw_shapes(
 ):
     """Plot an n x n grid of random shapes.
     Args:
-        path: The path to save the image to.
-        nrows: The number of rows in the grid.
-        ncols: The number of columns in the grid.
-        fig_height: The height of the figure in inches.
-        img_size: The size of the image in pixels.
-        fg_color: The color of the shape.
-        bg_color: The color of the background plot area.
-        seed: The random seed to use.
-        fill_shape: Whether to fill the shape or just draw the outline.
-        debug: Whether to draw additional debug info.
+        path: The path to save the image to
+        nrows: The number of rows in the grid
+        ncols: The number of columns in the grid
+        fig_height: The height of the figure in inches
+        img_size: The size of the image in pixels
+        fg_color: The color of the shape
+        bg_color: The color of the background plot area
+        seed: The random seed to use
+        fill_shape: Whether to fill the shape or just draw the outline
+        debug: Whether to draw additional debug info
     Returns:
         None
     """
@@ -193,6 +207,7 @@ def draw_shapes(
             latents = Latents(
                 color=colors.to_rgb(fg_color),
                 shape=shape,
+                shape_id=None,
                 scale=1.0,
                 orientation=0.0,
                 position_x=0.5,
@@ -213,7 +228,9 @@ def draw_shapes_animated(
     ncols: int = 12,
     fig_height: float = 10,
     img_size: int = 256,
-    bg_color: str = "white",
+    frame_color: str = "black",
+    background_color: str = "lightgray",
+    orientation_marker_color: str = "black",
     duration: int = 8,
     fps: int = 60,
     factor: str = None,
@@ -241,10 +258,12 @@ def draw_shapes_animated(
     dataset = InfiniteDSprites(
         img_size=img_size,
         color_range=COLORS,
-        scale_range=np.linspace(0.0, 1.5, num_frames // 4),
+        scale_range=np.linspace(0.1, 0.9, num_frames // 4),
         orientation_range=np.linspace(0.0, 2 * np.pi, num_frames // 4),
         position_x_range=np.linspace(0.0, 1.0, num_frames // 4),
         position_y_range=np.linspace(0.0, 1.0, num_frames // 4),
+        background_color=background_color,
+        orientation_marker_color=orientation_marker_color,
     )
     shapes = [dataset.generate_shape() for _ in range(nrows * ncols)]
     colors = [dataset.sample_latents().color for _ in range(nrows * ncols)]
@@ -257,7 +276,15 @@ def draw_shapes_animated(
     frames = [
         [
             dataset.draw(
-                Latents(color, shape, scale, orientation, position_x, position_y),
+                Latents(
+                    color=color,
+                    shape=shape,
+                    shape_id=None,
+                    scale=scale,
+                    orientation=orientation,
+                    position_x=position_x,
+                    position_y=position_y,
+                ),
                 channels_first=False,
                 debug=debug,
             )
@@ -265,7 +292,7 @@ def draw_shapes_animated(
         ]
         for scale, orientation, position_x, position_y in zip(*factors)
     ]
-    save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps)
+    save_animation(path, frames, nrows, ncols, fig_height, frame_color, fps)
 
 
 def generate_multi_factor_sequence(dataset):
@@ -345,16 +372,16 @@ def draw_shape_interpolation(
 ):
     """Smoothly interpolate between shapes and colors.
     Args:
-        path: The path to save the animation to.
-        nrows: The number of rows in the grid.
-        ncols: The number of columns in the grid.
-        fig_height: The height of the figure in inches.
-        img_size: The size of the image in pixels.
-        bg_color: The color of the background plot area.
-        num_shapes: The number of shapes to interpolate between.
-        duration_per_shape: The number of seconds per shape transition.
-        fps: The number of frames per second.
-        seed: The random seed.
+        path: The path to save the animation to
+        nrows: The number of rows in the grid
+        ncols: The number of columns in the grid
+        fig_height: The height of the figure in inches
+        img_size: The size of the image in pixels
+        bg_color: The color of the background plot area
+        num_shapes: The number of shapes to interpolate between
+        duration_per_shape: The number of seconds per shape transition
+        fps: The number of frames per second
+        seed: The random seed
     """
     np.random.seed(seed)
     dataset = InfiniteDSprites(img_size=img_size, color_range=COLORS)
@@ -373,8 +400,9 @@ def draw_shape_interpolation(
         [
             dataset.draw(
                 Latents(
-                    shape=shape,
                     color=color,
+                    shape=shape,
+                    shape_id=None,
                     scale=1.0,
                     orientation=0.0,
                     position_x=0.5,
@@ -444,6 +472,7 @@ def draw_orientation_normalization(
             Latents(
                 color=latent.color,
                 shape=latent.shape,
+                shape_id=None,
                 scale=scale,
                 orientation=orientation,
                 position_x=position_x,
@@ -508,7 +537,7 @@ def save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps):
 
             for ax, image in zip(axes.flat, frame):
                 ax.axis("off")
-                ax.imshow(image)
+                ax.imshow(image, cmap="Greys_r")
             plt.savefig(buffer, format="png")
             plt.close()
             writer.append_data(imageio.imread(buffer))  # type: ignore

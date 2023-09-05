@@ -9,3 +9,4 @@ from codis.data.infinite_dsprites import (
     InfiniteDSpritesTriplets,
     Latents,
 )
+from codis.data.balanced_dataset import BalancedDataset

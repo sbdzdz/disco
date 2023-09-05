@@ -4,15 +4,10 @@ from typing import List, Optional
 import lightning.pytorch as pl
 import torch
 import torch.nn.functional as F
-from torchmetrics import R2Score
 
+from codis.data import Latents
 from codis.models import MLP, BetaVAE
 from codis.models.blocks import Encoder
-from codis.utils import to_numpy
-from codis.data import Latents
-from codis.visualization import draw_batch_and_reconstructions
-
-# pylint: disable=arguments-differ,unused-argument,too-many-ancestors
 
 
 class ContinualModule(pl.LightningModule):
@@ -26,7 +21,7 @@ class ContinualModule(pl.LightningModule):
         self.factors_to_regress = factors_to_regress
         self.num_factors = len(self.factors_to_regress)
         self._task_id = None
-        self.has_buffer = False
+        self._buffer = []
 
     @property
     def task_id(self):
@@ -37,6 +32,46 @@ class ContinualModule(pl.LightningModule):
     def task_id(self, value):
         """Set the current train task id."""
         self._task_id = value
+
+    def training_step(self, batch, batch_idx):
+        """Perform a training step."""
+        loss = self._step(batch)
+        self.log_dict({f"{k}_train": v for k, v in loss.items() if k != "loss"})
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        """Perform a validation step."""
+        loss = self._step(batch)
+        self.log_dict({f"{k}_val": v for k, v in loss.items() if k != "loss"})
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        """Perform a test step."""
+        loss = self._step(batch)
+        self.log_dict({f"{k}_test": v for k, v in loss.items() if k != loss})
+        return loss
+
+    def add_exemplar(self, exemplar):
+        """Add an exemplar to the buffer."""
+        self._buffer.append(exemplar)
+
+    def classify(self, x: torch.Tensor, split_size: int = 256):
+        """Classify the input."""
+        x_hat, *_ = self(x)
+        x_hat = x_hat.unsqueeze(1).detach()
+        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
+            self.device
+        )
+        buffer = buffer.unsqueeze(0).detach()
+
+        losses = []
+        for chunk in torch.split(buffer, split_size, dim=1):
+            chunk = chunk.repeat(x_hat.shape[0], 1, 1, 1, 1)
+            loss = F.mse_loss(
+                x_hat.repeat(1, chunk.shape[1], 1, 1, 1), chunk, reduction="none"
+            ).mean(dim=(2, 3, 4))
+            losses.append(loss)
+        return torch.cat(losses, dim=1).argmin(dim=1)
 
     def _stack_factors(self, factors):
         """Stack the factors."""
@@ -49,73 +84,13 @@ class ContinualModule(pl.LightningModule):
         """Unstack the factors."""
         return Latents(
             shape=None,
+            shape_id=None,
             color=None,
             **{
                 name: stacked_factors[:, i]
                 for i, name in enumerate(self.factors_to_regress)
             },
         )
-
-
-class LatentRegressor(ContinualModule):
-    """A model that directly regresses the latent factors."""
-
-    def __init__(
-        self,
-        img_size: int = 64,
-        in_channels: int = 1,
-        channels: Optional[list] = None,
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-
-        if channels is None:
-            channels = [8, 8, 16, 16, 32]
-        self.encoder = Encoder(channels, in_channels)
-        self.encoder_output_dim = (img_size // 2 ** len(channels)) ** 2 * channels[-1]
-
-        self.regressor = MLP(
-            dims=[self.encoder_output_dim, 64, 32, self.num_factors],
-        )
-
-    def forward(self, x):
-        """Perform the forward pass."""
-        x = self.encoder(x).view(-1, self.encoder_output_dim)
-        return self.regressor(x)
-
-    def configure_optimizers(self):
-        """Configure the optimizers."""
-        return torch.optim.Adam(
-            [
-                {"params": self.encoder.parameters(), "lr": self.lr},
-                {"params": self.regressor.parameters(), "lr": self.lr},
-            ]
-        )
-
-    def training_step(self, batch, batch_idx):
-        """Perform a training step."""
-        loss = self._step(batch)
-        self.log("loss_train", loss)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        """Perform a validation step."""
-        loss = self._step(batch)
-        self.log("loss_val", loss)
-        return loss
-
-    def test_step(self, batch, batch_idx):
-        """Perform a test step."""
-        loss = self._step(batch)
-        self.log(f"loss_test_task_{self._task_id}", loss)
-        return loss
-
-    def _step(self, batch):
-        """Perform a training or validation step."""
-        x, y = batch
-        y = self._stack_factors(y)
-        y_hat = self.forward(x)
-        return F.mse_loss(y, y_hat)
 
 
 class SpatialTransformer(ContinualModule):
@@ -130,28 +105,20 @@ class SpatialTransformer(ContinualModule):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.has_buffer = True
 
         if channels is None:
             channels = [16, 16, 32, 32, 64]
         self.encoder = Encoder(channels, in_channels)
         self.encoder_output_dim = (img_size // 2 ** len(channels)) ** 2 * channels[-1]
-
-        # build the regressor and initialize its weights to the identity transform
         self.regressor = MLP(
             dims=[self.encoder_output_dim, 64, 32, 6],
         )
+        # initialize the regressor to the identity transform
         self.regressor.model[-1].weight.data.zero_()
         self.regressor.model[-1].bias.data.copy_(
             torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float)
         )
         self.gamma = gamma
-
-        self._buffer = []
-
-    def add_exemplar(self, exemplar):
-        """Add an exemplar to the buffer."""
-        self._buffer.append(exemplar)
 
     def configure_optimizers(self):
         """Configure the optimizers."""
@@ -167,43 +134,28 @@ class SpatialTransformer(ContinualModule):
         xs = self.encoder(x).view(-1, self.encoder_output_dim)
         theta = self.regressor(xs).view(-1, 2, 3)
 
-        grid = F.affine_grid(theta, x.size())
-        x_hat = F.grid_sample(x, grid, padding_mode="border")
+        grid = F.affine_grid(theta, x.size(), align_corners=False)
+        x_hat = F.grid_sample(x, grid, padding_mode="border", align_corners=False)
 
         return x_hat, theta
-
-    def training_step(self, batch, batch_idx):
-        """Perform a training step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_train": v for k, v in loss.items()})
-        return loss["loss"]
-
-    def validation_step(self, batch, batch_idx):
-        """Perform a validation step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_val": v for k, v in loss.items()})
-        return loss["loss"]
-
-    def test_step(self, batch, batch_idx):
-        """Perform a test step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_test_task_{self.task_id}": v for k, v in loss.items()})
-        return loss["loss"]
 
     def _step(self, batch):
         """Perform a training or validation step."""
         x, y = batch
         x_hat, theta_hat = self.forward(x)
-        exemplar_tiled = (
-            self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
-        )
+        exemplars = torch.stack(
+            [torch.from_numpy(self._buffer[i]) for i in y.shape_id]
+        ).to(self.device)
         theta = self.convert_parameters_to_matrix(y)
         regression_loss = F.mse_loss(theta, theta_hat)
-        backbone_loss = F.mse_loss(exemplar_tiled, x_hat)
+        reconstruction_loss = F.mse_loss(exemplars, x_hat)
+        accuracy = (y.shape_id == self.classify(x)).float().mean()
         return {
-            "regression_loss": regression_loss,
-            "backbone_loss": backbone_loss,
-            "loss": self.gamma * regression_loss + (1 - self.gamma) * backbone_loss,
+            "accuracy": accuracy.item(),
+            "reconstruction_loss": reconstruction_loss.item(),
+            "regression_loss": regression_loss.item(),
+            "loss": self.gamma * regression_loss
+            + (1 - self.gamma) * reconstruction_loss,
         }
 
     def convert_parameters_to_matrix(self, factors):
@@ -269,51 +221,39 @@ class SpatialTransformerGF(SpatialTransformer):
         """Perform the forward pass."""
         xs = self.encoder(x).view(-1, self.encoder_output_dim)
         y_hat = self.regressor(xs)
-        y_hat = self.clip(y_hat)
         theta = self.convert_parameters_to_matrix(self._unstack_factors(y_hat))
 
-        grid = F.affine_grid(theta, x.size())
-        x_hat = F.grid_sample(x, grid, padding_mode="border")
+        grid = F.affine_grid(theta, x.size(), align_corners=False)
+        x_hat = F.grid_sample(x, grid, padding_mode="border", align_corners=False)
         return x_hat, y_hat
 
     def _step(self, batch):
         """Perform a training or validation step."""
         x, y = batch
         x_hat, y_hat = self.forward(x)
-        exemplar_tiled = (
-            self._buffer[self.task_id].repeat(x.shape[0], 1, 1, 1).to(self.device)
-        )
+        exemplars = torch.stack(
+            [torch.from_numpy(self._buffer[i]) for i in y.shape_id]
+        ).to(self.device)
         regression_loss = F.mse_loss(self._stack_factors(y), y_hat)
-        backbone_loss = F.mse_loss(exemplar_tiled, x_hat)
+        reconstruction_loss = F.mse_loss(exemplars, x_hat)
         y_hat = self._unstack_factors(y_hat)
-        return {
-            "regression_loss": regression_loss,
-            "backbone_loss": backbone_loss,
-            "orientation_loss": F.mse_loss(y.orientation, y_hat.orientation),
-            "scale_loss": F.mse_loss(y.scale, y_hat.scale),
-            "position_loss": F.mse_loss(
-                torch.stack([y.position_x, y.position_y], dim=1),
-                torch.stack([y_hat.position_x, y_hat.position_y], dim=1),
-            ),
-            "loss": self.gamma * regression_loss + (1 - self.gamma) * backbone_loss,
-        }
-
-    def clip(self, y):
-        """Clip the predicted factors to valid ranges."""
-        y = self._unstack_factors(y)
-        orientation = torch.clamp(y.orientation, 0, 2 * torch.pi)
-        scale = torch.clamp(y.scale, 0.5, 1)
-        position_x = torch.clamp(y.position_x, 0, 1)
-        position_y = torch.clamp(y.position_y, 0, 1)
-        y = Latents(
-            shape=None,
-            color=None,
-            orientation=orientation,
-            scale=scale,
-            position_x=position_x,
-            position_y=position_y,
+        orientation_loss = F.mse_loss(y.orientation, y_hat.orientation)
+        scale_loss = F.mse_loss(y.scale, y_hat.scale)
+        position_loss = F.mse_loss(
+            torch.stack([y.position_x, y.position_y], dim=1),
+            torch.stack([y_hat.position_x, y_hat.position_y], dim=1),
         )
-        return self._stack_factors(y)
+        accuracy = (y.shape_id == self.classify(x)).float().mean()
+        return {
+            "accuracy": accuracy.item(),
+            "orientation_loss": orientation_loss.item(),
+            "position_loss": position_loss.item(),
+            "reconstruction_loss": reconstruction_loss.item(),
+            "regression_loss": regression_loss.item(),
+            "scale_loss": scale_loss.item(),
+            "loss": self.gamma * regression_loss
+            + (1 - self.gamma) * reconstruction_loss,
+        }
 
 
 class SupervisedVAE(ContinualModule):
@@ -322,20 +262,15 @@ class SupervisedVAE(ContinualModule):
     def __init__(
         self,
         vae: pl.LightningModule,
-        regressor: pl.LightningModule = None,
         gamma: float = 0.5,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.backbone = vae
         self.gamma = gamma
-        if regressor is None:
-            regressor = LightningMLP(
-                dims=[self.backbone.latent_dim, 64, 64, len(self.factors_to_regress)],
-            )
-        self.regressor = regressor
-        self.r2_score = R2Score(num_outputs=self.regressor.model.dims[-1])
-        self.has_buffer = False
+        self.regressor = LightningMLP(
+            dims=[self.backbone.latent_dim, 64, 64, len(self.factors_to_regress)],
+        )
 
     def configure_optimizers(self):
         """Configure the optimizers."""
@@ -351,56 +286,19 @@ class SupervisedVAE(ContinualModule):
         x_hat, mu, log_var = self.backbone(x)
         return x_hat, mu, log_var, self.regressor(mu)
 
-    def training_step(self, batch, batch_idx):
-        """Perform a training step."""
-        loss, _ = self._step(batch)
-        self.log_dict({f"{k}_train": v for k, v in loss.items()})
-        return loss["loss"]
-
-    def validation_step(self, batch, batch_idx):
-        """Perform a validation step."""
-        loss, metrics = self._step(batch)
-        self.log_dict({f"{k}_val": v for k, v in loss.items()}, on_epoch=True)
-        self.log("r2_score_val", metrics["r2_score"], on_epoch=True)
-        return loss["loss"]
-
-    def test_step(self, batch, batch_idx):
-        """Perform a test step."""
-        loss, metrics = self._step(batch)
-        self.log_dict(
-            {f"{k}_test_task_{self.task_id}": v for k, v in loss.items()},
-            on_epoch=True,
-        )
-        self.log_dict(
-            {f"{k}_test_task_{self.task_id}": v for k, v in metrics.items()},
-            on_epoch=True,
-        )
-        return loss["loss"]
-
     def _step(self, batch):
         """Perform a training or validation step."""
         x, y = batch
         y = self._stack_factors(y)
         x_hat, mu, log_var, y_hat = self.forward(x)
-        metrics = self._calculate_metrics(y, y_hat)
         regressor_loss = self.regressor.loss_function(y, y_hat)["loss"]
-        backbone_loss = self.backbone.loss_function(x, x_hat, mu, log_var)["loss"]
-        loss = {
-            "regression_loss": regressor_loss,
-            "backbone_loss": backbone_loss,
-            "loss": self.gamma * regressor_loss + (1 - self.gamma) * backbone_loss,
-        }
-        return loss, metrics
-
-    def _calculate_metrics(self, y, y_hat):
-        y = self._unstack_factors(y)
-        y_hat = self._unstack_factors(y_hat)
+        vae_loss = self.backbone.loss_function(x, x_hat, mu, log_var)["loss"]
+        accuracy = (y.shape_id == self.classify(x)).float().mean()
         return {
-            "r2_score": self.r2_score(y, y_hat),
-            "r2_score_orientation": self.r2_score(y.orientation, y_hat.orientation),
-            "r2_score_scale": self.r2_score(y.scale, y_hat.scale),
-            "r2_score_position_x": self.r2_score(y.position_x, y_hat.position_x),
-            "r2_score_position_y": self.r2_score(y.position_y, y_hat.position_y),
+            "accuracy": accuracy.item(),
+            "regression_loss": regressor_loss.item(),
+            "vae_loss": vae_loss.item(),
+            "loss": self.gamma * regressor_loss + (1 - self.gamma) * vae_loss,
         }
 
 
@@ -432,45 +330,19 @@ class LightningBetaVAE(pl.LightningModule):
         """Dimensionality of the latent space."""
         return self.model.latent_dim
 
+    def configure_optimizers(self):
+        """Initialize the optimizer."""
+        return torch.optim.Adam(self.parameters(), lr=self.lr)
+
     def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
         """Perform the forward pass."""
         return self.model(x)
-
-    def loss_function(self, *args, **kwargs):
-        """Calculate the loss."""
-        return self.model.loss_function(*args, **kwargs)
-
-    def training_step(self, batch, batch_idx):
-        # sourcery skip: class-extract-method
-        """Perform a training step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_vae_train": v for k, v in loss.items()})
-        return loss["loss"]
-
-    def validation_step(self, batch, batch_idx):
-        """Perform a validation step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_vae_val": v for k, v in loss.items()})
-        if batch_idx == 0:
-            x, _ = batch
-            self._log_reconstructions(x)
-        return loss["loss"]
 
     def _step(self, batch):
         """Perform a training or validation step."""
         x, _ = batch
         x_hat, mu, log_var = self.forward(x)
         return self.model.loss_function(x, x_hat, mu, log_var)
-
-    def _log_reconstructions(self, x):
-        """Log reconstructions alongside original images."""
-        x_hat, _, _ = self.forward(x)
-        reconstructions = draw_batch_and_reconstructions(to_numpy(x), to_numpy(x_hat))
-        self.logger.log_image("reconstructions", images=[reconstructions])
-
-    def configure_optimizers(self):
-        """Initialize the optimizer."""
-        return torch.optim.Adam(self.parameters(), lr=self.lr)
 
 
 class LightningMLP(pl.LightningModule):
@@ -480,6 +352,10 @@ class LightningMLP(pl.LightningModule):
         super().__init__()
         self.model = MLP(dims, dropout_rate)
         self.lr = lr
+
+    def configure_optimizers(self):
+        """Initialize the optimizer."""
+        return torch.optim.Adam(self.parameters(), lr=self.lr)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Perform the forward pass."""
@@ -495,7 +371,3 @@ class LightningMLP(pl.LightningModule):
         loss = self.model.loss_function(batch, x_hat)
         self.log(**{f"{k}_mlp_train": v for k, v in loss.items()})
         return loss["loss"]
-
-    def configure_optimizers(self):
-        """Initialize the optimizer."""
-        return torch.optim.Adam(self.parameters(), lr=self.lr)

@@ -18,11 +18,16 @@ def visualize_loss(args):
     runs = api.runs(
         args.wandb_entity, filters={"group": args.wandb_group, "state": "finished"}
     )
+    num_tasks = runs[0].config["dataset.tasks"]
+    if len(runs) == 0:
+        raise ValueError("No matching runs found.")
 
     stages = ["val", "train"]
     if args.include_test:
-        stages.extend([f"test_task_{i}" for i in range(runs[0].config["tasks"])])
-
+        if args.test_per_task:
+            stages.extend([f"test_task_{i}" for i in range(num_tasks)])
+        else:
+            stages.extend(["test"])
     plt.style.use("ggplot")
     _, ax = plt.subplots(figsize=(20, 9), layout="tight")
     for stage in stages:
@@ -41,7 +46,7 @@ def visualize_loss(args):
         steps, values = zip(*metrics)
         values_mean = np.mean(values, axis=0)
 
-        ax.plot(steps[0], values_mean, label=f"loss_{stage}")
+        ax.plot(steps[0], values_mean, label=f"{args.metric_name}_{stage}")
         if args.include_std:
             values_std = np.std(values, axis=0)
             ax.fill_between(
@@ -51,13 +56,16 @@ def visualize_loss(args):
                 alpha=0.3,
             )
 
-    for task_transition in get_task_transitions(runs[0]):
-        ax.axvline(task_transition, color="gray", linestyle="dotted", linewidth=1)
-
-    ax.set_xlabel("Steps")
+    # set x ticks to task transitions
+    ax.set_xticks(get_task_transitions(runs[0]))
+    ax.set_xticklabels(range(1, num_tasks))
+    ax.set_xlabel("Tasks")
     ax.set_xlim([args.xmin, args.xmax])
+
+    ax.yaxis.set_major_formatter("{x:.2f}")
     ax.set_ylabel("Loss")
     ax.set_ylim([args.ymin, args.ymax])
+
     ax.set_title(args.plot_title)
     ax.legend(loc="upper right")
 
@@ -127,6 +135,11 @@ def _main():
     )
     parser.add_argument(
         "--include_test", action="store_true", help="Include test losses in the plot."
+    )
+    parser.add_argument(
+        "--test_per_task",
+        action="store_true",
+        help="Plot test losses per task instead of aggregated.",
     )
     parser.add_argument(
         "--include_std", action="store_true", help="Visualize standard deviation."

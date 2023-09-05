@@ -1,47 +1,91 @@
 """Lightning callbacks."""
-import lightning.pytorch as pl
-from lightning.pytorch.callbacks import Callback
+from typing import Any, Optional
 
-from codis.visualization import draw_batch_and_reconstructions
+import lightning.pytorch as pl
+import numpy as np
+import torch
+from lightning.pytorch.callbacks import Callback
+from lightning.pytorch.utilities.types import STEP_OUTPUT
+
 from codis.utils import to_numpy
+from codis.visualization import draw_batch_and_reconstructions
 
 
 class VisualizationCallback(Callback):
     """Callback for visualizing VAE reconstructions."""
 
-    def __init__(self, exemplars):
+    def __init__(
+        self,
+        canonical_images,
+        random_images,
+        num_reconstructions: int = 25,
+        num_classifications: int = 12,
+    ):
         super().__init__()
-        self._exemplars = exemplars
+        self._canonical_images = canonical_images
+        self._random_images = random_images
+        self._num_reconstructions = num_reconstructions
+        self._num_classifications = num_classifications
 
-    def on_validation_epoch_end(
+    def on_test_epoch_end(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
-        """Visualize the exemplars and the corresponding reconstructions."""
+        """Show the exemplars and the corresponding reconstructions."""
         self.log_reconstructions(
-            pl_module, self._exemplars, "reconstructions_exemplars"
+            pl_module,
+            self._canonical_images,
+            name="reconstructions_canonical",
+            num_imgs=self._num_reconstructions,
+        )
+        self.log_reconstructions(
+            pl_module,
+            self._random_images,
+            name="reconstructions_random",
+            num_imgs=self._num_reconstructions,
         )
 
-    def on_validation_batch_end(
+    def on_test_batch_end(
         self,
         trainer: pl.Trainer,
         pl_module: pl.LightningModule,
-        outputs,
-        batch,
+        outputs: Optional[STEP_OUTPUT],
+        batch: Any,
         batch_idx: int,
         dataloader_idx: int = 0,
-    ):
-        """Visualize the first batch of the validation set and the corresponding reconstructions."""
+    ) -> None:
         if batch_idx == 0:
-            x, _ = batch
-            self.log_reconstructions(pl_module, x, "reconstructions_validation")
+            self.log_classification(
+                pl_module,
+                batch,
+                name="classification",
+                num_imgs=self._num_classifications,
+            )
 
     @staticmethod
-    def log_reconstructions(pl_module, x, name, max_imgs=25):
+    def log_reconstructions(pl_module, x, name, num_imgs):
         """Log images and reconstructions"""
         pl_module.eval()
-        x_hat, *_ = pl_module(x.to(pl_module.device))
+        x = np.stack(x[:num_imgs])
+        x_hat, *_ = pl_module(torch.from_numpy(x).to(pl_module.device))
+        images = draw_batch_and_reconstructions(x, to_numpy(x_hat))
+        pl_module.logger.log_image(name, images=[images])
+        pl_module.train()
+
+    @staticmethod
+    def log_classification(pl_module, batch, name, num_imgs):
+        pl_module.eval()
+        x, y = batch
+        x, y = x.to(pl_module.device), y.to(pl_module.device)
+        x = x[:num_imgs]
+        x_hat, *_ = pl_module(x)
+        labels = pl_module.classify(x)
+        actual = np.stack([pl_module._buffer[i] for i in y.shape_id[:num_imgs]])
+        closest = np.stack([pl_module._buffer[i] for i in labels])
         images = draw_batch_and_reconstructions(
-            to_numpy(x[:max_imgs]), to_numpy(x_hat[:max_imgs])
+            to_numpy(x),
+            to_numpy(x_hat),
+            actual,
+            closest,
         )
         pl_module.logger.log_image(name, images=[images])
         pl_module.train()
@@ -53,7 +97,7 @@ class LoggingCallback(Callback):
     def on_train_epoch_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
-        pl_module.log("task_id", pl_module.task_id)
+        pl_module.log("task_id", float(pl_module.task_id))
 
     def on_train_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
