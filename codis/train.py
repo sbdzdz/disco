@@ -68,6 +68,8 @@ def train(cfg: DictConfig) -> None:
             trainer.fit(model, train_loader, val_loader)
             trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
             trainer.test(model, test_loader)
+            del train_dataset, val_dataset, task_test_dataset
+            del train_loader, val_loader, test_loader
 
     elif cfg.training.mode == "joint":
         model.task_id = 0
