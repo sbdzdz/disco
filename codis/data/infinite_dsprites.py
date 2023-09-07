@@ -419,11 +419,7 @@ class ContinualDSpritesMap(Dataset):
         self.targets = list(self.targets)
 
     def __len__(self):
-        if self.dataset.dataset_size is not None:
-            return self.dataset.dataset_size
-        return len(list(product(*self.dataset.ranges.values()))) * len(
-            self.dataset.shapes
-        )
+        return len(self.data)
 
     def __getitem__(self, index):
         return self.data[index], self.targets[index]
@@ -473,11 +469,7 @@ class RandomDSpritesMap(Dataset):
         self.targets = list(self.targets)
 
     def __len__(self):
-        if self.dataset.dataset_size is not None:
-            return self.dataset.dataset_size
-        return len(list(product(*self.dataset.ranges.values()))) * len(
-            self.dataset.shapes
-        )
+        return len(self.data)
 
     def __getitem__(self, index):
         return self.data[index], self.targets[index]
