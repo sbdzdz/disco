@@ -1,4 +1,4 @@
-_target_: codis.models.stn_gf.STN_GF
+_target_: codis.models.lightning.SpatialTransformerGF
 name: stn
 callbacks: [logging, visualization]
 channels: [16, 16, 32, 32, 64]

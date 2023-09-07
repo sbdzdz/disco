@@ -1,3 +1,4 @@
+_target_: codis.lightning.modules.SupervisedVAE
 name: stn
 channels: [16, 16, 32, 32, 64]
 callbacks: [logging, visualization]

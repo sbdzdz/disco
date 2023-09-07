@@ -64,7 +64,7 @@ def train(cfg: DictConfig) -> None:
             test_dataset = update_test_dataset(cfg, test_dataset, task_test_dataset)
             test_loader = build_dataloader(cfg, test_dataset)  # shuffle for vis
 
-            if cfg.model in ["stn", "stn_gf", "vae"]:
+            if cfg.model.name in ["stn", "stn_gf", "vae"]:
                 model.task_id = task_id
                 for exemplar in task_exemplars:
                     model.add_exemplar(exemplar)

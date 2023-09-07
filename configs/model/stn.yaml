@@ -1,3 +1,4 @@
+_target_: codis.lightning.modules.SpatialTransformer
 name: stn
 callbacks: [logging, visualization]
 channels: [16, 16, 32, 32, 64]
