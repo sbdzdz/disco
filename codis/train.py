@@ -209,11 +209,6 @@ def update_test_dataset(
     subset_indices = []
     for indices in class_indices.values():
         subset_indices.extend(np.random.choice(indices, samples_per_shape))
-    subset = Subset(task_test_dataset, subset_indices)
-    if test_dataset is None:
-        test_dataset = subset
-    else:
-        test_dataset = ConcatDataset([test_dataset, subset])
 
     task_data = np.array(task_test_dataset.data)[subset_indices]
     task_targets = np.array(task_test_dataset.targets)[subset_indices]
