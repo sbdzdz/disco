@@ -11,13 +11,22 @@ hydra:
     dir: ${oc.env:WORK}/${project.name}/hydra/${now:%Y-%m-%d}/${now:%H-%M-%S}
 
 wandb:
-  dir: ${oc.env:WORK}/${project.name}/wandb
+  _target_: lightning.pytorch.loggers.WandbLogger
+  save_dir: ${oc.env:WORK}/${project.name}/wandb
   project: ${project.name}
   group: null
-  log_every_n_steps: 1
   mode: online
+  notes: null
 
 training:
   mode: continual
-  max_epochs: 5
   lr: 0.001
+
+trainer:
+  _target_: lightning.pytorch.Trainer
+  default_root_dir: ${oc.env:WORK}/${project.name}/lightning
+  enable_checkpointing: false
+  enable_progress_bar: false
+  max_epochs: 5
+  log_every_n_steps: 1
+  logger: ${wandb}
