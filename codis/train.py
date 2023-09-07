@@ -211,12 +211,16 @@ def update_test_dataset(
     for indices in class_indices.values():
         subset_indices.extend(np.random.choice(indices, samples_per_shape))
 
-    task_data = np.array(task_test_dataset.data)[subset_indices]
-    task_targets = np.array(task_test_dataset.targets)[subset_indices]
-    test_dataset.data = np.concatenate((task_test_dataset.data, task_data), axis=0)
-    test_dataset.targets = np.concatenate(
-        (task_test_dataset.targets, task_targets), axis=0
-    )
+    task_data, task_targets = zip(*[task_test_dataset[i] for i in subset_indices])
+
+    if test_dataset is None:
+        test_dataset = ContinualDSpritesMap(dataset_size=1)
+        test_dataset.data = task_data
+        test_dataset.targets = task_targets
+    else:
+        test_dataset.data.extend(task_data)
+        test_dataset.targets.extend(task_targets)
+
     return test_dataset
 
 
