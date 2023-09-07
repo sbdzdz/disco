@@ -214,7 +214,7 @@ def update_test_dataset(
     task_data, task_targets = zip(*[task_test_dataset[i] for i in subset_indices])
 
     if test_dataset is None:
-        test_dataset = ContinualDSpritesMap(dataset_size=1)
+        test_dataset = ContinualDSpritesMap(dataset_size=1)  # dummy dataset
         test_dataset.data = task_data
         test_dataset.targets = task_targets
     else:
