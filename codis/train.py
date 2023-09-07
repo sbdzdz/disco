@@ -8,7 +8,7 @@ import torch
 from lightning.pytorch import Trainer
 from lightning.pytorch.loggers import WandbLogger
 from omegaconf import DictConfig, OmegaConf
-from torch.utils.data import ConcatDataset, DataLoader, Dataset, Subset, random_split
+from torch.utils.data import DataLoader, Dataset, random_split
 
 import wandb
 from codis.data import (
@@ -213,7 +213,37 @@ def update_test_dataset(
     else:
         test_dataset = ConcatDataset([test_dataset, subset])
 
+    task_data = np.array(task_test_dataset.data)[subset_indices]
+    task_targets = np.array(task_test_dataset.targets)[subset_indices]
+    test_dataset.data = np.concatenate((task_test_dataset.data, task_data), axis=0)
+    test_dataset.targets = np.concatenate(
+        (task_test_dataset.targets, task_targets), axis=0
+    )
     return test_dataset
+
+
+# def update_test_dataset_old(
+#    cfg: DictConfig,
+#    test_dataset: Dataset,
+#    task_test_dataset: Dataset,
+# ):
+#    """Update the test dataset keeping it class-balanced."""
+#    samples_per_shape = cfg.dataset.test_dataset_size // (
+#        cfg.dataset.tasks * cfg.dataset.shapes_per_task
+#    )
+#    class_indices = defaultdict(list)
+#    for i, (_, factors) in enumerate(task_test_dataset):
+#        class_indices[factors.shape_id].append(i)
+#    subset_indices = []
+#    for indices in class_indices.values():
+#        subset_indices.extend(np.random.choice(indices, samples_per_shape))
+#    subset = Subset(task_test_dataset, subset_indices)
+#    if test_dataset is None:
+#        test_dataset = subset
+#    else:
+#        test_dataset = ConcatDataset([test_dataset, subset])
+#
+#    return test_dataset
 
 
 def build_joint_data_loaders(cfg: DictConfig, shapes):
