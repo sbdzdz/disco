@@ -1,3 +1,4 @@
+avalanche-lib
 hydra-core
 imageio
 lightning
