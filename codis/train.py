@@ -1,13 +1,14 @@
 """Training script."""
+import os
 from collections import defaultdict
 
 import hydra
-from hydra.utils import instantiate
 import numpy as np
 import torch
 import wandb
 from avalanche.models import SimpleCNN, SimpleMLP
 from avalanche.training.supervised import EWC, GEM, GDumb, LwF, Naive, Replay
+from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, Dataset, random_split
 
@@ -42,6 +43,7 @@ def train(cfg: DictConfig) -> None:
     random_images = generate_random_images(shapes, img_size=cfg.dataset.img_size)
     callbacks = build_callbacks(cfg, canonical_images, random_images)
     config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
+    config["job_id"] = os.environ.get("SLURM_JOB_ID")
     trainer = instantiate(cfg.trainer, callbacks=callbacks, logger={"config": config})
 
     test_dataset = None
