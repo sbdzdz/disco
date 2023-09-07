@@ -5,12 +5,12 @@ import hydra
 from hydra.utils import instantiate
 import numpy as np
 import torch
-from lightning.pytorch import Trainer
-from lightning.pytorch.loggers import WandbLogger
+import wandb
+from avalanche.models import SimpleCNN, SimpleMLP
+from avalanche.training.supervised import EWC, GEM, GDumb, LwF, Naive, Replay
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, Dataset, random_split
 
-import wandb
 from codis.data import (
     ContinualDSpritesMap,
     InfiniteDSprites,
@@ -62,14 +62,15 @@ def train(cfg: DictConfig) -> None:
             test_dataset = update_test_dataset(cfg, test_dataset, task_test_dataset)
             test_loader = build_dataloader(cfg, test_dataset)  # shuffle for vis
 
-            model.task_id = task_id
-            for exemplar in task_exemplars:
-                model.add_exemplar(exemplar)
-            trainer.fit(model, train_loader, val_loader)
-            trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
-            trainer.test(model, test_loader)
-            del train_dataset, val_dataset, task_test_dataset
-            del train_loader, val_loader, test_loader
+            if cfg.model in ["stn", "stn_gf", "vae"]:
+                model.task_id = task_id
+                for exemplar in task_exemplars:
+                    model.add_exemplar(exemplar)
+                trainer.fit(model, train_loader, val_loader)
+                trainer.fit_loop.max_epochs += cfg.training.max_epochs
+                trainer.test(model, test_loader)
+                del train_dataset, val_dataset, task_test_dataset
+                del train_loader, val_loader, test_loader
 
     elif cfg.training.mode == "joint":
         model.task_id = 0
