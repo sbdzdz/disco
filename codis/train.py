@@ -39,9 +39,9 @@ def train(cfg: DictConfig) -> None:
     ]
     shape_ids = range(len(shapes))
     model = build_model(cfg)
-    canonical_images = generate_canonical_images(shapes, img_size=cfg.dataset.img_size)
+    exemplars = generate_canonical_images(shapes, img_size=cfg.dataset.img_size)
     random_images = generate_random_images(shapes, img_size=cfg.dataset.img_size)
-    callbacks = build_callbacks(cfg, canonical_images, random_images)
+    callbacks = build_callbacks(cfg, exemplars, random_images)
     config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
     config["job_id"] = os.environ.get("SLURM_JOB_ID")
     trainer = instantiate(cfg.trainer, callbacks=callbacks, logger={"config": config})
@@ -52,7 +52,7 @@ def train(cfg: DictConfig) -> None:
             zip(
                 grouper(cfg.dataset.shapes_per_task, shapes),
                 grouper(cfg.dataset.shapes_per_task, shape_ids),
-                grouper(cfg.dataset.shapes_per_task, canonical_images),
+                grouper(cfg.dataset.shapes_per_task, exemplars),
             )
         ):
             train_dataset, val_dataset, task_test_dataset = build_continual_datasets(
@@ -71,13 +71,11 @@ def train(cfg: DictConfig) -> None:
                 trainer.fit(model, train_loader, val_loader)
                 trainer.fit_loop.max_epochs += cfg.training.max_epochs
                 trainer.test(model, test_loader)
-                del train_dataset, val_dataset, task_test_dataset
-                del train_loader, val_loader, test_loader
 
     elif cfg.training.mode == "joint":
         model.task_id = 0
         if model.has_buffer:
-            for exemplar in canonical_images:
+            for exemplar in exemplars:
                 model.add_exemplar(exemplar)
         train_loader, val_loader, test_loader = build_joint_data_loaders(cfg, shapes)
         trainer.fit(model, train_loader, val_loader)
