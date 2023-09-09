@@ -69,7 +69,7 @@ def train(cfg: DictConfig) -> None:
                 for exemplar in task_exemplars:
                     model.add_exemplar(exemplar)
                 trainer.fit(model, train_loader, val_loader)
-                trainer.fit_loop.max_epochs += cfg.training.max_epochs
+                trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
                 trainer.test(model, test_loader)
 
     elif cfg.training.mode == "joint":
