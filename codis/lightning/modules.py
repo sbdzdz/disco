@@ -55,6 +55,7 @@ class ContinualModule(pl.LightningModule):
         """Add an exemplar to the buffer."""
         self._buffer.append(exemplar)
 
+    @torch.no_grad()
     def classify(self, x: torch.Tensor, split_size: int = 256):
         """Classify the input."""
         x_hat, *_ = self(x)
@@ -64,7 +65,7 @@ class ContinualModule(pl.LightningModule):
         )
         buffer = buffer.unsqueeze(0).detach()
 
-        losses = []
+        losses = [] # classify in chunks to avoid OOM
         for chunk in torch.split(buffer, split_size, dim=1):
             chunk = chunk.repeat(x_hat.shape[0], 1, 1, 1, 1)
             loss = F.mse_loss(
