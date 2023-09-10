@@ -6,28 +6,35 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import numpy as np
+import wandb
 from matplotlib import pyplot as plt
 from tqdm import tqdm
-
-import wandb
 
 
 def visualize_loss(args):
     """Visualize train, validation, and optionally test losses."""
-    api = wandb.Api()
-    runs = api.runs(
-        args.wandb_entity, filters={"group": args.wandb_group, "state": "finished"}
-    )
-    num_tasks = runs[0].config["dataset.tasks"]
+    api = wandb.Api(timeout=60)
+    runs = api.runs(args.wandb_entity, filters={"group": args.wandb_group})
+    if args.num_tasks:
+        num_tasks = args.num_tasks
+    else:
+        num_tasks = runs[0].config.get("dataset.tasks")
+
     if len(runs) == 0:
         raise ValueError("No matching runs found.")
+    else:
+        print(f"Found {len(runs)} runs.")
 
-    stages = ["val", "train"]
-    if args.include_test:
-        if args.test_per_task:
-            stages.extend([f"test_task_{i}" for i in range(num_tasks)])
-        else:
+    if num_tasks is None and args.show_test is not None:
+        raise ValueError("Couldn't infer the number of tasks.")
+
+    stages = []
+    if args.show_test:
+        if args.show_test == "aggregate":
             stages.extend(["test"])
+        elif args.show_test == "per_task":
+            stages.extend([f"test_task_{i}" for i in range(num_tasks)])
+
     plt.style.use("ggplot")
     _, ax = plt.subplots(figsize=(20, 9), layout="tight")
     for stage in stages:
@@ -44,10 +51,15 @@ def visualize_loss(args):
             for run in tqdm(runs)
         ]
         steps, values = zip(*metrics)
-        values_mean = np.mean(values, axis=0)
 
+        # trim to the shortest run
+        min_len = min(len(s) for s in steps)
+        steps = [s[:min_len] for s in steps]
+        values = [v[:min_len] for v in values]
+
+        values_mean = np.mean(values, axis=0)
         ax.plot(steps[0], values_mean, label=f"{args.metric_name}_{stage}")
-        if args.include_std:
+        if args.show_std:
             values_std = np.std(values, axis=0)
             ax.fill_between(
                 steps[0],
@@ -56,17 +68,22 @@ def visualize_loss(args):
                 alpha=0.3,
             )
 
-    # set x ticks to task transitions
-    ax.set_xticks(get_task_transitions(runs[0]))
-    ax.set_xticklabels(range(1, num_tasks))
-    ax.set_xlabel("Tasks")
+    if args.xticks == "tasks":
+        ax.set_xticks(get_task_transitions(runs[0])[::10])
+        ax.set_xticklabels(range(num_tasks)[::10])
+        ax.set_xlabel("Tasks", fontsize=args.fontsize)
+    else:
+        ax.set_xlabel("Steps", fontsize=args.fontsize)
     ax.set_xlim([args.xmin, args.xmax])
 
-    ax.yaxis.set_major_formatter("{x:.2f}")
-    ax.set_ylabel("Loss")
+    ax.xaxis.labelpad = 20
+    ax.yaxis.labelpad = 20
+
+    ax.yaxis.set_major_formatter("{x:.3f}")
+    ax.set_ylabel("Loss", fontsize=args.fontsize)
     ax.set_ylim([args.ymin, args.ymax])
 
-    ax.set_title(args.plot_title)
+    ax.set_title(args.plot_title, y=1.05, fontsize=args.fontsize)
     ax.legend(loc="upper right")
 
     plt.savefig(args.out_path, bbox_inches="tight")
@@ -134,15 +151,14 @@ def _main():
         "--max_samples", type=int, default=None, help="Max number of data points."
     )
     parser.add_argument(
-        "--include_test", action="store_true", help="Include test losses in the plot."
+        "--show_test",
+        type=str,
+        default=None,
+        choices=["aggregate", "per_task"],
+        help="Show test loss. Options: None, aggregate, per_task",
     )
     parser.add_argument(
-        "--test_per_task",
-        action="store_true",
-        help="Plot test losses per task instead of aggregated.",
-    )
-    parser.add_argument(
-        "--include_std", action="store_true", help="Visualize standard deviation."
+        "--show_std", action="store_true", help="Visualize standard deviation."
     )
     parser.add_argument(
         "--plot_title",
@@ -150,10 +166,15 @@ def _main():
         default="Loss",
         help="Title of the plot.",
     )
+    parser.add_argument("--num_tasks", type=int, default=None)
     parser.add_argument("--xmin", type=float, help="X-axis min limit.")
     parser.add_argument("--xmax", type=float, help="X-axis max limit.")
+    parser.add_argument(
+        "--xticks", type=str, help="X-axis data", choices=["steps", "tasks"]
+    )
     parser.add_argument("--ymin", type=float, help="Y-axis min limit.")
     parser.add_argument("--ymax", type=float, help="Y-axis max limit.")
+    parser.add_argument("--fontsize", type=int, default=20)
     args = parser.parse_args()
     visualize_loss(args)
 
