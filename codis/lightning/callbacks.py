@@ -62,18 +62,24 @@ class VisualizationCallback(Callback):
             )
 
     @staticmethod
+    @torch.no_grad()
     def log_reconstructions(pl_module, x, name, num_imgs):
         """Log images and reconstructions"""
-        pl_module.eval()
+        is_training = pl_module.training
+        print(f"Model is training: {is_training}")
+        pl_module.train(False)
         x = np.stack(x[:num_imgs])
         x_hat, *_ = pl_module(torch.from_numpy(x).to(pl_module.device))
         images = draw_batch_and_reconstructions(x, to_numpy(x_hat))
         pl_module.logger.log_image(name, images=[images])
-        pl_module.train()
+        pl_module.train(is_training)
 
     @staticmethod
+    @torch.no_grad()
     def log_classification(pl_module, batch, name, num_imgs):
-        pl_module.eval()
+        is_training = pl_module.training
+        print(f"Model is training: {is_training}")
+        pl_module.train(False)
         x, y = batch
         x, y = x.to(pl_module.device), y.to(pl_module.device)
         x = x[:num_imgs]
@@ -88,7 +94,7 @@ class VisualizationCallback(Callback):
             closest,
         )
         pl_module.logger.log_image(name, images=[images])
-        pl_module.train()
+        pl_module.train(is_training)
 
 
 class LoggingCallback(Callback):
