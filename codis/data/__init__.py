@@ -5,6 +5,8 @@ from codis.data.infinite_dsprites import (
     ContinualDSpritesMap,
     RandomDSprites,
     RandomDSpritesMap,
+    RandomDSpritesShapes,
+    RandomDSpritesMapCustomized,
     InfiniteDSpritesAnalogies,
     InfiniteDSpritesTriplets,
     Latents,

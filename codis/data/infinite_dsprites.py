@@ -58,7 +58,7 @@ class InfiniteDSprites(IterableDataset):
             position_x_range: The range of x positions to sample from.
             position_y_range: The range of y positions to sample from.
             dataset_size: The number of images to generate. Note that `shapes` also controls
-                the number of images generated.
+                the number of images generated. ? Set shapes to None if you set dataset_size.
             shapes: The number of shapes to generate or a list of shapes to use. Set
                 to None to generate random shapes forever.
             orientation_marker: Whether to draw stripes indicating the orientation of the shape.
@@ -81,6 +81,13 @@ class InfiniteDSprites(IterableDataset):
             "orientation": orientation_range,
             "position_x": position_x_range,
             "position_y": position_y_range,
+        }
+        self.range_means = {
+            "color": np.array(colors.to_rgb(color_range[0] if len(color_range)==1 else "white")),
+            "scale": np.mean(scale_range),
+            "orientation": np.mean(orientation_range),
+            "position_x": np.mean(position_x_range),
+            "position_y": np.mean(position_y_range),
         }
         self.num_latents = len(self.ranges) + 1
         self.dataset_size = dataset_size
@@ -377,6 +384,19 @@ class InfiniteDSprites(IterableDataset):
             position_y=np.random.choice(self.ranges["position_y"]),
         )
 
+    def sample_controlled(self, shape, latent:str=None):
+        """Sample a random value only for latent :param latent.
+            latent can be one of: "color", "scale", "orientation", "position_x", "position_y".
+            latent=None also works, then we return a "default" shape.
+        """
+        param_dict = {k:v for k, v in self.range_means.items()}
+        param_dict["shape"] = shape
+        if latent == "color":
+            param_dict[latent] = np.array(colors.to_rgb(np.random.choice(self.ranges["color"])))
+        elif latent is not None:
+            param_dict[latent] = np.random.choice(self.ranges[latent])
+        return Latents(**param_dict )
+
 
 class ContinualDSpritesMap(Dataset):
     """Map-style (finite) continual learning dsprites dataset."""
@@ -428,6 +448,29 @@ class RandomDSprites(InfiniteDSprites):
             yield image, latents
 
 
+class RandomDSpritesShapes(InfiniteDSprites):
+    """Returns shapes only.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def __iter__(self):
+        """Generate an infinite stream of images.
+        Args:
+            None
+        Yields:
+            A tuple of (image, latents).
+        """
+        while self.dataset_size is None or self.counter < self.dataset_size:
+            self.counter += 1
+            if self.shapes is not None:
+                shape = self.shapes[np.random.choice(len(self.shapes))]
+            else:
+                shape = self.generate_shape()
+            yield shape
+
+
 class RandomDSpritesMap(Dataset):
     """Map-style (finite) random dsprites dataset."""
 
@@ -451,9 +494,55 @@ class RandomDSpritesMap(Dataset):
         return self.imgs[index], self.latents[index]
 
 
+
+class RandomDSpritesMapCustomized(Dataset):
+    """Stores only the shapes internally; this allows to generate new transformations
+       on each iteration. Restrict the latents to vary only in one dimension, and be fixed otherwise.
+       """
+
+    def __init__(self, sample_random_latents=False, *args, **kwargs) -> None:
+        ''':param sample_random_latents: If True, sample randomly.
+                                         If False, sample a prototype, with fixed default latents. '''
+        self.dataset = RandomDSpritesShapes(*args, **kwargs)
+        assert (
+            self.dataset.dataset_size is not None
+        ), "Dataset size must be finite. Please set dataset_size."
+
+        self.shapes = list(self.dataset)
+        self.allowed_latents = ["color", "scale", "orientation", "position_x", "position_y"] # for reference
+        self.sample_random_latents = sample_random_latents
+
+    def __len__(self):
+        if self.dataset.dataset_size is not None:
+            return self.dataset.dataset_size
+        return len(self.shapes)
+
+    def __getitem__(self, index):
+        # return a random transform of the shape at :param index .
+        shape = self.shapes[index]
+        if self.sample_random_latents:
+            latents = self.dataset.sample_latents()
+        else:
+            latents = self.dataset.sample_controlled(shape)
+        image = self.dataset.draw(latents)
+        return image, latents
+
+    def sample_controlled(self, latents, randomize_latent):
+        assert randomize_latent in self.allowed_latents, f"Can only vary one of latents {self.allowed_latents}, " \
+                                                         f"but found {randomize_latent}"
+        shape = latents["shape"]
+        latents = self.dataset.sample_controlled(shape, randomize_latent)
+        image = self.dataset.draw(latents)
+        return image, latents
+
+
+
+
+
 class InfiniteDSpritesTriplets(InfiniteDSprites):
     """Infinite dataset of triplets of images.
     For details see the composition task proposed by Montero et al. (2020).
+    Note: https://openreview.net/pdf?id=qbH974jKUVy, see fig. 5
     """
 
     def __init__(self, *args, **kwargs):
