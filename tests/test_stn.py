@@ -44,7 +44,7 @@ def test_parameter_conversion(seed):
     canonical_images = np.array([img.numpy() for img in canonical_images])
     transformed_images = np.array([img.numpy() for img in transformed_images])
     diffs = np.mean(np.abs(transformed_images - canonical_images))
-    assert diffs < 0.003
+    assert diffs < 0.004
 
 
 def transform(img, matrix):

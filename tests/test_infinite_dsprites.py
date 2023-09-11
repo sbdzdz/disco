@@ -17,7 +17,7 @@ def test_idsprites_instantiation_with_no_parameters(dataset_class):
     """Test that the dataset can be instantiated with no parameters."""
     dataset = dataset_class()
     assert dataset.img_size == 256
-    assert dataset.ranges["color"] == ("white",)
+    assert dataset.ranges["color"] == ["white"]
     assert np.allclose(dataset.ranges["scale"], np.linspace(0.5, 1.0, 32))
     assert np.allclose(
         dataset.ranges["orientation"], np.linspace(0, 2 * np.pi * 32 / 33, 32)

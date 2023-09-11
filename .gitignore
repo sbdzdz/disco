@@ -5,11 +5,13 @@
 .DS_Store
 
 # Python
+build
 venv
 .ipynb_checkpoints
 *.egg-info
 *.egg
 *.pyc
+.pytest_cache
 __pycache__
 
 # data
@@ -20,3 +22,6 @@ wandb
 
 # mypy
 .mypy_cache
+
+# logs
+outputs

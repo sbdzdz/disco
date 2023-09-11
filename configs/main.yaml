@@ -1,0 +1,23 @@
+defaults:
+ - _self_
+ - dataset: idsprites
+ - model: stn
+
+project:
+  name: codis
+
+hydra:
+  run:
+    dir: ${oc.env:WORK}/${project.name}/hydra/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+wandb:
+  dir: ${oc.env:WORK}/${project.name}/wandb
+  project: ${project.name}
+  group: null
+  log_every_n_steps: 1
+  mode: online
+
+training:
+  mode: continual
+  max_epochs: 5
+  lr: 0.001
