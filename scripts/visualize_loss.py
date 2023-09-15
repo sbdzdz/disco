@@ -15,24 +15,22 @@ def visualize_loss(args):
     """Visualize train, validation, and optionally test losses."""
     api = wandb.Api(timeout=60)
     runs = api.runs(args.wandb_entity, filters={"group": args.wandb_group})
-    if args.num_tasks:
-        num_tasks = args.num_tasks
-    else:
-        num_tasks = runs[0].config.get("dataset.tasks")
-
     if len(runs) == 0:
         raise ValueError("No matching runs found.")
     else:
         print(f"Found {len(runs)} runs.")
-
-    if num_tasks is None and args.show_test is not None:
-        raise ValueError("Couldn't infer the number of tasks.")
 
     stages = []
     if args.show_test:
         if args.show_test == "aggregate":
             stages.extend(["test"])
         elif args.show_test == "per_task":
+            if args.num_tasks:
+                num_tasks = args.num_tasks
+            else:
+                num_tasks = runs[0].config.get("dataset.tasks")
+            if num_tasks is None and args.show_test is not None:
+                raise ValueError("Couldn't infer the number of tasks.")
             stages.extend([f"test_task_{i}" for i in range(num_tasks)])
 
     plt.style.use("ggplot")
@@ -69,8 +67,11 @@ def visualize_loss(args):
             )
 
     if args.xticks == "tasks":
-        ax.set_xticks(get_task_transitions(runs[0])[::10])
-        ax.set_xticklabels(range(num_tasks)[::10])
+        task_transitions = get_task_transitions(runs[0])[
+            :: args.x_ticks_every
+        ]  # , subsample=args.x_ticks_every)
+        ax.set_xticks(task_transitions)
+        ax.set_xticklabels(range(min_len + args.x_ticks_every)[:: args.x_ticks_every])
         ax.set_xlabel("Tasks", fontsize=args.fontsize)
     else:
         ax.set_xlabel("Steps", fontsize=args.fontsize)
@@ -80,9 +81,14 @@ def visualize_loss(args):
     ax.yaxis.labelpad = 20
 
     ax.yaxis.set_major_formatter("{x:.3f}")
-    ax.set_ylabel("Loss", fontsize=args.fontsize)
+    metric_name = args.metric_name.replace("_", " ").capitalize()
+    ax.set_ylabel(metric_name, fontsize=args.fontsize)
     ax.set_ylim([args.ymin, args.ymax])
 
+    if args.plot_title is None:
+        args.plot_title = (
+            f"{metric_name} (STN, 10 shapes per task, average of {len(runs)} runs.)"
+        )
     ax.set_title(args.plot_title, y=1.05, fontsize=args.fontsize)
     ax.legend(loc="upper right")
 
@@ -91,11 +97,9 @@ def visualize_loss(args):
 
 def get_task_transitions(run):
     """Get task transitions from a wandb run."""
-    task_id_steps, task_id_values = download_metric(run, "task_id")
+    steps, values = download_metric(run=run, name="task_id")
     return [
-        task_id_steps[i]
-        for i in range(len(task_id_steps) - 1)
-        if task_id_values[i] != task_id_values[i + 1]
+        steps[i] for i, (v, v_next) in enumerate(zip(values, values[1:])) if v != v_next
     ]
 
 
@@ -163,7 +167,7 @@ def _main():
     parser.add_argument(
         "--plot_title",
         type=str,
-        default="Loss",
+        default=None,
         help="Title of the plot.",
     )
     parser.add_argument("--num_tasks", type=int, default=None)
@@ -171,6 +175,9 @@ def _main():
     parser.add_argument("--xmax", type=float, help="X-axis max limit.")
     parser.add_argument(
         "--xticks", type=str, help="X-axis data", choices=["steps", "tasks"]
+    )
+    parser.add_argument(
+        "--x_ticks_every", type=int, default=20, help="Granularity of the x axis."
     )
     parser.add_argument("--ymin", type=float, help="Y-axis min limit.")
     parser.add_argument("--ymax", type=float, help="Y-axis max limit.")
