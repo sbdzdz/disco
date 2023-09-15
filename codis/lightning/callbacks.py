@@ -85,13 +85,13 @@ class VisualizationCallback(Callback):
         x = x[:num_imgs]
         x_hat, *_ = pl_module(x)
         labels = pl_module.classify(x)
-        actual = np.stack([pl_module._buffer[i] for i in y.shape_id[:num_imgs]])
         closest = np.stack([pl_module._buffer[i] for i in labels])
+        actual = np.stack([pl_module._buffer[i] for i in y.shape_id[:num_imgs]])
         images = draw_batch_and_reconstructions(
             to_numpy(x),
             to_numpy(x_hat),
-            actual,
             closest,
+            actual,
         )
         pl_module.logger.log_image(name, images=[images])
         pl_module.train(is_training)
