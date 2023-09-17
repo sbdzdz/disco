@@ -8,6 +8,7 @@ import torch
 import wandb
 from avalanche.models import SimpleCNN, SimpleMLP
 from avalanche.training.supervised import EWC, GEM, GDumb, LwF, Naive, Replay
+from avalanche.benchmarks.scenarios import ClassificationExperience
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, Dataset, random_split
@@ -69,8 +70,14 @@ def train(cfg: DictConfig) -> None:
                 for exemplar in task_exemplars:
                     model.add_exemplar(exemplar)
                 trainer.fit(model, train_loader, val_loader)
-                trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
                 trainer.test(model, test_loader)
+                trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
+            else:
+                experience = ClassificationExperience(
+                    origin_stream=None, current_experience=task_id
+                )
+                model.train(experience)
+                model.eval(test_loader)
 
     elif cfg.training.mode == "joint":
         model.task_id = 0
