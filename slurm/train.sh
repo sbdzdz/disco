@@ -24,5 +24,5 @@ python -m pip install -e $HOME/codis
 
 export PYTHONPATH=$PYTHONPATH:$HOME/codis
 
-srun --gres=gpu:1 python $HOME/codis/codis/train.py wandb.group=continual_classification trainer.max_epochs=3 model=stn \
+srun --gres=gpu:1 python $HOME/codis/codis/train.py wandb.group=continual_classification trainer.max_epochs=4 model=stn \
  dataset.tasks=510 model.gamma=1.0 dataset.factor_resolution=9 dataset.shapes_per_task=10 $additional_args
