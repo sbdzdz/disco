@@ -69,7 +69,8 @@ def train(cfg: DictConfig) -> None:
                 for exemplar in task_exemplars:
                     model.add_exemplar(exemplar)
                 trainer.fit(model, train_loader, val_loader)
-                trainer.test(model, test_loader)
+                if task_id % 10 == 0:  # test every 10 tasks
+                    trainer.test(model, test_loader)
                 trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
             else:
                 experience = ClassificationExperience(
