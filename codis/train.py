@@ -6,9 +6,9 @@ import hydra
 import numpy as np
 import torch
 import wandb
+from avalanche.benchmarks.scenarios import ClassificationExperience
 from avalanche.models import SimpleCNN, SimpleMLP
 from avalanche.training.supervised import EWC, GEM, GDumb, LwF, Naive, Replay
-from avalanche.benchmarks.scenarios import ClassificationExperience
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, Dataset, random_split
@@ -20,6 +20,7 @@ from codis.data import (
     RandomDSpritesMap,
 )
 from codis.lightning.callbacks import LoggingCallback, VisualizationCallback
+from codis.lightning.modules import ContinualModule
 from codis.utils import grouper
 
 torch.set_float32_matmul_precision("medium")
@@ -61,7 +62,7 @@ def train(cfg: DictConfig) -> None:
             test_dataset = update_test_dataset(cfg, test_dataset, task_test_dataset)
             test_loader = build_dataloader(cfg, test_dataset)  # shuffle for vis
 
-            if cfg.model.name in ["stn", "stn_gf", "vae"]:
+            if isinstance(model, ContinualModule):  # ours
                 model.task_id = task_id
                 for exemplar in task_exemplars:
                     model.add_exemplar(exemplar)
