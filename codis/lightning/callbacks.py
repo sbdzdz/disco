@@ -100,20 +100,26 @@ class LoggingCallback(Callback):
     def on_train_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
-        print(f"Training on task {pl_module.task_id},")
-        print(f"Number of batches: {len(trainer.train_dataloader)}.")
-        print(f"Number of samples: {len(trainer.train_dataloader.dataset)}.")
+        print(
+            f"Training on task {pl_module.task_id}: "
+            f"{len(trainer.train_dataloader)} batches, "
+            f"{len(trainer.train_dataloader.dataset)} samples."
+        )
 
     def on_validation_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
-        print(f"Validating on task {pl_module.task_id},")
-        print(f"Number of batches: {len(trainer.val_dataloaders)}.")
-        print(f"Number of samples: {len(trainer.val_dataloaders.dataset)}.")
+        print(
+            f"Validating on task {pl_module.task_id}: "
+            f"{len(trainer.val_dataloaders)} batches, "
+            f"{len(trainer.val_dataloaders.dataset)} samples."
+        )
 
     def on_test_epoch_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
-        print(f"Testing on task {pl_module.task_id},")
-        print(f"Number of batches: {len(trainer.test_dataloaders)}.")
-        print(f"Number of samples: {len(trainer.test_dataloaders.dataset)}.")
+        print(
+            f"Testing on task {pl_module.task_id}: "
+            f"{len(trainer.test_dataloaders)} batches, "
+            f"{len(trainer.test_dataloaders.dataset)} samples."
+        )
