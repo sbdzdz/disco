@@ -51,6 +51,7 @@ class InfiniteDSprites(IterableDataset):
         orientation_marker: bool = True,
         orientation_marker_color="black",
         background_color="darkgray",
+        grayscale: bool = True,
     ):
         """Create a dataset of images of random shapes.
         Args:
@@ -65,6 +66,8 @@ class InfiniteDSprites(IterableDataset):
                 to None to generate random shapes forever.
             shape_ids: The IDs of the shapes. If None, the shape ID is set to its index.
             orientation_marker: Whether to draw stripes indicating the orientation of the shape.
+            background_color: The color of the canvas background.
+            grayscale: If set to True, the images will have a single color channel.
         Returns:
             None
         """
@@ -100,6 +103,7 @@ class InfiniteDSprites(IterableDataset):
         self.background_color = tuple(
             int(255 * c) for c in colors.to_rgb(background_color)
         )
+        self.grayscale = grayscale
         self.scale_factor = 0.45
 
     @property
@@ -278,7 +282,7 @@ class InfiniteDSprites(IterableDataset):
             self.draw_orientation_marker(canvas, latents)
         if debug:
             self.add_debug_info(shape, canvas)
-        if self.is_monochrome(canvas):
+        if self.grayscale:
             canvas = np.mean(canvas, axis=2, keepdims=True)
         if channels_first:
             canvas = np.transpose(canvas, (2, 0, 1))
