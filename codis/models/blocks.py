@@ -14,6 +14,7 @@ class Encoder(nn.Module):
             None
         """
         super().__init__()
+        self.channels = channels
         channels = [in_channels] + channels
         module = [
             nn.Sequential(
@@ -35,6 +36,11 @@ class Encoder(nn.Module):
         """Forward pass of the encoder."""
         x = self.encoder(x)
         return x
+
+    def out_size(self, img_size):
+        """Return the output size of the encoder for a given image size."""
+        out_img_size = img_size // 2 ** len(self.channels)
+        return out_img_size**2 * self.channels[-1]
 
 
 class Decoder(nn.Module):

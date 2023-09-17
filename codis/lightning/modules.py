@@ -109,21 +109,20 @@ class SpatialTransformer(ContinualModule):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        enc_out_img_size = img_size // 2 ** len(channels)
-        self.enc_out_size = enc_out_img_size**2 * channels[-1]
+        if channels is None:
+            channels = [16, 16, 32, 32, 64]
 
         if encoder == "simple_cnn":
-            if channels is None:
-                channels = [16, 16, 32, 32, 64]
             self.encoder = Encoder(channels, in_channels)
-            self.regressor = MLP(dims=[self.enc_out_size, 64, 32, 6])
+            self.enc_out_size = self.encoder.out_size(img_size)
         elif encoder in list_models(module=torchvision.models):
-            self.encoder = get_model(encoder, weights=None)
-            self.regressor = MLP(dims=[64, 64, 32, 6])
+            self.encoder = get_model(encoder, weights=None, num_classes=6)
+            self.enc_out_size = 64
         else:
             raise ValueError(f"Unknown encoder: {encoder}")
 
         # initialize the regressor to the identity transform
+        self.regressor = MLP(dims=[self.enc_out_size, 64, 32, 6])
         self.regressor.model[-1].weight.data.zero_()
         self.regressor.model[-1].bias.data.copy_(
             torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float)
