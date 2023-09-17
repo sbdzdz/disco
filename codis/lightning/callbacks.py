@@ -101,7 +101,7 @@ class LoggingCallback(Callback):
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
         print(
-            f"Training on task {pl_module.task_id}: "
+            f"Task {pl_module.task_id} training: "
             f"{len(trainer.train_dataloader)} batches, "
             f"{len(trainer.train_dataloader.dataset)} samples."
         )
@@ -110,7 +110,7 @@ class LoggingCallback(Callback):
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
         print(
-            f"Validating on task {pl_module.task_id}: "
+            f"Task {pl_module.task_id} validation: "
             f"{len(trainer.val_dataloaders)} batches, "
             f"{len(trainer.val_dataloaders.dataset)} samples."
         )
@@ -119,7 +119,7 @@ class LoggingCallback(Callback):
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
         print(
-            f"Testing on task {pl_module.task_id}: "
+            f"Task {pl_module.task_id} testing: "
             f"{len(trainer.test_dataloaders)} batches, "
             f"{len(trainer.test_dataloaders.dataset)} samples."
         )
