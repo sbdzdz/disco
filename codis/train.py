@@ -32,7 +32,6 @@ def train(cfg: DictConfig) -> None:
     """Train the model in a continual learning setting."""
     config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
     config["job_id"] = os.environ.get("SLURM_JOB_ID")
-    # wandb.init(config=config)
 
     shapes = [
         InfiniteDSprites().generate_shape()
