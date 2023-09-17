@@ -4,22 +4,12 @@ from typing import List, Optional
 import lightning.pytorch as pl
 import torch
 import torch.nn.functional as F
+import torchvision
+from torchvision.models import get_model, list_models
 
 from codis.data import Latents
 from codis.models import MLP, BetaVAE
 from codis.models.blocks import Encoder
-from torchvision.models import ResNet18, ResNet34, ResNet50, ResNet101
-
-
-def get_resnet_by_name(name: str):
-    resnets = {
-        "resnet18": ResNet18,
-        "resnet34": ResNet34,
-        "resnet50": ResNet50,
-        "resnet101": ResNet101,
-    }
-    assert name in resnets, f"ResNet not found: {name}."
-    return resnets[name]
 
 
 class ContinualModule(pl.LightningModule):
@@ -77,7 +67,7 @@ class ContinualModule(pl.LightningModule):
         )
         buffer = buffer.unsqueeze(0).detach()
 
-        losses = [] # classify in chunks to avoid OOM
+        losses = []  # classify in chunks to avoid OOM
         for chunk in torch.split(buffer, split_size, dim=1):
             chunk = chunk.repeat(x_hat.shape[0], 1, 1, 1, 1)
             loss = F.mse_loss(
@@ -129,8 +119,8 @@ class SpatialTransformer(ContinualModule):
             self.regressor = MLP(
                 dims=[self.enc_out_size, 64, 32, 6],
             )
-        elif encoder.startswith("resnet"):
-            self.encoder = get_resnet_by_name(encoder)
+        elif encoder in list_models(module=torchvision.models):
+            self.encoder = get_model(encoder, weights=None)
             self.regressor = MLP(dims=[64, 64, 32, 6])
         else:
             raise ValueError(f"Unknown encoder: {encoder}")
