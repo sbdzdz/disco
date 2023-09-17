@@ -187,30 +187,6 @@ def update_test_dataset(
     return test_dataset
 
 
-# def update_test_dataset_old(
-#    cfg: DictConfig,
-#    test_dataset: Dataset,
-#    task_test_dataset: Dataset,
-# ):
-#    """Update the test dataset keeping it class-balanced."""
-#    samples_per_shape = cfg.dataset.test_dataset_size // (
-#        cfg.dataset.tasks * cfg.dataset.shapes_per_task
-#    )
-#    class_indices = defaultdict(list)
-#    for i, (_, factors) in enumerate(task_test_dataset):
-#        class_indices[factors.shape_id].append(i)
-#    subset_indices = []
-#    for indices in class_indices.values():
-#        subset_indices.extend(np.random.choice(indices, samples_per_shape))
-#    subset = Subset(task_test_dataset, subset_indices)
-#    if test_dataset is None:
-#        test_dataset = subset
-#    else:
-#        test_dataset = ConcatDataset([test_dataset, subset])
-#
-#    return test_dataset
-
-
 def build_joint_data_loaders(cfg: DictConfig, shapes):
     """Build data loaders for a joint training scenario."""
     scale_range = np.linspace(0.5, 1.5, cfg.dataset.factor_resolution)
