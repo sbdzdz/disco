@@ -25,5 +25,4 @@ python -m pip install -e $HOME/codis
 export PYTHONPATH=$PYTHONPATH:$HOME/codis
 
 srun --gres=gpu:1 python $HOME/codis/codis/train.py wandb.group=continual_classification trainer.max_epochs=3 model=stn \
- dataset.tasks=300 model.gamma=1.0 dataset.factor_resolution=10 dataset.shapes_per_task=10 dataset.train_split=98000 dataset.val_split=1000 dataset.test_split=1000 \
- $additional_args
+ dataset.tasks=510 model.gamma=1.0 dataset.factor_resolution=8 dataset.shapes_per_task=10 $additional_args
