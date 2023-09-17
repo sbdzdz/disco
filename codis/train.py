@@ -122,7 +122,7 @@ def build_dataloader(cfg: DictConfig, dataset, shuffle=True):
 def build_callbacks(cfg: DictConfig, canonical_images: list, random_images: list):
     """Prepare the appropriate callbacks."""
     callbacks = []
-    callback_names = cfg.model.callbacks
+    callback_names = cfg.training.callbacks
     if "logging" in callback_names:
         callbacks.append(LoggingCallback())
     if "visualization" in callback_names:
