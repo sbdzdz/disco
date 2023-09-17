@@ -37,57 +37,69 @@ def train(cfg: DictConfig) -> None:
         InfiniteDSprites().generate_shape()
         for _ in range(cfg.dataset.tasks * cfg.dataset.shapes_per_task)
     ]
-    shape_ids = range(len(shapes))
     exemplars = generate_canonical_images(shapes, img_size=cfg.dataset.img_size)
     random_images = generate_random_images(shapes, img_size=cfg.dataset.img_size)
     callbacks = build_callbacks(cfg, exemplars, random_images)
 
-    model = instantiate(cfg.model)
     trainer = instantiate(cfg.trainer, callbacks=callbacks)
     trainer.logger.log_hyperparams(config)
 
-    test_dataset = None
     if cfg.training.mode == "continual":
-        for task_id, (task_shapes, task_shape_ids, task_exemplars) in enumerate(
-            zip(
-                grouper(cfg.dataset.shapes_per_task, shapes),
-                grouper(cfg.dataset.shapes_per_task, shape_ids),
-                grouper(cfg.dataset.shapes_per_task, exemplars),
-            )
-        ):
-            train_dataset, val_dataset, task_test_dataset = build_continual_datasets(
-                cfg, task_shapes, task_shape_ids
-            )
-            train_loader = build_dataloader(cfg, train_dataset)
-            val_loader = build_dataloader(cfg, val_dataset, shuffle=False)
-
-            test_dataset = update_test_dataset(cfg, test_dataset, task_test_dataset)
-            test_loader = build_dataloader(cfg, test_dataset)  # shuffle for vis
-
-            if isinstance(model, ContinualModule):  # ours
-                model.task_id = task_id
-                for exemplar in task_exemplars:
-                    model.add_exemplar(exemplar)
-                trainer.fit(model, train_loader, val_loader)
-                if task_id % 10 == 0:  # test every 10 tasks
-                    trainer.test(model, test_loader)
-                trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
-            else:
-                experience = ClassificationExperience(
-                    origin_stream=None, current_experience=task_id
-                )
-                model.train(experience)
-                model.eval(test_loader)
-
+        train_continually(cfg, trainer, shapes, exemplars)
     elif cfg.training.mode == "joint":
-        model.task_id = 0
-        if model.has_buffer:
-            for exemplar in exemplars:
+        train_jointly(cfg, trainer, shapes, exemplars)
+    else:
+        raise ValueError(f"Unknown training mode: {cfg.training.mode}")
+
+
+def train_continually(cfg, trainer, shapes, exemplars):
+    """Train continually on a batch of shapes per task."""
+    shape_ids = range(len(shapes))
+    model = instantiate(cfg.model)
+
+    test_dataset = None
+    for task_id, (task_shapes, task_shape_ids, task_exemplars) in enumerate(
+        zip(
+            grouper(cfg.dataset.shapes_per_task, shapes),
+            grouper(cfg.dataset.shapes_per_task, shape_ids),
+            grouper(cfg.dataset.shapes_per_task, exemplars),
+        )
+    ):
+        train_dataset, val_dataset, task_test_dataset = build_continual_datasets(
+            cfg, task_shapes, task_shape_ids
+        )
+        train_loader = build_dataloader(cfg, train_dataset)
+        val_loader = build_dataloader(cfg, val_dataset, shuffle=False)
+
+        test_dataset = update_test_dataset(cfg, test_dataset, task_test_dataset)
+        test_loader = build_dataloader(cfg, test_dataset)  # shuffle for vis
+
+        if isinstance(model, ContinualModule):  # ours
+            model.task_id = task_id
+            for exemplar in task_exemplars:
                 model.add_exemplar(exemplar)
-        train_loader, val_loader, test_loader = build_joint_data_loaders(cfg, shapes)
-        trainer.fit(model, train_loader, val_loader)
-        trainer.test(model, test_loader)
-    wandb.finish()
+            trainer.fit(model, train_loader, val_loader)
+            if task_id % 10 == 0:  # test every 10 tasks
+                trainer.test(model, test_loader)
+            trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
+        else:
+            experience = ClassificationExperience(
+                origin_stream=None, current_experience=task_id
+            )
+            model.train(experience)
+            model.eval(test_loader)
+
+
+def train_jointly(cfg, trainer, shapes, exemplars):
+    """Train jointly on all shapes."""
+    model = instantiate(cfg.model)
+    model.task_id = 0
+    if model.has_buffer:
+        for exemplar in exemplars:
+            model.add_exemplar(exemplar)
+    train_loader, val_loader, test_loader = build_joint_data_loaders(cfg, shapes)
+    trainer.fit(model, train_loader, val_loader)
+    trainer.test(model, test_loader)
 
 
 def generate_canonical_images(shapes, img_size):
