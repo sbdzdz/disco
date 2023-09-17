@@ -1,7 +1,7 @@
 name: idsprites
 batch_size: 512
 factor_resolution: 16
-img_size: 128
+img_size: 224
 num_channels: 1
 num_workers: 8
 shapes_per_task: 1
