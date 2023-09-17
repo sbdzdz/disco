@@ -5,7 +5,6 @@ from collections import defaultdict
 
 import hydra
 import numpy as np
-import torch
 import wandb
 from avalanche.benchmarks.scenarios import ClassificationExperience
 from avalanche.models import SimpleCNN, SimpleMLP
