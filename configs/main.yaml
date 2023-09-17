@@ -20,6 +20,7 @@ wandb:
 
 training:
   mode: continual
+  callbacks: [logging, visualization]
   lr: 0.001
 
 trainer:

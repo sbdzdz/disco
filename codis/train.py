@@ -20,12 +20,6 @@ from codis.data import (
     RandomDSpritesMap,
 )
 from codis.lightning.callbacks import LoggingCallback, VisualizationCallback
-from codis.lightning.modules import (
-    LightningBetaVAE,
-    SpatialTransformer,
-    SpatialTransformerGF,
-    SupervisedVAE,
-)
 from codis.utils import grouper
 
 torch.set_float32_matmul_precision("medium")
@@ -39,7 +33,7 @@ def train(cfg: DictConfig) -> None:
         for _ in range(cfg.dataset.tasks * cfg.dataset.shapes_per_task)
     ]
     shape_ids = range(len(shapes))
-    model = build_model(cfg)
+    model = instantiate(cfg.model)
     exemplars = generate_canonical_images(shapes, img_size=cfg.dataset.img_size)
     random_images = generate_random_images(shapes, img_size=cfg.dataset.img_size)
     callbacks = build_callbacks(cfg, exemplars, random_images)
@@ -123,42 +117,6 @@ def build_dataloader(cfg: DictConfig, dataset, shuffle=True):
         num_workers=cfg.dataset.num_workers,
         shuffle=shuffle,
     )
-
-
-def build_model(cfg: DictConfig):
-    """Prepare the appropriate model."""
-    if cfg.model.name == "vae":
-        vae = LightningBetaVAE(
-            img_size=cfg.dataset.img_size,
-            latent_dim=cfg.model.latent_dim,
-            beta=cfg.model.beta,
-            lr=cfg.training.lr,
-        )
-        model = SupervisedVAE(
-            vae=vae,
-            gamma=cfg.model.gamma,
-            factors_to_regress=cfg.model.factors_to_regress,
-        )
-    elif cfg.model.name == "stn":
-        model = SpatialTransformer(
-            img_size=cfg.dataset.img_size,
-            in_channels=cfg.dataset.num_channels,
-            channels=cfg.model.channels,
-            gamma=cfg.model.gamma,
-            lr=cfg.training.lr,
-            factors_to_regress=cfg.model.factors_to_regress,
-        )
-    elif cfg.model.name == "stn_gf":
-        model = SpatialTransformerGF(
-            img_size=cfg.dataset.img_size,
-            in_channels=cfg.dataset.num_channels,
-            channels=cfg.model.channels,
-            gamma=cfg.model.gamma,
-            lr=cfg.training.lr,
-        )
-    else:
-        raise ValueError(f"Unknown model {cfg.model.name}.")
-    return model
 
 
 def build_callbacks(cfg: DictConfig, canonical_images: list, random_images: list):
