@@ -29,6 +29,10 @@ torch.set_float32_matmul_precision("medium")
 @hydra.main(config_path="../configs", config_name="main", version_base=None)
 def train(cfg: DictConfig) -> None:
     """Train the model in a continual learning setting."""
+    config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
+    config["job_id"] = os.environ.get("SLURM_JOB_ID")
+    # wandb.init(config=config)
+
     shapes = [
         InfiniteDSprites().generate_shape()
         for _ in range(cfg.dataset.tasks * cfg.dataset.shapes_per_task)
@@ -39,10 +43,8 @@ def train(cfg: DictConfig) -> None:
     callbacks = build_callbacks(cfg, exemplars, random_images)
 
     model = instantiate(cfg.model)
-    config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
-    config["job_id"] = os.environ.get("SLURM_JOB_ID")
-    wandb.init(config=config)
     trainer = instantiate(cfg.trainer, callbacks=callbacks)
+    trainer.logger.log_hyperparams(config)
 
     test_dataset = None
     if cfg.training.mode == "continual":
