@@ -116,8 +116,8 @@ class SpatialTransformer(ContinualModule):
             self.encoder = Encoder(channels, in_channels)
             self.enc_out_size = self.encoder.out_size(img_size)
         elif encoder in list_models(module=torchvision.models):
-            self.encoder = get_model(encoder, weights=None, num_classes=6)
-            self.enc_out_size = 64
+            self.encoder = get_model(encoder, weights=None, num_classes=channels[-1])
+            self.enc_out_size = channels[-1]
         else:
             raise ValueError(f"Unknown encoder: {encoder}")
 
