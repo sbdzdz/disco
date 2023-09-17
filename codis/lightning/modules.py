@@ -15,13 +15,20 @@ from codis.models.blocks import Encoder
 class ContinualModule(pl.LightningModule):
     """A base class for continual learning modules."""
 
-    def __init__(self, lr: float = 1e-3, factors_to_regress: list = None):
+    def __init__(
+        self,
+        lr: float = 1e-3,
+        factors_to_regress: list = None,
+        buffer_chunk_size: int = 64,
+    ):
         super().__init__()
         self.lr = lr
         if factors_to_regress is None:
             factors_to_regress = ["scale", "orientation", "position_x", "position_y"]
         self.factors_to_regress = factors_to_regress
+        self.buffer_chunk_size = buffer_chunk_size
         self.num_factors = len(self.factors_to_regress)
+
         self._task_id = None
         self._buffer = []
 
@@ -58,7 +65,7 @@ class ContinualModule(pl.LightningModule):
         self._buffer.append(exemplar)
 
     @torch.no_grad()
-    def classify(self, x: torch.Tensor, split_size: int = 256):
+    def classify(self, x: torch.Tensor):
         """Classify the input."""
         x_hat, *_ = self(x)
         x_hat = x_hat.unsqueeze(1).detach()
@@ -68,7 +75,7 @@ class ContinualModule(pl.LightningModule):
         buffer = buffer.unsqueeze(0).detach()
 
         losses = []  # classify in chunks to avoid OOM
-        for chunk in torch.split(buffer, split_size, dim=1):
+        for chunk in torch.split(buffer, self.buffer_chunk_size, dim=1):
             chunk = chunk.repeat(x_hat.shape[0], 1, 1, 1, 1)
             loss = F.mse_loss(
                 x_hat.repeat(1, chunk.shape[1], 1, 1, 1), chunk, reduction="none"
