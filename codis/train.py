@@ -1,4 +1,5 @@
 """Training script."""
+import logging
 import os
 from collections import defaultdict
 
@@ -23,7 +24,9 @@ from codis.lightning.callbacks import LoggingCallback, VisualizationCallback
 from codis.lightning.modules import ContinualModule
 from codis.utils import grouper
 
-torch.set_float32_matmul_precision("medium")
+logging.getLogger("lightning.pytorch.utilities.rank_zero").addHandler(
+    logging.NullHandler()
+)
 
 
 @hydra.main(config_path="../configs", config_name="main", version_base=None)
