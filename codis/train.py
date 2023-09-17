@@ -33,13 +33,15 @@ def train(cfg: DictConfig) -> None:
         for _ in range(cfg.dataset.tasks * cfg.dataset.shapes_per_task)
     ]
     shape_ids = range(len(shapes))
-    model = instantiate(cfg.model)
     exemplars = generate_canonical_images(shapes, img_size=cfg.dataset.img_size)
     random_images = generate_random_images(shapes, img_size=cfg.dataset.img_size)
     callbacks = build_callbacks(cfg, exemplars, random_images)
+
+    model = instantiate(cfg.model)
     config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
     config["job_id"] = os.environ.get("SLURM_JOB_ID")
-    trainer = instantiate(cfg.trainer, callbacks=callbacks, logger={"config": config})
+    wandb.init(config=config)
+    trainer = instantiate(cfg.trainer, callbacks=callbacks)
 
     test_dataset = None
     if cfg.training.mode == "continual":
