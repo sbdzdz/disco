@@ -5,6 +5,7 @@ from collections import defaultdict
 
 import hydra
 import numpy as np
+import torch
 import wandb
 from avalanche.benchmarks.scenarios import ClassificationExperience
 from avalanche.models import SimpleCNN, SimpleMLP
@@ -23,9 +24,7 @@ from codis.lightning.callbacks import LoggingCallback, VisualizationCallback
 from codis.lightning.modules import ContinualModule
 from codis.utils import grouper
 
-logging.getLogger("lightning.pytorch.utilities.rank_zero").addHandler(
-    logging.NullHandler()
-)
+torch.set_float32_matmul_precision("high")
 
 
 @hydra.main(config_path="../configs", config_name="main", version_base=None)
