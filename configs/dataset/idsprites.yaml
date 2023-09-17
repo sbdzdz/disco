@@ -1,5 +1,5 @@
 name: idsprites
-batch_size: 512
+batch_size: 256
 factor_resolution: 16
 img_size: 224
 num_channels: 3
