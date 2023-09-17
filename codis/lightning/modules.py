@@ -8,6 +8,18 @@ import torch.nn.functional as F
 from codis.data import Latents
 from codis.models import MLP, BetaVAE
 from codis.models.blocks import Encoder
+from torchvision.models import ResNet18, ResNet34, ResNet50, ResNet101
+
+
+def get_resnet_by_name(name: str):
+    resnets = {
+        "resnet18": ResNet18,
+        "resnet34": ResNet34,
+        "resnet50": ResNet50,
+        "resnet101": ResNet101,
+    }
+    assert name in resnets, f"ResNet not found: {name}."
+    return resnets[name]
 
 
 class ContinualModule(pl.LightningModule):
@@ -101,6 +113,7 @@ class SpatialTransformer(ContinualModule):
         self,
         img_size: int = 64,
         in_channels: int = 1,
+        encoder: str = "simple_cnn",
         channels: Optional[list] = None,
         gamma: float = 0.5,
         **kwargs,
@@ -109,11 +122,19 @@ class SpatialTransformer(ContinualModule):
 
         if channels is None:
             channels = [16, 16, 32, 32, 64]
-        self.encoder = Encoder(channels, in_channels)
-        self.encoder_output_dim = (img_size // 2 ** len(channels)) ** 2 * channels[-1]
-        self.regressor = MLP(
-            dims=[self.encoder_output_dim, 64, 32, 6],
-        )
+        if encoder == "simple_cnn":
+            self.encoder = Encoder(channels, in_channels)
+            enc_out_img_size = img_size // 2 ** len(channels)
+            self.enc_out_size = enc_out_img_size**2 * channels[-1]
+            self.regressor = MLP(
+                dims=[self.enc_out_size, 64, 32, 6],
+            )
+        elif encoder.startswith("resnet"):
+            self.encoder = get_resnet_by_name(encoder)
+            self.regressor = MLP(dims=[64, 64, 32, 6])
+        else:
+            raise ValueError(f"Unknown encoder: {encoder}")
+
         # initialize the regressor to the identity transform
         self.regressor.model[-1].weight.data.zero_()
         self.regressor.model[-1].bias.data.copy_(
@@ -132,7 +153,7 @@ class SpatialTransformer(ContinualModule):
 
     def forward(self, x):
         """Perform the forward pass."""
-        xs = self.encoder(x).view(-1, self.encoder_output_dim)
+        xs = self.encoder(x).view(-1, self.enc_out_size)
         theta = self.regressor(xs).view(-1, 2, 3)
 
         grid = F.affine_grid(theta, x.size(), align_corners=False)
@@ -215,12 +236,12 @@ class SpatialTransformerGF(SpatialTransformer):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.regressor = MLP(
-            dims=[self.encoder_output_dim, 64, 32, self.num_factors],
+            dims=[self.enc_out_size, 64, 32, self.num_factors],
         )
 
     def forward(self, x):
         """Perform the forward pass."""
-        xs = self.encoder(x).view(-1, self.encoder_output_dim)
+        xs = self.encoder(x).view(-1, self.enc_out_size)
         y_hat = self.regressor(xs)
         theta = self.convert_parameters_to_matrix(self._unstack_factors(y_hat))
 
