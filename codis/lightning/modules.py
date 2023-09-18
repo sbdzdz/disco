@@ -48,12 +48,14 @@ class ContinualModule(pl.LightningModule):
         self.log_dict({f"{k}_train": v for k, v in loss.items() if k != "loss"})
         return loss
 
+    @torch.no_grad()
     def validation_step(self, batch, batch_idx):
         """Perform a validation step."""
         loss = self._step(batch)
         self.log_dict({f"{k}_val": v for k, v in loss.items() if k != "loss"})
         return loss
 
+    @torch.no_grad()
     def test_step(self, batch, batch_idx):
         """Perform a test step."""
         loss = self._step(batch)
