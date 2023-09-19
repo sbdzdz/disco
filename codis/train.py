@@ -1,28 +1,24 @@
 """Training script."""
-import logging
 import os
-from collections import defaultdict
 
 import hydra
 import numpy as np
 import torch
-import wandb
 from avalanche.benchmarks.scenarios import ClassificationExperience
 from avalanche.models import SimpleCNN, SimpleMLP
 from avalanche.training.supervised import EWC, GEM, GDumb, LwF, Naive, Replay
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
-from torch.utils.data import DataLoader, Dataset, random_split
+from torch.utils.data import DataLoader, random_split
 
 from codis.data import (
-    ContinualDSpritesMap,
     InfiniteDSprites,
     Latents,
     RandomDSpritesMap,
 )
 from codis.lightning.callbacks import LoggingCallback, VisualizationCallback
 from codis.lightning.modules import ContinualModule
-from codis.utils import grouper
+from codis.data import ContinualDataset
 
 torch.set_float32_matmul_precision("high")
 
@@ -38,7 +34,11 @@ def train(cfg: DictConfig) -> None:
         for _ in range(cfg.dataset.tasks * cfg.dataset.shapes_per_task)
     ]
     exemplars = generate_canonical_images(shapes, img_size=cfg.dataset.img_size)
-    random_images = generate_random_images(shapes, img_size=cfg.dataset.img_size)
+    random_images = generate_random_images(
+        shapes,
+        img_size=cfg.dataset.img_size,
+        factor_resolution=cfg.dataset.factor_resolution,
+    )
     callbacks = build_callbacks(cfg, exemplars, random_images)
 
     trainer = instantiate(cfg.trainer, callbacks=callbacks)
@@ -54,27 +54,12 @@ def train(cfg: DictConfig) -> None:
 
 def train_continually(cfg, trainer, shapes, exemplars):
     """Train continually on a batch of shapes per task."""
-    shape_ids = range(len(shapes))
     model = instantiate(cfg.model)
+    continual_dataset = ContinualDataset(cfg, shapes=shapes, exemplars=exemplars)
 
-    test_dataset = None
-    for task_id, (task_shapes, task_shape_ids, task_exemplars) in enumerate(
-        zip(
-            grouper(cfg.dataset.shapes_per_task, shapes),
-            grouper(cfg.dataset.shapes_per_task, shape_ids),
-            grouper(cfg.dataset.shapes_per_task, exemplars),
-        )
-    ):
-        train_dataset, val_dataset, task_test_dataset = build_continual_datasets(
-            cfg, task_shapes, task_shape_ids
-        )
-        train_loader = build_dataloader(cfg, train_dataset)
-        val_loader = build_dataloader(cfg, val_dataset, shuffle=False)
-
-        test_dataset = update_test_dataset(cfg, test_dataset, task_test_dataset)
-        test_loader = build_dataloader(cfg, test_dataset)  # shuffle for vis
-
-        if isinstance(model, ContinualModule):  # ours
+    if isinstance(model, ContinualModule):  # ours
+        for task_id, (loaders, task_exemplars) in enumerate(continual_dataset):
+            train_loader, val_loader, test_loader = loaders
             model.task_id = task_id
             for exemplar in task_exemplars:
                 model.add_exemplar(exemplar)
@@ -82,12 +67,12 @@ def train_continually(cfg, trainer, shapes, exemplars):
             if task_id % 10 == 0:  # test every 10 tasks
                 trainer.test(model, test_loader)
             trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
-        else:
-            experience = ClassificationExperience(
-                origin_stream=None, current_experience=task_id
-            )
-            model.train(experience)
-            model.eval(test_loader)
+    else:
+        experience = ClassificationExperience(
+            origin_stream=None, current_experience=task_id
+        )
+        model.train(experience)
+        model.eval(test_loader)
 
 
 def train_jointly(cfg, trainer, shapes, exemplars):
@@ -102,9 +87,11 @@ def train_jointly(cfg, trainer, shapes, exemplars):
     trainer.test(model, test_loader)
 
 
-def generate_canonical_images(shapes, img_size):
+def generate_canonical_images(shapes, img_size: int):
     """Generate a batch of exemplars for training and visualization."""
-    dataset = InfiniteDSprites(img_size=img_size)
+    dataset = InfiniteDSprites(
+        img_size=img_size,
+    )
     return [
         dataset.draw(
             Latents(
@@ -121,20 +108,23 @@ def generate_canonical_images(shapes, img_size):
     ]
 
 
-def generate_random_images(shapes, img_size, n=25):
+def generate_random_images(
+    shapes: list, img_size: int, factor_resolution: int, num_imgs: int = 10
+):
     """Generate a batch of images for visualization."""
-    dataset = InfiniteDSprites(img_size=img_size, shapes=shapes)
-    return [dataset.draw(dataset.sample_latents()) for _ in range(n)]
-
-
-def build_dataloader(cfg: DictConfig, dataset, shuffle=True):
-    """Prepare a data loader."""
-    return DataLoader(
-        dataset,
-        batch_size=cfg.dataset.batch_size,
-        num_workers=cfg.dataset.num_workers,
-        shuffle=shuffle,
+    scale_range = np.linspace(0.5, 1.5, factor_resolution)
+    orientation_range = np.linspace(0, 2 * np.pi, factor_resolution)
+    position_x_range = np.linspace(0, 1, factor_resolution)
+    position_y_range = np.linspace(0, 1, factor_resolution)
+    dataset = InfiniteDSprites(
+        img_size=img_size,
+        shapes=shapes,
+        scale_range=scale_range,
+        orientation_range=orientation_range,
+        position_x_range=position_x_range,
+        position_y_range=position_y_range,
     )
+    return [dataset.draw(dataset.sample_latents()) for _ in range(num_imgs)]
 
 
 def build_callbacks(cfg: DictConfig, canonical_images: list, random_images: list):
@@ -146,63 +136,6 @@ def build_callbacks(cfg: DictConfig, canonical_images: list, random_images: list
     if "visualization" in callback_names:
         callbacks.append(VisualizationCallback(canonical_images, random_images))
     return callbacks
-
-
-def build_continual_datasets(cfg: DictConfig, shapes: list, shape_ids: list):
-    """Build data loaders for a class-incremental continual learning scenario."""
-    n = cfg.dataset.factor_resolution
-    scale_range = np.linspace(0.5, 1.0, n)
-    orientation_range = np.linspace(0, 2 * np.pi * (n / (n + 1)), n)
-    position_x_range = np.linspace(0, 1, n)
-    position_y_range = np.linspace(0, 1, n)
-
-    dataset = ContinualDSpritesMap(
-        img_size=cfg.dataset.img_size,
-        shapes=shapes,
-        shape_ids=shape_ids,
-        scale_range=scale_range,
-        orientation_range=orientation_range,
-        position_x_range=position_x_range,
-        position_y_range=position_y_range,
-    )
-    train_dataset, val_dataset, test_dataset = random_split(
-        dataset,
-        [
-            cfg.dataset.train_split,
-            cfg.dataset.val_split,
-            cfg.dataset.test_split,
-        ],
-    )
-    return train_dataset, val_dataset, test_dataset
-
-
-def update_test_dataset(
-    cfg: DictConfig,
-    test_dataset: Dataset,
-    task_test_dataset: Dataset,
-):
-    """Update the test dataset keeping it class-balanced."""
-    samples_per_shape = cfg.dataset.test_dataset_size // (
-        cfg.dataset.tasks * cfg.dataset.shapes_per_task
-    )
-    class_indices = defaultdict(list)
-    for i, (_, factors) in enumerate(task_test_dataset):
-        class_indices[factors.shape_id].append(i)
-    subset_indices = []
-    for indices in class_indices.values():
-        subset_indices.extend(np.random.choice(indices, samples_per_shape))
-
-    task_data, task_targets = zip(*[task_test_dataset[i] for i in subset_indices])
-
-    if test_dataset is None:
-        test_dataset = ContinualDSpritesMap(dataset_size=1)  # dummy dataset
-        test_dataset.data = list(task_data)
-        test_dataset.targets = list(task_targets)
-    else:
-        test_dataset.data.extend(task_data)
-        test_dataset.targets.extend(task_targets)
-
-    return test_dataset
 
 
 def build_joint_data_loaders(cfg: DictConfig, shapes):

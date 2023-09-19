@@ -1,0 +1,110 @@
+"""Class-incremental continual learning dataset."""
+from collections import defaultdict
+
+import numpy as np
+from omegaconf import DictConfig
+from torch.utils.data import DataLoader, Dataset, random_split
+
+from codis.data import ContinualDSpritesMap
+from codis.utils import grouper
+
+
+class ContinualDataset:
+    def __init__(self, cfg, shapes, exemplars):
+        self.shapes = shapes
+        self.exemplars = exemplars
+        self.shape_ids = range(len(shapes))
+        self.tasks = cfg.dataset.tasks
+        self.shapes_per_task = cfg.dataset.shapes_per_task
+        self.batch_size = cfg.dataset.batch_size
+        self.num_workers = cfg.dataset.num_workers
+        self.img_size = cfg.dataset.img_size
+        self.train_split = cfg.dataset.train_split
+        self.val_split = cfg.dataset.val_split
+        self.test_split = cfg.dataset.test_split
+        self.factor_resolution = cfg.dataset.factor_resolution
+        self.test_dataset_size = cfg.dataset.test_dataset_size
+        self.test_dataset = None
+
+    def __iter__(self):
+        for task_shapes, task_shape_ids, task_exemplars in enumerate(
+            zip(
+                grouper(self.shapes_per_task, self.shapes),
+                grouper(self.shapes_per_task, self.shape_ids),
+                grouper(self.shapes_per_task, self.exemplars),
+            )
+        ):
+            (
+                train_dataset,
+                val_dataset,
+                task_test_dataset,
+            ) = self.build_continual_datasets(task_shapes, task_shape_ids)
+            train_loader = self.build_dataloader(train_dataset)
+            val_loader = self.build_dataloader(val_dataset, shuffle=False)
+
+            self.test_dataset = self.update_test_dataset(
+                self.test_dataset, task_test_dataset
+            )
+            test_loader = self.build_dataloader(self.test_dataset)  # shuffle for vis
+
+            yield (train_loader, val_loader, test_loader), task_exemplars
+
+    def build_continual_datasets(self, shapes: list, shape_ids: list):
+        """Build data loaders for a class-incremental continual learning scenario."""
+        n = self.factor_resolution
+        scale_range = np.linspace(0.5, 1.0, n)
+        orientation_range = np.linspace(0, 2 * np.pi * (n / (n + 1)), n)
+        position_x_range = np.linspace(0, 1, n)
+        position_y_range = np.linspace(0, 1, n)
+
+        dataset = ContinualDSpritesMap(
+            img_size=self.img_size,
+            shapes=shapes,
+            shape_ids=shape_ids,
+            scale_range=scale_range,
+            orientation_range=orientation_range,
+            position_x_range=position_x_range,
+            position_y_range=position_y_range,
+        )
+        train_dataset, val_dataset, test_dataset = random_split(
+            dataset,
+            [
+                self.train_split,
+                self.val_split,
+                self.test_split,
+            ],
+        )
+        return train_dataset, val_dataset, test_dataset
+
+    def build_dataloader(self, dataset, shuffle=True):
+        """Prepare a data loader."""
+        return DataLoader(
+            dataset,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            shuffle=shuffle,
+        )
+
+    def update_test_dataset(self, test_dataset: Dataset, task_test_dataset: Dataset):
+        """Update the test dataset keeping it class-balanced."""
+        samples_per_shape = self.test_dataset_size // (
+            self.tasks * self.shapes_per_task
+        )
+        class_indices = defaultdict(list)
+        for i, (_, factors) in enumerate(task_test_dataset):
+            class_indices[factors.shape_id].append(i)
+        subset_indices = []
+        for indices in class_indices.values():
+            subset_indices.extend(np.random.choice(indices, samples_per_shape))
+
+        task_data, task_targets = zip(*[task_test_dataset[i] for i in subset_indices])
+
+        if test_dataset is None:
+            test_dataset = ContinualDSpritesMap(dataset_size=1)  # dummy dataset
+            test_dataset.data = list(task_data)
+            test_dataset.targets = list(task_targets)
+        else:
+            test_dataset.data.extend(task_data)
+            test_dataset.targets.extend(task_targets)
+
+        return test_dataset
