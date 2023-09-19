@@ -10,21 +10,21 @@ from codis.utils import grouper
 
 
 class ContinualDataset:
-    def __init__(self, cfg, shapes, exemplars):
+    def __init__(self, cfg: DictConfig, shapes: list, exemplars: list):
         self.shapes = shapes
         self.shape_ids = range(len(shapes))
         self.exemplars = exemplars
 
-        self.tasks = cfg.dataset.tasks
-        self.shapes_per_task = cfg.dataset.shapes_per_task
         self.batch_size = cfg.dataset.batch_size
-        self.num_workers = cfg.dataset.num_workers
+        self.factor_resolution = cfg.dataset.factor_resolution
         self.img_size = cfg.dataset.img_size
+        self.num_workers = cfg.dataset.num_workers
+        self.shapes_per_task = cfg.dataset.shapes_per_task
+        self.tasks = cfg.dataset.tasks
+        self.test_dataset_size = cfg.dataset.test_dataset_size
+        self.test_split = cfg.dataset.test_split
         self.train_split = cfg.dataset.train_split
         self.val_split = cfg.dataset.val_split
-        self.test_split = cfg.dataset.test_split
-        self.factor_resolution = cfg.dataset.factor_resolution
-        self.test_dataset_size = cfg.dataset.test_dataset_size
 
     def __iter__(self):
         test_dataset = None
@@ -33,11 +33,9 @@ class ContinualDataset:
             grouper(self.shapes_per_task, self.shape_ids),
             grouper(self.shapes_per_task, self.exemplars),
         ):
-            (
-                train_dataset,
-                val_dataset,
-                task_test_dataset,
-            ) = self.build_continual_datasets(task_shapes, task_shape_ids)
+            train_dataset, val_dataset, task_test_dataset = self.build_datasets(
+                task_shapes, task_shape_ids
+            )
             train_loader = self.build_dataloader(train_dataset)
             val_loader = self.build_dataloader(val_dataset, shuffle=False)
 
@@ -46,7 +44,7 @@ class ContinualDataset:
 
             yield (train_loader, val_loader, test_loader), task_exemplars
 
-    def build_continual_datasets(self, shapes: list, shape_ids: list):
+    def build_datasets(self, shapes: list, shape_ids: list):
         """Build data loaders for a class-incremental continual learning scenario."""
         n = self.factor_resolution
         scale_range = np.linspace(0.5, 1.0, n)
