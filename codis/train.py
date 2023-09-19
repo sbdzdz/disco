@@ -59,8 +59,8 @@ def train_continually(cfg, trainer, shapes, exemplars):
 
     if isinstance(model, ContinualModule):  # ours
         for task_id, (loaders, task_exemplars) in enumerate(continual_dataset):
-            train_loader, val_loader, test_loader = loaders
             model.task_id = task_id
+            train_loader, val_loader, test_loader = loaders
             for exemplar in task_exemplars:
                 model.add_exemplar(exemplar)
             trainer.fit(model, train_loader, val_loader)
