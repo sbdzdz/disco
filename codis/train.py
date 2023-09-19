@@ -109,10 +109,10 @@ def generate_canonical_images(shapes, img_size: int):
 
 
 def generate_random_images(
-    shapes: list, img_size: int, factor_resolution: int, num_imgs: int = 10
+    shapes: list, img_size: int, factor_resolution: int, num_imgs: int = 25
 ):
     """Generate a batch of images for visualization."""
-    scale_range = np.linspace(0.5, 1.5, factor_resolution)
+    scale_range = np.linspace(0.5, 1.0, factor_resolution)
     orientation_range = np.linspace(0, 2 * np.pi, factor_resolution)
     position_x_range = np.linspace(0, 1, factor_resolution)
     position_y_range = np.linspace(0, 1, factor_resolution)
