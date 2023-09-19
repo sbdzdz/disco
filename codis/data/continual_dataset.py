@@ -12,8 +12,9 @@ from codis.utils import grouper
 class ContinualDataset:
     def __init__(self, cfg, shapes, exemplars):
         self.shapes = shapes
-        self.exemplars = exemplars
         self.shape_ids = range(len(shapes))
+        self.exemplars = exemplars
+
         self.tasks = cfg.dataset.tasks
         self.shapes_per_task = cfg.dataset.shapes_per_task
         self.batch_size = cfg.dataset.batch_size
@@ -24,15 +25,13 @@ class ContinualDataset:
         self.test_split = cfg.dataset.test_split
         self.factor_resolution = cfg.dataset.factor_resolution
         self.test_dataset_size = cfg.dataset.test_dataset_size
-        self.test_dataset = None
 
     def __iter__(self):
-        for task_shapes, task_shape_ids, task_exemplars in enumerate(
-            zip(
-                grouper(self.shapes_per_task, self.shapes),
-                grouper(self.shapes_per_task, self.shape_ids),
-                grouper(self.shapes_per_task, self.exemplars),
-            )
+        test_dataset = None
+        for task_shapes, task_shape_ids, task_exemplars in zip(
+            grouper(self.shapes_per_task, self.shapes),
+            grouper(self.shapes_per_task, self.shape_ids),
+            grouper(self.shapes_per_task, self.exemplars),
         ):
             (
                 train_dataset,
@@ -42,9 +41,7 @@ class ContinualDataset:
             train_loader = self.build_dataloader(train_dataset)
             val_loader = self.build_dataloader(val_dataset, shuffle=False)
 
-            self.test_dataset = self.update_test_dataset(
-                self.test_dataset, task_test_dataset
-            )
+            test_dataset = self.update_test_dataset(test_dataset, task_test_dataset)
             test_loader = self.build_dataloader(self.test_dataset)  # shuffle for vis
 
             yield (train_loader, val_loader, test_loader), task_exemplars
