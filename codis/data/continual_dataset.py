@@ -42,7 +42,7 @@ class ContinualDataset:
             val_loader = self.build_dataloader(val_dataset, shuffle=False)
 
             test_dataset = self.update_test_dataset(test_dataset, task_test_dataset)
-            test_loader = self.build_dataloader(self.test_dataset)  # shuffle for vis
+            test_loader = self.build_dataloader(test_dataset)  # shuffle for vis
 
             yield (train_loader, val_loader, test_loader), task_exemplars
 
