@@ -5,8 +5,11 @@ import hydra
 import numpy as np
 import torch
 from avalanche.benchmarks.scenarios import ClassificationExperience
-from avalanche.models import SimpleCNN, SimpleMLP
 from avalanche.training.supervised import EWC, GEM, GDumb, LwF, Naive, Replay
+from avalanche.benchmarks.scenarios.generic_benchmark_creation import (
+    LazyStreamDefinition,
+    create_lazy_generic_benchmark,
+)
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, random_split
@@ -68,11 +71,28 @@ def train_continually(cfg, trainer, shapes, exemplars):
                 trainer.test(model, test_loader)
             trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
     else:
-        experience = ClassificationExperience(
-            origin_stream=None, current_experience=task_id
+        strategy = Naive(
+            model,
+            optimizer=torch.optim.Adam(model.parameters()),
+            criterion=torch.nn.CrossEntropyLoss(),
         )
-        model.train(experience)
-        model.eval(test_loader)
+        train_stream = LazyStreamDefinition(
+            (loaders[0] for loaders, _ in continual_dataset),
+            stream_length=continual_dataset.num_tasks,
+            task_labels=range(continual_dataset.num_tasks),
+        )
+        test_stream = LazyStreamDefinition(
+            (loaders[2] for loaders, _ in continual_dataset),
+            stream_length=continual_dataset.num_tasks,
+            task_labels=range(continual_dataset.num_tasks),
+        )
+        benchmark = create_lazy_generic_benchmark(
+            train_stream, test_stream, task_labels=range(continual_dataset.num_tasks)
+        )
+        for experience in benchmark.train_stream:
+            strategy.train(experience)
+            test_set = benchmark.test_stream[experience.current_experience]
+            strategy.eval(test_set)
 
 
 def train_jointly(cfg, trainer, shapes, exemplars):
