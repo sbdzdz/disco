@@ -153,9 +153,6 @@ def train_baseline(cfg, model, continual_dataset):
         loss_metrics(minibatch=True, epoch=True, experience=True, stream=True),
         timing_metrics(epoch=True, epoch_running=True),
         forgetting_metrics(experience=True, stream=True),
-        confusion_matrix_metrics(
-            num_classes=benchmark.n_classes, save_image=True, stream=True
-        ),
         loggers=loggers,
     )
 
