@@ -4,24 +4,37 @@ import os
 import hydra
 import numpy as np
 import torch
-from avalanche.benchmarks.scenarios import ClassificationExperience
-from avalanche.training.supervised import EWC, GEM, GDumb, LwF, Naive, Replay
 from avalanche.benchmarks.scenarios.generic_benchmark_creation import (
     LazyStreamDefinition,
     create_lazy_generic_benchmark,
 )
+from avalanche.evaluation.metrics import (
+    accuracy_metrics,
+    confusion_matrix_metrics,
+    cpu_usage_metrics,
+    disk_usage_metrics,
+    forgetting_metrics,
+    loss_metrics,
+    timing_metrics,
+)
+from avalanche.logging import WandBLogger
+from avalanche.training import Naive
+from avalanche.training.plugins import EvaluationPlugin
+from avalanche.training.supervised import EWC, GEM, GDumb, LwF, Naive, Replay
 from hydra.utils import instantiate
+from lightning.pytorch.callbacks import ModelCheckpoint
 from omegaconf import DictConfig, OmegaConf
+from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader, random_split
 
 from codis.data import (
+    ContinualDataset,
     InfiniteDSprites,
     Latents,
     RandomDSpritesMap,
 )
 from codis.lightning.callbacks import LoggingCallback, VisualizationCallback
 from codis.lightning.modules import ContinualModule
-from codis.data import ContinualDataset
 
 torch.set_float32_matmul_precision("high")
 OmegaConf.register_new_resolver("eval", eval)
@@ -44,73 +57,103 @@ def train(cfg: DictConfig) -> None:
         factor_resolution=cfg.dataset.factor_resolution,
     )
     callbacks = build_callbacks(cfg, exemplars, random_images)
-
     trainer = instantiate(cfg.trainer, callbacks=callbacks)
     trainer.logger.log_hyperparams(config)
 
-    if cfg.training.mode == "continual":
-        train_continually(cfg, trainer, shapes, exemplars)
-    elif cfg.training.mode == "joint":
+    if cfg.training.mode == "joint":
         train_jointly(cfg, trainer, shapes, exemplars)
+    elif cfg.training.mode == "continual":
+        train_continually(cfg, trainer, shapes, exemplars)
     else:
-        raise ValueError(f"Unknown training mode: {cfg.training.mode}")
+        raise ValueError(f"Unknown training mode: {cfg.training.mode}.")
 
 
-def train_continually(cfg, trainer, shapes, exemplars):
-    """Train continually on a batch of shapes per task."""
-    model = instantiate(cfg.model)
-    continual_dataset = ContinualDataset(cfg, shapes=shapes, exemplars=exemplars)
-
-    if isinstance(model, ContinualModule):  # ours
-        for task_id, (loaders, task_exemplars) in enumerate(continual_dataset):
-            model.task_id = task_id
-            train_loader, val_loader, test_loader = loaders
-            for exemplar in task_exemplars:
-                model.add_exemplar(exemplar)
-            trainer.fit(model, train_loader, val_loader)
-            if (
-                not cfg.training.test_once
-                and task_id % cfg.training.test_every_n_tasks == 0
-            ):
-                trainer.test(model, test_loader)
-            trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
-        trainer.test(model, test_loader)
-    else:
-        strategy = Naive(
-            model,
-            optimizer=torch.optim.Adam(model.parameters()),
-            criterion=torch.nn.CrossEntropyLoss(),
-        )
-        train_stream = LazyStreamDefinition(
-            (loaders[0] for loaders, _ in continual_dataset),
-            stream_length=continual_dataset.num_tasks,
-            task_labels=range(continual_dataset.num_tasks),
-        )
-        test_stream = LazyStreamDefinition(
-            (loaders[2] for loaders, _ in continual_dataset),
-            stream_length=continual_dataset.num_tasks,
-            task_labels=range(continual_dataset.num_tasks),
-        )
-        benchmark = create_lazy_generic_benchmark(
-            train_stream, test_stream, task_labels=range(continual_dataset.num_tasks)
-        )
-        for train_experience, test_experience in zip(
-            benchmark.train_stream, benchmark.test_stream
-        ):
-            strategy.train(train_experience)
-            strategy.eval(test_experience)
-
-
-def train_jointly(cfg, trainer, shapes, exemplars):
+def train_jointly(cfg: DictConfig, trainer, shapes, exemplars):
     """Train jointly on all shapes."""
     model = instantiate(cfg.model)
     model.task_id = 0
-    if model.has_buffer:
-        for exemplar in exemplars:
-            model.add_exemplar(exemplar)
+    for exemplar in exemplars:
+        model.add_exemplar(exemplar)
     train_loader, val_loader, test_loader = build_joint_data_loaders(cfg, shapes)
     trainer.fit(model, train_loader, val_loader)
     trainer.test(model, test_loader)
+
+
+def train_continually(cfg: DictConfig, trainer, shapes, exemplars):
+    """Train continually with n shapes per tasks."""
+    model = instantiate(cfg.model)
+    dataset = ContinualDataset(cfg, shapes=shapes, exemplars=exemplars)
+    if isinstance(model, ContinualModule):
+        train_ours(cfg, model, trainer, dataset)
+    else:
+        train_baseline(cfg, model, dataset)
+
+
+def train_ours(cfg, model, trainer, dataset):
+    """Train our model in a continual learning setting."""
+    for task_id, (loaders, task_exemplars) in enumerate(dataset):
+        model.task_id = task_id
+        train_loader, val_loader, test_loader = loaders
+        for exemplar in task_exemplars:
+            model.add_exemplar(exemplar)
+        trainer.fit(model, train_loader, val_loader)
+        if (
+            not cfg.training.test_once
+            and task_id % cfg.training.test_every_n_tasks == 0
+        ):
+            trainer.test(model, test_loader)
+        trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
+    trainer.test(model, test_loader)
+
+
+def train_baseline(continual_dataset, cfg, model):
+    """Train standard continual learning baselines using Avalanche."""
+    train_stream = LazyStreamDefinition(
+        (loaders[0] for loaders, _ in continual_dataset),
+        stream_length=continual_dataset.num_tasks,
+        task_labels=range(continual_dataset.num_tasks),
+    )
+    test_stream = LazyStreamDefinition(
+        (loaders[2] for loaders, _ in continual_dataset),
+        stream_length=continual_dataset.num_tasks,
+        task_labels=range(continual_dataset.num_tasks),
+    )
+    benchmark = create_lazy_generic_benchmark(
+        train_stream, test_stream, task_labels=range(continual_dataset.num_tasks)
+    )
+    loggers = [
+        WandBLogger(
+            project_name=cfg.wandb.project,
+            group=cfg.wandb.group,
+            mode=cfg.wandb.mode,
+        )
+    ]
+
+    eval_plugin = EvaluationPlugin(
+        accuracy_metrics(minibatch=True, epoch=True, experience=True, stream=True),
+        loss_metrics(minibatch=True, epoch=True, experience=True, stream=True),
+        timing_metrics(epoch=True, epoch_running=True),
+        forgetting_metrics(experience=True, stream=True),
+        confusion_matrix_metrics(
+            num_classes=benchmark.n_classes, save_image=True, stream=True
+        ),
+        loggers=loggers,
+    )
+
+    strategy = Naive(
+        model,
+        torch.optim.Adam(model.parameters(), lr=cfg.training.lr),
+        CrossEntropyLoss(),
+        train_mb_size=500,
+        train_epochs=4,
+        eval_mb_size=100,
+        evaluator=eval_plugin,
+    )
+    for train_experience, test_experience in zip(
+        benchmark.train_stream, benchmark.test_stream
+    ):
+        strategy.train(train_experience)
+        strategy.eval(test_experience)
 
 
 def generate_canonical_images(shapes, img_size: int):
@@ -161,6 +204,13 @@ def build_callbacks(cfg: DictConfig, canonical_images: list, random_images: list
         callbacks.append(LoggingCallback())
     if "visualization" in callback_names:
         callbacks.append(VisualizationCallback(canonical_images, random_images))
+    if "checkpointing" in callback_names:
+        callbacks.append(
+            ModelCheckpoint(
+                dirpath=cfg.trainer.default_root_dir,
+                every_n_epochs=cfg.training.test_every_n_tasks * cfg.trainer.max_epochs,
+            )
+        )
     return callbacks
 
 
