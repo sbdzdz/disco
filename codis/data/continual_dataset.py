@@ -3,7 +3,7 @@ from collections import defaultdict
 
 import numpy as np
 from omegaconf import DictConfig
-from torch.utils.data import DataLoader, Dataset, random_split
+from torch.utils.data import Dataset, random_split
 
 from codis.data import ContinualDSpritesMap
 from codis.utils import grouper
@@ -36,13 +36,10 @@ class ContinualDataset:
             train_dataset, val_dataset, task_test_dataset = self.build_datasets(
                 task_shapes, task_shape_ids
             )
-            train_loader = self.build_dataloader(train_dataset)
-            val_loader = self.build_dataloader(val_dataset, shuffle=False)
 
             test_dataset = self.update_test_dataset(test_dataset, task_test_dataset)
-            test_loader = self.build_dataloader(test_dataset)  # shuffle for vis
 
-            yield (train_loader, val_loader, test_loader), task_exemplars
+            yield (train_dataset, val_dataset, test_dataset), task_exemplars
 
     def build_datasets(self, shapes: list, shape_ids: list):
         """Build data loaders for a class-incremental continual learning scenario."""
@@ -70,15 +67,6 @@ class ContinualDataset:
             ],
         )
         return train_dataset, val_dataset, test_dataset
-
-    def build_dataloader(self, dataset, shuffle=True):
-        """Prepare a data loader."""
-        return DataLoader(
-            dataset,
-            batch_size=self.batch_size,
-            num_workers=self.num_workers,
-            shuffle=shuffle,
-        )
 
     def update_test_dataset(self, test_dataset: Dataset, task_test_dataset: Dataset):
         """Update the test dataset keeping it class-balanced."""

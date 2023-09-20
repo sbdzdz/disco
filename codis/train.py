@@ -19,6 +19,7 @@ from avalanche.evaluation.metrics import (
 )
 from avalanche.logging import WandBLogger
 from avalanche.training import Naive
+from avalanche.benchmarks.utils import make_classification_dataset
 from avalanche.training.plugins import EvaluationPlugin
 from avalanche.training.supervised import EWC, GEM, GDumb, LwF, Naive, Replay
 from hydra.utils import instantiate
@@ -91,9 +92,12 @@ def train_continually(cfg: DictConfig, trainer, shapes, exemplars):
 
 def train_ours(cfg, model, trainer, dataset):
     """Train our model in a continual learning setting."""
-    for task_id, (loaders, task_exemplars) in enumerate(dataset):
+    for task_id, (datasets, task_exemplars) in enumerate(dataset):
         model.task_id = task_id
-        train_loader, val_loader, test_loader = loaders
+        train_dataset, val_dataset, test_dataset = datasets
+        train_loader = build_dataloader(train_dataset)
+        val_loader = build_dataloader(val_dataset, shuffle=False)
+        test_loader = build_dataloader(test_dataset)  # shuffle for vis
         for exemplar in task_exemplars:
             model.add_exemplar(exemplar)
         trainer.fit(model, train_loader, val_loader)
@@ -108,15 +112,29 @@ def train_ours(cfg, model, trainer, dataset):
 
 def train_baseline(cfg, model, continual_dataset):
     """Train standard continual learning baselines using Avalanche."""
+    train_generator = (
+        make_classification_dataset(
+            dataset=datasets[0],
+            task_labels=[task_id for _ in range(len(datasets[0]))],
+        )
+        for task_id, (datasets, _) in enumerate(continual_dataset)
+    )
+    test_generator = (
+        make_classification_dataset(
+            dataset=datasets[2],
+            task_labels=[task_id for _ in range(len(datasets[0]))],
+        )
+        for task_id, (datasets, _) in enumerate(continual_dataset)
+    )
     train_stream = LazyStreamDefinition(
-        (loaders[0] for loaders, _ in continual_dataset),
+        train_generator,
         stream_length=continual_dataset.tasks,
-        task_labels=range(continual_dataset.tasks),
+        exp_task_labels=range(continual_dataset.tasks),
     )
     test_stream = LazyStreamDefinition(
-        (loaders[2] for loaders, _ in continual_dataset),
+        test_generator,
         stream_length=continual_dataset.tasks,
-        task_labels=range(continual_dataset.tasks),
+        exp_task_labels=range(continual_dataset.tasks),
     )
     benchmark = create_lazy_generic_benchmark(
         train_stream, test_stream, task_labels=range(continual_dataset.tasks)
@@ -154,6 +172,16 @@ def train_baseline(cfg, model, continual_dataset):
     ):
         strategy.train(train_experience)
         strategy.eval(test_experience)
+
+
+def build_dataloader(self, dataset, shuffle=True):
+    """Prepare a data loader."""
+    return DataLoader(
+        dataset,
+        batch_size=self.batch_size,
+        num_workers=self.num_workers,
+        shuffle=shuffle,
+    )
 
 
 def generate_canonical_images(shapes, img_size: int):
