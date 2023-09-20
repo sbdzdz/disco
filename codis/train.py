@@ -67,9 +67,13 @@ def train_continually(cfg, trainer, shapes, exemplars):
             for exemplar in task_exemplars:
                 model.add_exemplar(exemplar)
             trainer.fit(model, train_loader, val_loader)
-            if task_id % 10 == 0:
-               trainer.test(model, test_loader)
+            if (
+                not cfg.training.test_once
+                and task_id % cfg.training.test_every_n_tasks == 0
+            ):
+                trainer.test(model, test_loader)
             trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
+        trainer.test(model, test_loader)
     else:
         strategy = Naive(
             model,
