@@ -106,7 +106,7 @@ def train_ours(cfg, model, trainer, dataset):
     trainer.test(model, test_loader)
 
 
-def train_baseline(continual_dataset, cfg, model):
+def train_baseline(cfg, model, continual_dataset):
     """Train standard continual learning baselines using Avalanche."""
     train_stream = LazyStreamDefinition(
         (loaders[0] for loaders, _ in continual_dataset),
