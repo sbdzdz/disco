@@ -129,12 +129,12 @@ def train_baseline(cfg, model, continual_dataset):
     train_stream = LazyStreamDefinition(
         train_generator,
         stream_length=continual_dataset.tasks,
-        exp_task_labels=range(continual_dataset.tasks),
+        exps_task_labels=range(continual_dataset.tasks),
     )
     test_stream = LazyStreamDefinition(
         test_generator,
         stream_length=continual_dataset.tasks,
-        exp_task_labels=range(continual_dataset.tasks),
+        exps_task_labels=range(continual_dataset.tasks),
     )
     benchmark = create_lazy_generic_benchmark(
         train_stream, test_stream, task_labels=range(continual_dataset.tasks)
