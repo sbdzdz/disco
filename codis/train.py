@@ -110,16 +110,16 @@ def train_baseline(continual_dataset, cfg, model):
     """Train standard continual learning baselines using Avalanche."""
     train_stream = LazyStreamDefinition(
         (loaders[0] for loaders, _ in continual_dataset),
-        stream_length=continual_dataset.num_tasks,
-        task_labels=range(continual_dataset.num_tasks),
+        stream_length=continual_dataset.tasks,
+        task_labels=range(continual_dataset.tasks),
     )
     test_stream = LazyStreamDefinition(
         (loaders[2] for loaders, _ in continual_dataset),
-        stream_length=continual_dataset.num_tasks,
-        task_labels=range(continual_dataset.num_tasks),
+        stream_length=continual_dataset.tasks,
+        task_labels=range(continual_dataset.tasks),
     )
     benchmark = create_lazy_generic_benchmark(
-        train_stream, test_stream, task_labels=range(continual_dataset.num_tasks)
+        train_stream, test_stream, task_labels=range(continual_dataset.tasks)
     )
     loggers = [
         WandBLogger(
