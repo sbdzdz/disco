@@ -143,7 +143,6 @@ def train_baseline(cfg, model, continual_dataset):
         WandBLogger(
             dir=cfg.wandb.save_dir,
             project_name=cfg.wandb.project,
-            group=cfg.wandb.group,
             params={"group": cfg.wandb.group},
             config=config,
         )
