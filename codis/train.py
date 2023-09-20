@@ -137,11 +137,15 @@ def train_baseline(cfg, model, continual_dataset):
         exps_task_labels=range(continual_dataset.tasks),
     )
     benchmark = create_lazy_generic_benchmark(train_stream, test_stream)
+    config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
+    config["job_id"] = os.environ.get("SLURM_JOB_ID")
     loggers = [
         WandBLogger(
+            dir=cfg.wandb.save_dir,
             project_name=cfg.wandb.project,
             group=cfg.wandb.group,
-            mode=cfg.wandb.mode,
+            params={"group": cfg.wandb.group},
+            config=config,
         )
     ]
 
