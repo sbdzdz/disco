@@ -1,2 +1,2 @@
 _target_: avalanche.models.SlimResNet18
-n_classes: ${eval:'${dataset.tasks} * ${dataset.shapes_per_tasks}'}
+n_classes: ${eval:'${dataset.tasks} * ${dataset.shapes_per_task}'}
