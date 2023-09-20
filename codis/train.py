@@ -24,6 +24,7 @@ from codis.lightning.modules import ContinualModule
 from codis.data import ContinualDataset
 
 torch.set_float32_matmul_precision("high")
+OmegaConf.register_new_resolver("eval", eval)
 
 
 @hydra.main(config_path="../configs", config_name="main", version_base=None)
