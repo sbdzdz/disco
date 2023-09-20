@@ -115,14 +115,14 @@ def train_baseline(cfg, model, continual_dataset):
     train_generator = (
         make_classification_dataset(
             dataset=datasets[0],
-            task_labels=[task_id for _ in range(len(datasets[0]))],
+            task_labels=[task_id] * len(datasets[0]),
         )
         for task_id, (datasets, _) in enumerate(continual_dataset)
     )
     test_generator = (
         make_classification_dataset(
             dataset=datasets[2],
-            task_labels=[task_id for _ in range(len(datasets[0]))],
+            task_labels=[task_id] * len(datasets[0]),
         )
         for task_id, (datasets, _) in enumerate(continual_dataset)
     )
@@ -136,9 +136,7 @@ def train_baseline(cfg, model, continual_dataset):
         stream_length=continual_dataset.tasks,
         exps_task_labels=range(continual_dataset.tasks),
     )
-    benchmark = create_lazy_generic_benchmark(
-        train_stream, test_stream, task_labels=range(continual_dataset.tasks)
-    )
+    benchmark = create_lazy_generic_benchmark(train_stream, test_stream)
     loggers = [
         WandBLogger(
             project_name=cfg.wandb.project,
