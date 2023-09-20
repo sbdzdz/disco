@@ -93,10 +93,11 @@ def train_continually(cfg, trainer, shapes, exemplars):
         benchmark = create_lazy_generic_benchmark(
             train_stream, test_stream, task_labels=range(continual_dataset.num_tasks)
         )
-        for experience in benchmark.train_stream:
-            strategy.train(experience)
-            test_set = benchmark.test_stream[experience.current_experience]
-            strategy.eval(test_set)
+        for train_experience, test_experience in zip(
+            benchmark.train_stream, benchmark.test_stream
+        ):
+            strategy.train(train_experience)
+            strategy.eval(test_experience)
 
 
 def train_jointly(cfg, trainer, shapes, exemplars):
