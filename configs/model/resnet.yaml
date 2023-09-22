@@ -1,2 +1,6 @@
-_target_: avalanche.models.SlimResNet18
-nclasses: ${eval:'${dataset.tasks} * ${dataset.shapes_per_task}'}
+_target_: torchvision.models.get_model
+name: resnet18
+weights: null
+num_classes: ${dataset.shapes_per_task}
+#_target_: avalanche.models.SlimResNet18
+#nclasses: ${eval:'${dataset.tasks} * ${dataset.shapes_per_task}'}
