@@ -22,7 +22,7 @@ from avalanche.training import Naive
 from avalanche.benchmarks.utils import make_classification_dataset
 from avalanche.training.plugins import EvaluationPlugin
 from avalanche.training.supervised import EWC, GEM, GDumb, LwF, Naive, Replay
-from hydra.utils import instantiate, call
+from hydra.utils import instantiate, get_object, call
 from lightning.pytorch.callbacks import ModelCheckpoint
 from omegaconf import DictConfig, OmegaConf
 from torch.nn import CrossEntropyLoss
@@ -82,15 +82,13 @@ def train_jointly(cfg: DictConfig, trainer, shapes, exemplars):
 
 def train_continually(cfg: DictConfig, trainer, shapes, exemplars):
     """Train continually with n shapes per tasks."""
-    target = hydra.utils.get_class(cfg.model._target_)
+    dataset = ContinualDataset(cfg, shapes=shapes, exemplars=exemplars)
+    target = hydra.utils.get_object(cfg.model._target_)
     if isinstance(target, ContinualModule):
         model = instantiate(cfg.model)
-    else:
-        model = call(target, cfg.model)
-    dataset = ContinualDataset(cfg, shapes=shapes, exemplars=exemplars)
-    if isinstance(model, ContinualModule):
         train_ours(cfg, model, trainer, dataset)
     else:
+        model = call(target, cfg.model)
         train_baseline(cfg, model, dataset)
 
 
