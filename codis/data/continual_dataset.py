@@ -85,9 +85,9 @@ class ContinualDataset:
         if test_dataset is None:
             test_dataset = ContinualDSpritesMap(dataset_size=1)  # dummy dataset
             test_dataset.data = list(task_data)
-            test_dataset.targets = list(task_targets)
+            test_dataset.latents = list(task_targets)
         else:
             test_dataset.data.extend(task_data)
-            test_dataset.targets.extend(task_targets)
+            test_dataset.latents.extend(task_targets)
 
         return test_dataset

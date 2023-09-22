@@ -418,15 +418,19 @@ class ContinualDSpritesMap(Dataset):
         assert (
             self.dataset.dataset_size is not None or self.dataset.shapes is not None
         ), "Dataset size must be finite. Please set dataset_size or pass a list of shapes."
-        self.data, self.targets = zip(*list(self.dataset))
+        self.data, self.latents = zip(*list(self.dataset))
         self.data = list(self.data)
-        self.targets = list(self.targets)
+        self.latents = list(self.latents)
+
+    @property
+    def targets(self):
+        return [latents.shape_id for latents in self.latents]
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, index):
-        return self.data[index], self.targets[index]
+        return self.data[index], self.latents[index]
 
 
 class RandomDSprites(InfiniteDSprites):
@@ -468,15 +472,19 @@ class RandomDSpritesMap(Dataset):
         assert (
             self.dataset.dataset_size is not None
         ), "Dataset size must be finite. Please set dataset_size."
-        self.data, self.targets = zip(*list(self.dataset))
+        self.data, self.latents = zip(*list(self.dataset))
         self.data = list(self.data)
-        self.targets = list(self.targets)
+        self.latents = list(self.latents)
+
+    @property
+    def targets(self):
+        return [latents.shape_id for latents in self.latents]
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, index):
-        return self.data[index], self.targets[index]
+        return self.data[index], self.latents[index]
 
 
 class InfiniteDSpritesTriplets(InfiniteDSprites):
