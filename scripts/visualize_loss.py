@@ -67,11 +67,13 @@ def visualize_loss(args):
             )
 
     if args.xticks == "tasks":
-        task_transitions = get_task_transitions(runs[0])[
-            :: args.x_ticks_every
-        ]  # , subsample=args.x_ticks_every)
+        task_transitions = get_task_transitions(runs[0])[:: args.x_ticks_every]
         ax.set_xticks(task_transitions)
-        ax.set_xticklabels(range(min_len + args.x_ticks_every)[:: args.x_ticks_every])
+        ax.set_xticklabels(
+            range(min_len * runs[0].config.training.test_every_n_tasks)[
+                :: args.x_ticks_every
+            ]
+        )
         ax.set_xlabel("Tasks", fontsize=args.fontsize)
     else:
         ax.set_xlabel("Steps", fontsize=args.fontsize)
@@ -177,7 +179,7 @@ def _main():
         "--xticks", type=str, help="X-axis data", choices=["steps", "tasks"]
     )
     parser.add_argument(
-        "--x_ticks_every", type=int, default=20, help="Granularity of the x axis."
+        "--x_ticks_every", type=int, default=10, help="Granularity of the x axis."
     )
     parser.add_argument("--ymin", type=float, help="Y-axis min limit.")
     parser.add_argument("--ymax", type=float, help="Y-axis max limit.")
