@@ -88,7 +88,7 @@ def train_continually(cfg: DictConfig, trainer, shapes, exemplars):
         model = instantiate(cfg.model)
         train_ours(cfg, model, trainer, dataset)
     else:
-        model = call(target, cfg.model)
+        model = call(cfg.model)
         train_baseline(cfg, model, dataset)
 
 
