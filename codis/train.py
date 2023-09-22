@@ -11,8 +11,6 @@ from avalanche.benchmarks.scenarios.generic_benchmark_creation import (
 from avalanche.evaluation.metrics import (
     accuracy_metrics,
     confusion_matrix_metrics,
-    cpu_usage_metrics,
-    disk_usage_metrics,
     forgetting_metrics,
     loss_metrics,
     timing_metrics,
@@ -83,7 +81,7 @@ def train_jointly(cfg: DictConfig, trainer, shapes, exemplars):
 def train_continually(cfg: DictConfig, trainer, shapes, exemplars):
     """Train continually with n shapes per tasks."""
     dataset = ContinualDataset(cfg, shapes=shapes, exemplars=exemplars)
-    target = hydra.utils.get_object(cfg.model._target_)
+    target = get_object(cfg.model._target_)
     if isinstance(target, ContinualModule):
         model = instantiate(cfg.model)
         train_ours(cfg, model, trainer, dataset)
