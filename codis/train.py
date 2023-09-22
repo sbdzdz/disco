@@ -118,6 +118,7 @@ def train_baseline(cfg, model, continual_dataset):
         make_classification_dataset(
             dataset=datasets[0],
             task_labels=[task_id] * len(datasets[0]),
+            target_transform=lambda y: y.shape_id,
         )
         for task_id, (datasets, _) in enumerate(continual_dataset)
     )
@@ -125,6 +126,7 @@ def train_baseline(cfg, model, continual_dataset):
         make_classification_dataset(
             dataset=datasets[2],
             task_labels=[task_id] * len(datasets[2]),
+            target_transform=lambda y: y.shape_id,
         )
         for task_id, (datasets, _) in enumerate(continual_dataset)
     )
