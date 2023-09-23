@@ -153,7 +153,7 @@ def train_baseline(cfg, model, continual_dataset):
     ]
 
     eval_plugin = EvaluationPlugin(
-        accuracy_metrics(minibatch=True),
+        accuracy_metrics(minibatch=True, experience=True),
         loss_metrics(minibatch=True),
         forgetting_metrics(experience=True),
         # confusion_matrix_metrics(),
