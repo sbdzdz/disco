@@ -13,7 +13,6 @@ from avalanche.evaluation.metrics import (
     accuracy_metrics,
     confusion_matrix_metrics,
     forgetting_metrics,
-    gpu_usage_metrics,
     loss_metrics,
     timing_metrics,
 )
@@ -154,12 +153,11 @@ def train_baseline(cfg, model, continual_dataset):
     ]
 
     eval_plugin = EvaluationPlugin(
-        accuracy_metrics(minibatch=True, epoch=True, experience=True, stream=True),
-        loss_metrics(minibatch=True, epoch=True, experience=True, stream=True),
+        accuracy_metrics(minibatch=True, experience=True, stream=True),
+        loss_metrics(minibatch=True, experience=True, stream=True),
         timing_metrics(epoch=True, epoch_running=True),
         forgetting_metrics(experience=True, stream=True),
         # confusion_matrix_metrics(),
-        gpu_usage_metrics(gpu_id=0, every=0.5, minibatch=True),
         loggers=loggers,
     )
 
