@@ -174,10 +174,14 @@ def train_baseline(cfg, model, continual_dataset):
     for train_experience, test_experience in zip(
         benchmark.train_stream, benchmark.test_stream
     ):
-        print(f"Training on task {train_experience.current_experience}.")
-        print("Current Classes: ", train_experience.classes_in_this_experience)
+        train_task = train_experience.current_experience
+        print(f"Task {train_task} train: {len(train_experience.dataset)} samples.")
+        print(f"Classes: {train_experience.classes_in_this_experience}")
         strategy.train(train_experience)
-        print(f"Testing on task {train_experience.current_experience}.")
+
+        test_task = test_experience.current_experience
+        print(f"Task {test_task} test: {len(train_experience.dataset)} samples.")
+        print(f"Classes: {test_experience.classes_in_this_experience}")
         strategy.eval(test_experience)
 
 
