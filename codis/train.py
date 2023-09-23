@@ -8,19 +8,20 @@ from avalanche.benchmarks.scenarios.generic_benchmark_creation import (
     LazyStreamDefinition,
     create_lazy_generic_benchmark,
 )
+from avalanche.benchmarks.utils import make_classification_dataset
 from avalanche.evaluation.metrics import (
     accuracy_metrics,
     confusion_matrix_metrics,
     forgetting_metrics,
+    gpu_usage_metrics,
     loss_metrics,
     timing_metrics,
 )
-from avalanche.logging import WandBLogger
+from avalanche.logging import InteractiveLogger, WandBLogger
 from avalanche.training import Naive
-from avalanche.benchmarks.utils import make_classification_dataset
 from avalanche.training.plugins import EvaluationPlugin
 from avalanche.training.supervised import EWC, GEM, GDumb, LwF, Naive, Replay
-from hydra.utils import instantiate, get_object, call
+from hydra.utils import call, get_object, instantiate
 from lightning.pytorch.callbacks import ModelCheckpoint
 from omegaconf import DictConfig, OmegaConf
 from torch.nn import CrossEntropyLoss
@@ -112,6 +113,7 @@ def train_ours(cfg, model, trainer, dataset):
 
 def train_baseline(cfg, model, continual_dataset):
     """Train standard continual learning baselines using Avalanche."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     train_generator = (
         make_classification_dataset(
             dataset=datasets[0],
@@ -142,12 +144,13 @@ def train_baseline(cfg, model, continual_dataset):
     config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
     config["job_id"] = os.environ.get("SLURM_JOB_ID")
     loggers = [
+        InteractiveLogger(),
         WandBLogger(
             dir=cfg.wandb.save_dir,
             project_name=cfg.wandb.project,
             params={"group": cfg.wandb.group},
             config=config,
-        )
+        ),
     ]
 
     eval_plugin = EvaluationPlugin(
@@ -155,6 +158,8 @@ def train_baseline(cfg, model, continual_dataset):
         loss_metrics(minibatch=True, epoch=True, experience=True, stream=True),
         timing_metrics(epoch=True, epoch_running=True),
         forgetting_metrics(experience=True, stream=True),
+        # confusion_matrix_metrics(),
+        gpu_usage_metrics(gpu_id=0, every=0.5, minibatch=True),
         loggers=loggers,
     )
 
@@ -162,15 +167,17 @@ def train_baseline(cfg, model, continual_dataset):
         model,
         torch.optim.Adam(model.parameters(), lr=cfg.training.lr),
         CrossEntropyLoss(),
-        train_mb_size=500,
-        train_epochs=4,
-        eval_mb_size=100,
+        train_mb_size=512,
+        train_epochs=cfg.trainer.max_epochs,
+        eval_mb_size=128,
         evaluator=eval_plugin,
+        device=device,
     )
     for train_experience, test_experience in zip(
         benchmark.train_stream, benchmark.test_stream
     ):
         print(f"Training on task {train_experience.current_experience}.")
+        print("Current Classes: ", train_experience.classes_in_this_experience)
         strategy.train(train_experience)
         print(f"Testing on task {train_experience.current_experience}.")
         strategy.eval(test_experience)
