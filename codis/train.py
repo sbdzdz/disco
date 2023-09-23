@@ -153,10 +153,9 @@ def train_baseline(cfg, model, continual_dataset):
     ]
 
     eval_plugin = EvaluationPlugin(
-        accuracy_metrics(minibatch=True, experience=True, stream=True),
-        loss_metrics(minibatch=True, experience=True, stream=True),
-        timing_metrics(epoch=True, epoch_running=True),
-        forgetting_metrics(experience=True, stream=True),
+        accuracy_metrics(minibatch=True),
+        loss_metrics(minibatch=True),
+        forgetting_metrics(experience=True),
         # confusion_matrix_metrics(),
         loggers=loggers,
     )
@@ -165,9 +164,9 @@ def train_baseline(cfg, model, continual_dataset):
         model,
         torch.optim.Adam(model.parameters(), lr=cfg.training.lr),
         CrossEntropyLoss(),
-        train_mb_size=512,
+        train_mb_size=cfg.dataset.batch_size,
         train_epochs=cfg.trainer.max_epochs,
-        eval_mb_size=128,
+        eval_mb_size=cfg.dataset.batch_size,
         evaluator=eval_plugin,
         device=device,
     )
@@ -180,7 +179,7 @@ def train_baseline(cfg, model, continual_dataset):
         strategy.train(train_experience)
 
         test_task = test_experience.current_experience
-        print(f"Task {test_task} test: {len(train_experience.dataset)} samples.")
+        print(f"Task {test_task} test: {len(test_experience.dataset)} samples.")
         print(f"Classes test: {test_experience.classes_in_this_experience}")
         strategy.eval(test_experience)
 
