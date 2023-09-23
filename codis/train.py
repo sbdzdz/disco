@@ -182,6 +182,7 @@ def train_baseline(cfg, model, continual_dataset):
         print(f"Task {test_task} test: {len(test_experience.dataset)} samples.")
         print(f"Classes test: {test_experience.classes_in_this_experience}")
         strategy.eval(test_experience)
+        del train_experience, test_experience
 
 
 def build_dataloader(self, dataset, shuffle=True):
