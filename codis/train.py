@@ -146,7 +146,7 @@ def train_baseline(cfg, model, continual_dataset):
         InteractiveLogger(),
         WandBLogger(
             dir=cfg.wandb.save_dir,
-            project_name=cfg.wandb.project,
+            project_name=f"{cfg.wandb.project}_baselines",
             params={"group": cfg.wandb.group},
             config=config,
         ),
