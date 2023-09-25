@@ -83,7 +83,7 @@ def train_continually(cfg: DictConfig, trainer, shapes, exemplars):
     dataset = ContinualDataset(cfg, shapes=shapes, exemplars=exemplars)
     target = get_object(cfg.model._target_)
     print(target, type(target))
-    if isinstance(target, ContinualModule):
+    if issubclass(target, ContinualModule):
         model = instantiate(cfg.model)
         train_ours(cfg, model, trainer, dataset)
     else:
