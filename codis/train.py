@@ -1,4 +1,5 @@
 """Training script."""
+import inspect
 import os
 
 import hydra
@@ -82,13 +83,14 @@ def train_continually(cfg: DictConfig, trainer, shapes, exemplars):
     """Train continually with n shapes per tasks."""
     dataset = ContinualDataset(cfg, shapes=shapes, exemplars=exemplars)
     target = get_object(cfg.model._target_)
-    print(target, type(target))
-    if issubclass(target, ContinualModule):
+    if inspect.isclass(target):
         model = instantiate(cfg.model)
         train_ours(cfg, model, trainer, dataset)
-    else:
+    elif callable(target):
         model = call(cfg.model)
         train_baseline(cfg, model, dataset)
+    else:
+        raise ValueError(f"Unknown target: {target}.")
 
 
 def train_ours(cfg, model, trainer, dataset):
