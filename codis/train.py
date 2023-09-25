@@ -174,7 +174,11 @@ def train_baseline(cfg, model, continual_dataset):
     )
 
     strategy = instantiate(
-        cfg.strategy, model=model, device=device, evaluator=eval_plugin
+        cfg.strategy,
+        model=model,
+        device=device,
+        evaluator=eval_plugin,
+        optimizer={"params": model.parameters()},
     )
     for train_experience, test_experience in zip(
         benchmark.train_stream, benchmark.test_stream
