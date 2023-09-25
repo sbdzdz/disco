@@ -168,8 +168,8 @@ def train_baseline(cfg, model, continual_dataset):
     ]
 
     eval_plugin = EvaluationPlugin(
-        accuracy_metrics(experience=True),
-        loss_metrics(experience=True),
+        accuracy_metrics(minibatch=True, experience=True),
+        loss_metrics(minibatch=True),
         loggers=loggers,
     )
 
