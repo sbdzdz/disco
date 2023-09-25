@@ -1,4 +1,4 @@
-_target_: avalanche.training.supervised.Replay
+_target_: avalanche.training.supervised.LwF
 optimizer:
   _target_: torch.optim.Adam
   lr: ${training.lr}

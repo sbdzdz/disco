@@ -1,4 +1,4 @@
-_target_: avalanche.training.supervised.GDumb
+_target_: avalanche.training.supervised.GEM
 optimizer:
   _target_: torch.optim.Adam
   lr: ${training.lr}
