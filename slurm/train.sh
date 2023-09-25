@@ -25,5 +25,5 @@ python -m pip install -e $HOME/codis
 export PYTHONPATH=$PYTHONPATH:$HOME/codis
 export HYDRA_FULL_ERROR=1
 
-srun --gres=gpu:1 python memray run $HOME/codis/codis/train.py wandb.group=continual_classification trainer.max_epochs=4 model=stn \
+srun --gres=gpu:1 memray run $HOME/codis/codis/train.py wandb.group=continual_classification trainer.max_epochs=4 model=stn \
  dataset.tasks=510 dataset.factor_resolution=9 dataset.shapes_per_task=10 $additional_args
