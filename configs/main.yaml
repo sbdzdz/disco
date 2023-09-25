@@ -2,6 +2,7 @@ defaults:
  - _self_
  - dataset: idsprites
  - model: stn
+ - strategy: naive
 
 project:
   name: codis

@@ -18,13 +18,10 @@ from avalanche.evaluation.metrics import (
     timing_metrics,
 )
 from avalanche.logging import InteractiveLogger, WandBLogger
-from avalanche.training import Naive
 from avalanche.training.plugins import EvaluationPlugin
-from avalanche.training.supervised import EWC, GEM, GDumb, LwF, Naive, Replay
 from hydra.utils import call, get_object, instantiate
 from lightning.pytorch.callbacks import ModelCheckpoint
 from omegaconf import DictConfig, OmegaConf
-from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader, random_split
 
 from codis.data import (
@@ -176,15 +173,8 @@ def train_baseline(cfg, model, continual_dataset):
         loggers=loggers,
     )
 
-    strategy = Naive(
-        model,
-        torch.optim.Adam(model.parameters(), lr=cfg.training.lr),
-        CrossEntropyLoss(),
-        train_mb_size=cfg.dataset.batch_size,
-        train_epochs=cfg.trainer.max_epochs,
-        eval_mb_size=cfg.dataset.batch_size,
-        evaluator=eval_plugin,
-        device=device,
+    strategy = instantiate(
+        cfg.strategy, model=model, device=device, evaluator=eval_plugin
     )
     for train_experience, test_experience in zip(
         benchmark.train_stream, benchmark.test_stream
