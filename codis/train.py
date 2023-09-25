@@ -171,10 +171,8 @@ def train_baseline(cfg, model, continual_dataset):
     ]
 
     eval_plugin = EvaluationPlugin(
-        # accuracy_metrics(minibatch=True, experience=True),
-        loss_metrics(minibatch=True),
-        # forgetting_metrics(experience=True),
-        # confusion_matrix_metrics(),
+        accuracy_metrics(experience=True),
+        loss_metrics(experience=True),
         loggers=loggers,
     )
 
@@ -195,16 +193,11 @@ def train_baseline(cfg, model, continual_dataset):
         print(f"Task {train_task} train: {len(train_experience.dataset)} samples.")
         print(f"Classes train: {train_experience.classes_in_this_experience}")
         strategy.train(train_experience)
-        print(benchmark)
-        print(benchmark.train_stream)
-        print(train_experience)
-        # benchmark.train_stream.drop_previous_experience(train_task)
 
         test_task = test_experience.current_experience
         print(f"Task {test_task} test: {len(test_experience.dataset)} samples.")
         print(f"Classes test: {test_experience.classes_in_this_experience}")
         strategy.eval(test_experience)
-        # benchmark.test_stream.drop_previous_experience(test_task)
 
 
 def generate_canonical_images(shapes, img_size: int):
