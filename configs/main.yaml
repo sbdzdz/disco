@@ -35,3 +35,4 @@ wandb:
   group: null
   mode: online
   notes: null
+  name: null
