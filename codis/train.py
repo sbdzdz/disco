@@ -196,6 +196,9 @@ def train_baseline(cfg, model, continual_dataset):
         print(f"Task {train_task} train: {len(train_experience.dataset)} samples.")
         print(f"Classes train: {train_experience.classes_in_this_experience}")
         strategy.train(train_experience)
+        print(benchmark, type(benchmark))
+        print(benchmark.train_stream, type(benchmark.train_stream))
+        print(benchmark.train_stream.exps_data, type(benchmark.train_stream.exps_data))
         benchmark.train_stream.drop_previous_experience(train_task)
 
         test_task = test_experience.current_experience
