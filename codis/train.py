@@ -96,11 +96,27 @@ def train_ours(cfg, model, trainer, dataset):
     for task_id, (datasets, task_exemplars) in enumerate(dataset):
         model.task_id = task_id
         train_dataset, val_dataset, test_dataset = datasets
-        train_loader = build_dataloader(train_dataset)
-        val_loader = build_dataloader(val_dataset, shuffle=False)
-        test_loader = build_dataloader(test_dataset)  # shuffle for vis
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=cfg.dataset.batch_size,
+            num_workers=cfg.dataset.num_workers,
+            shuffle=True,
+        )
+        val_loader = DataLoader(
+            val_dataset,
+            batch_size=cfg.dataset.batch_size,
+            num_workers=cfg.dataset.num_workers,
+        )
+        test_loader = DataLoader(
+            test_dataset,
+            batch_size=cfg.dataset.batch_size,
+            num_workers=cfg.dataset.num_workers,
+            shuffle=True,  # shuffle for vis
+        )
+
         for exemplar in task_exemplars:
             model.add_exemplar(exemplar)
+
         trainer.fit(model, train_loader, val_loader)
         if (
             not cfg.training.test_once
@@ -183,16 +199,6 @@ def train_baseline(cfg, model, continual_dataset):
         print(f"Task {test_task} test: {len(test_experience.dataset)} samples.")
         print(f"Classes test: {test_experience.classes_in_this_experience}")
         strategy.eval(test_experience)
-
-
-def build_dataloader(self, dataset, shuffle=True):
-    """Prepare a data loader."""
-    return DataLoader(
-        dataset,
-        batch_size=self.batch_size,
-        num_workers=self.num_workers,
-        shuffle=shuffle,
-    )
 
 
 def generate_canonical_images(shapes, img_size: int):
