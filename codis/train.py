@@ -34,7 +34,6 @@ from codis.data import (
     RandomDSpritesMap,
 )
 from codis.lightning.callbacks import LoggingCallback, VisualizationCallback
-from codis.lightning.modules import ContinualModule
 
 torch.set_float32_matmul_precision("high")
 OmegaConf.register_new_resolver("eval", eval)
@@ -172,9 +171,9 @@ def train_baseline(cfg, model, continual_dataset):
     ]
 
     eval_plugin = EvaluationPlugin(
-        accuracy_metrics(minibatch=True, experience=True),
+        # accuracy_metrics(minibatch=True, experience=True),
         loss_metrics(minibatch=True),
-        forgetting_metrics(experience=True),
+        # forgetting_metrics(experience=True),
         # confusion_matrix_metrics(),
         loggers=loggers,
     )
