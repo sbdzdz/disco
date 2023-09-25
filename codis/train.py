@@ -82,6 +82,7 @@ def train_continually(cfg: DictConfig, trainer, shapes, exemplars):
     """Train continually with n shapes per tasks."""
     dataset = ContinualDataset(cfg, shapes=shapes, exemplars=exemplars)
     target = get_object(cfg.model._target_)
+    print(target, type(target))
     if isinstance(target, ContinualModule):
         model = instantiate(cfg.model)
         train_ours(cfg, model, trainer, dataset)
@@ -182,7 +183,6 @@ def train_baseline(cfg, model, continual_dataset):
         print(f"Task {test_task} test: {len(test_experience.dataset)} samples.")
         print(f"Classes test: {test_experience.classes_in_this_experience}")
         strategy.eval(test_experience)
-        del train_experience, test_experience
 
 
 def build_dataloader(self, dataset, shuffle=True):
