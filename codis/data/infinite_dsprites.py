@@ -97,7 +97,10 @@ class InfiniteDSprites(IterableDataset):
         self.dataset_size = dataset_size
         self.counter = 0
         self.current_shape_index = 0
-        self.shapes = shapes
+        if isinstance(shapes, list):
+            self.shapes = shapes
+        elif isinstance(shapes, int):
+            self.shapes = [self.generate_shape() for _ in range(shapes)]
         self.shape_ids = shape_ids
         self.orientation_marker = orientation_marker
         self.orientation_marker_color = tuple(
@@ -141,10 +144,6 @@ class InfiniteDSprites(IterableDataset):
                 if self.current_shape_index >= len(self.shapes):
                     return
                 shape = self.shapes[self.current_shape_index]
-            elif isinstance(self.shapes, int):
-                if self.current_shape_index >= self.shapes:
-                    return
-                shape = self.generate_shape()
 
             for color, scale, orientation, position_x, position_y in product(
                 *self.ranges.values()
