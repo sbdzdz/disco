@@ -53,17 +53,20 @@ def draw_batch(
     num_images = min(images.shape[0], num_images)
     if images.ndim == 4:
         images = np.transpose(images, (0, 2, 3, 1))
-    ncols = int(np.ceil(np.sqrt(num_images)))
-    nrows = int(np.ceil(num_images / ncols))
+    nrows = int(np.ceil(np.sqrt(num_images)))
+    ncols = int(np.ceil(num_images / nrows))
     _, axes = plt.subplots(
-        ncols, nrows, figsize=(ncols / nrows * fig_height, fig_height)
+        nrows, ncols, figsize=(ncols / nrows * fig_height, fig_height)
     )
     if not isinstance(axes, np.ndarray):
         axes = np.array([axes])
 
+    for ax in axes.flat:
+        ax.axis("off")
+
     for ax, img in zip(axes.flat, images[:num_images]):
         ax.imshow(img, cmap="Greys_r", aspect="equal")
-        ax.axis("off")
+
     path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(path, bbox_inches="tight")
     if show:
