@@ -412,27 +412,59 @@ class InfiniteDSprites(IterableDataset):
         )
 
 
+class InfiniteDSpritesNoImages(InfiniteDSprites):
+    """Only return the latents."""
+
+    def __iter__(self):
+        """Generate an infinite stream of latent vectors.
+        Note: We set shape to None and only return shape_id."""
+        while True:
+            if self.shapes is not None and self.current_shape_index >= len(self.shapes):
+                return
+            for color, scale, orientation, position_x, position_y in product(
+                *self.ranges.values()
+            ):
+                if self.dataset_size is not None and self.counter >= self.dataset_size:
+                    return
+                self.counter += 1
+                color = np.array(colors.to_rgb(color))
+                yield Latents(
+                    color,
+                    None,
+                    self.current_shape_id,
+                    scale,
+                    orientation,
+                    position_x,
+                    position_y,
+                )
+            self.current_shape_index += 1
+
+
 class ContinualDSpritesMap(Dataset):
     """Map-style (finite) continual learning dsprites dataset."""
 
     def __init__(self, *args, **kwargs):
-        self.dataset = InfiniteDSprites(*args, **kwargs)
+        self.dataset = InfiniteDSpritesNoImages(*args, **kwargs)
         assert (
             self.dataset.dataset_size is not None or self.dataset.shapes is not None
         ), "Dataset size must be finite. Please set dataset_size or pass a list of shapes."
-        self.data, self.latents = zip(*list(self.dataset))
-        self.data = list(self.data)
-        self.latents = list(self.latents)
+        self.data = list(self.dataset)
 
     @property
     def targets(self):
-        return [latents.shape_id for latents in self.latents]
+        return [factors.shape_id for factors in self.data]
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, index):
-        return self.data[index], self.latents[index]
+        if self.dataset.shape_ids is None:
+            shape_index = self.data[index].shape_id
+        else:
+            shape_index = self.dataset.shape_ids.index(self.data[index].shape_id)
+        shape = self.dataset.shapes[shape_index]
+        factors = self.data[index]._replace(shape=shape)
+        return self.dataset.draw(factors), self.data[index].shape_id
 
 
 class RandomDSprites(InfiniteDSprites):
