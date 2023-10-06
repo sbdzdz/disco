@@ -74,20 +74,18 @@ class ContinualDataset:
             self.tasks * self.shapes_per_task
         )
         class_indices = defaultdict(list)
-        for i, (_, factors) in enumerate(task_test_dataset):
+        for i, factors in enumerate(task_test_dataset.data):
             class_indices[factors.shape_id].append(i)
         subset_indices = []
         for indices in class_indices.values():
             subset_indices.extend(np.random.choice(indices, samples_per_shape))
 
-        task_data, task_targets = zip(*[task_test_dataset[i] for i in subset_indices])
+        task_data = [task_test_dataset.data[i] for i in subset_indices]
 
         if test_dataset is None:
             test_dataset = ContinualDSpritesMap(dataset_size=1)  # dummy dataset
-            test_dataset.data = list(task_data)
-            test_dataset.latents = list(task_targets)
+            test_dataset.data = task_data
         else:
             test_dataset.data.extend(task_data)
-            test_dataset.latents.extend(task_targets)
 
         return test_dataset
