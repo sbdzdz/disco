@@ -33,6 +33,9 @@ class Latents(BaseLatents):
             position_y=self.position_y.to(device),
         )
 
+    def replace(self, **kwargs):
+        return super()._replace(**kwargs)
+
 
 class InfiniteDSprites(IterableDataset):
     """Infinite dataset of procedurally generated shapes undergoing transformations."""
