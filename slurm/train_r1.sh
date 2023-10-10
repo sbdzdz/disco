@@ -11,7 +11,9 @@
 #SBATCH --mail-user=sebastian.dziadzio@uni-tuebingen.de                                # Email to which notifications will be sent
 
 # print info about current job
-scontrol show job $SLURM_JOB_ID
+scontrol show job
+
+additional_args="$@"
 
 source $HOME/.bashrc
 source $WORK/virtualenvs/codis/bin/activate
@@ -21,6 +23,8 @@ python -m pip install -r $HOME/codis/requirements.txt
 python -m pip install -e $HOME/codis
 
 export PYTHONPATH=$PYTHONPATH:$HOME/codis
+export HYDRA_FULL_ERROR=1
+pip install torch==2.0.1+cu117 torchvision==0.15.2+cu117 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu117
 
-srun --gres=gpu:1 python $HOME/codis/codis/train.py hydra.output_subdir=$WORK/projects/codis/hydra wandb.dir=$WORK/projects/codis/wandb \
-dataset.tasks=16 dataset.batch_size=1024 dataset.factor_resolution=16 wandb.group=regressor training.max_epochs=3 model=regressor
+srun --gres=gpu:1 python $HOME/codis/codis/train.py wandb.group=continual_classification trainer.max_epochs=4 model=stn \
+ dataset.tasks=510 dataset.factor_resolution=9 dataset.shapes_per_task=10 $additional_args
