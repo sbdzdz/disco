@@ -9,4 +9,4 @@ from codis.data.infinite_dsprites import (
     Latents,
 )
 from codis.data.balanced_dataset import BalancedDataset
-from codis.data.continual_dataset import ContinualBenchmark
+from codis.data.continual_benchmark import ContinualBenchmark
