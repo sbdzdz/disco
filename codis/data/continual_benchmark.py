@@ -92,6 +92,7 @@ class ContinualBenchmark:
 
         if test_dataset is None:
             test_dataset = ContinualDSpritesMap(
+                img_size=self.img_size,
                 dataset_size=1,
                 shapes=self.shapes,
                 shape_ids=self.shape_ids,
