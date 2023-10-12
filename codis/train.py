@@ -30,7 +30,11 @@ from codis.data import (
     Latents,
     RandomDSpritesMap,
 )
-from codis.lightning.callbacks import LoggingCallback, VisualizationCallback
+from codis.lightning.callbacks import (
+    MetricsCallback,
+    LoggingCallback,
+    VisualizationCallback,
+)
 
 torch.set_float32_matmul_precision("high")
 OmegaConf.register_new_resolver("eval", eval)
@@ -240,6 +244,8 @@ def build_callbacks(cfg: DictConfig, canonical_images: list, random_images: list
     callback_names = cfg.training.callbacks
     if "logging" in callback_names:
         callbacks.append(LoggingCallback())
+    if "metrics" in callback_names:
+        callbacks.append(MetricsCallback())
     if "visualization" in callback_names:
         callbacks.append(VisualizationCallback(canonical_images, random_images))
     if "checkpointing" in callback_names:

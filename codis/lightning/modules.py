@@ -44,23 +44,17 @@ class ContinualModule(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         """Perform a training step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_train": v for k, v in loss.items() if k != "loss"})
-        return loss
+        return self._step(batch)
 
     @torch.no_grad()
     def validation_step(self, batch, batch_idx):
         """Perform a validation step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_val": v for k, v in loss.items() if k != "loss"})
-        return loss
+        return self._step(batch)
 
     @torch.no_grad()
     def test_step(self, batch, batch_idx):
         """Perform a test step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_test": v for k, v in loss.items() if k != "loss"})
-        return loss
+        return self._step(batch)
 
     def add_exemplar(self, exemplar):
         """Add an exemplar to the buffer."""
@@ -167,9 +161,7 @@ class SpatialTransformer(ContinualModule):
         theta = self.convert_parameters_to_matrix(y)
         regression_loss = F.mse_loss(theta, theta_hat)
         reconstruction_loss = F.mse_loss(exemplars, x_hat)
-        accuracy = (y.shape_id == self.classify(x)).float().mean()
         return {
-            "accuracy": accuracy.item(),
             "reconstruction_loss": reconstruction_loss.item(),
             "regression_loss": regression_loss.item(),
             "loss": self.gamma * regression_loss

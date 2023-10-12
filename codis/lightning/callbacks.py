@@ -123,3 +123,62 @@ class LoggingCallback(Callback):
             f"{len(trainer.test_dataloaders)} batches, "
             f"{len(trainer.test_dataloaders.dataset)} samples."
         )
+
+
+class MetricsCallback(Callback):
+    """Callback for logging metrics."""
+
+    def __init__(
+        self, log_train_accuracy: bool = False, log_val_accuracy: bool = False
+    ):
+        super().__init__()
+        self.log_train_accuracy = log_train_accuracy
+        self.log_val_accuracy = log_val_accuracy
+
+    def on_train_batch_end(
+        self,
+        trainer: pl.Trainer,
+        pl_module: pl.LightningModule,
+        outputs,
+        batch,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ):
+        """Log the training loss."""
+        if self.log_train_accuracy:
+            self._log_accuracy(batch, pl_module, trainer, "train/accuracy")
+        trainer.logger.log_metrics({f"train/{k}": v.item() for k, v in outputs.items()})
+
+    def on_validation_batch_end(
+        self,
+        trainer: pl.Trainer,
+        pl_module: pl.LightningModule,
+        outputs,
+        batch,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ):
+        """Log the validation loss."""
+        if self.log_val_accuracy:
+            self._log_accuracy(batch, pl_module, trainer, "val/accuracy")
+        trainer.logger.log_metrics({f"val/{k}": v.item() for k, v in outputs.items()})
+
+    def on_test_batch_end(
+        self,
+        trainer: pl.Trainer,
+        pl_module: pl.LightningModule,
+        outputs,
+        batch,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ):
+        """Log the test loss."""
+        self._log_accuracy(batch, pl_module, trainer, "test/accuracy")
+        trainer.logger.log_metrics(
+            {f"test/{k}": v.item() for k, v in outputs.items()},
+        )
+
+    def _log_accuracy(self, batch, pl_module, trainer, name):
+        x, y = batch
+        accuracy = (y.shape_id == pl_module.classify(x)).float().mean()
+        trainer.logger.log_metrics({name: accuracy.item()})
