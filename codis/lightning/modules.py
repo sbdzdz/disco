@@ -162,8 +162,8 @@ class SpatialTransformer(ContinualModule):
         regression_loss = F.mse_loss(theta, theta_hat)
         reconstruction_loss = F.mse_loss(exemplars, x_hat)
         return {
-            "reconstruction_loss": reconstruction_loss.item(),
-            "regression_loss": regression_loss.item(),
+            "reconstruction_loss": reconstruction_loss,
+            "regression_loss": regression_loss,
             "loss": self.gamma * regression_loss
             + (1 - self.gamma) * reconstruction_loss,
         }

@@ -146,7 +146,7 @@ class MetricsCallback(Callback):
     ):
         """Log the training loss."""
         if self.log_train_accuracy:
-            self._log_accuracy(batch, pl_module, trainer, "train/accuracy")
+            self._log_accuracy(batch, pl_module, trainer, "train")
         trainer.logger.log_metrics({f"train/{k}": v.item() for k, v in outputs.items()})
 
     def on_validation_batch_end(
@@ -160,7 +160,7 @@ class MetricsCallback(Callback):
     ):
         """Log the validation loss."""
         if self.log_val_accuracy:
-            self._log_accuracy(batch, pl_module, trainer, "val/accuracy")
+            self._log_accuracy(batch, pl_module, trainer, "val")
         trainer.logger.log_metrics({f"val/{k}": v.item() for k, v in outputs.items()})
 
     def on_test_batch_end(
@@ -173,12 +173,12 @@ class MetricsCallback(Callback):
         dataloader_idx: int = 0,
     ):
         """Log the test loss."""
-        self._log_accuracy(batch, pl_module, trainer, "test/accuracy")
+        self._log_accuracy(batch, pl_module, trainer, "test")
         trainer.logger.log_metrics(
             {f"test/{k}": v.item() for k, v in outputs.items()},
         )
 
-    def _log_accuracy(self, batch, pl_module, trainer, name):
+    def _log_accuracy(self, batch, pl_module, trainer, stage):
         x, y = batch
-        accuracy = (y.shape_id == pl_module.classify(x)).float().mean()
-        trainer.logger.log_metrics({name: accuracy.item()})
+        accuracy = (y.shape_id == pl_module.classify(x)).float().mean().item()
+        trainer.logger.log_metrics({f"{stage}/accuracy": accuracy})
