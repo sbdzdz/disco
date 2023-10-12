@@ -77,14 +77,14 @@ def train_jointly(cfg: DictConfig, trainer, shapes, exemplars):
 
 def train_continually(cfg: DictConfig, trainer, shapes, exemplars):
     """Train continually with n shapes per tasks."""
-    dataset = ContinualBenchmark(cfg, shapes=shapes, exemplars=exemplars)
+    benchmark = ContinualBenchmark(cfg, shapes=shapes, exemplars=exemplars)
     target = get_object(cfg.model._target_)
     if inspect.isclass(target):
         model = instantiate(cfg.model)
-        train_ours(cfg, model, trainer, dataset)
+        train_ours(cfg, model, trainer, benchmark)
     elif callable(target):
         model = call(cfg.model)
-        train_baseline(cfg, model, dataset)
+        train_baseline(cfg, model, benchmark)
     else:
         raise ValueError(f"Unknown target: {target}.")
 
@@ -125,7 +125,7 @@ def train_ours(cfg, model, trainer, benchmark):
     trainer.test(model, test_loader)
 
 
-def train_baseline(cfg, model, continual_dataset):
+def train_baseline(cfg, model, benchmark):
     """Train standard continual learning baselines using Avalanche."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     train_generator = (
@@ -133,24 +133,24 @@ def train_baseline(cfg, model, continual_dataset):
             dataset=datasets[0],
             task_labels=[task_id] * len(datasets[0]),
         )
-        for task_id, (datasets, _) in enumerate(continual_dataset)
+        for task_id, (datasets, _) in enumerate(benchmark)
     )
     test_generator = (
         make_classification_dataset(
             dataset=datasets[2],
             task_labels=[task_id] * len(datasets[2]),
         )
-        for task_id, (datasets, _) in enumerate(continual_dataset)
+        for task_id, (datasets, _) in enumerate(benchmark)
     )
     train_stream = LazyStreamDefinition(
         train_generator,
-        stream_length=continual_dataset.tasks,
-        exps_task_labels=range(continual_dataset.tasks),
+        stream_length=benchmark.tasks,
+        exps_task_labels=range(benchmark.tasks),
     )
     test_stream = LazyStreamDefinition(
         test_generator,
-        stream_length=continual_dataset.tasks,
-        exps_task_labels=range(continual_dataset.tasks),
+        stream_length=benchmark.tasks,
+        exps_task_labels=range(benchmark.tasks),
     )
     benchmark = create_lazy_generic_benchmark(train_stream, test_stream)
     config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
