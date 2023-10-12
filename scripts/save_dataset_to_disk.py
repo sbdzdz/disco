@@ -1,5 +1,5 @@
 """Generate and save a continual dataset to disk."""
-from codis.data import ContinualDataset, InfiniteDSprites, Latents
+from codis.data import ContinualBenchmark, InfiniteDSprites, Latents
 from omegaconf import DictConfig
 import hydra
 from pathlib import Path
@@ -12,9 +12,11 @@ def main(cfg: DictConfig):
         for _ in range(cfg.tasks * cfg.shapes_per_task)
     ]
     exemplars = generate_exemplars(shapes, img_size=cfg.img_size)
-    dataset = ContinualDataset(shapes, exemplars)
+    benchmark = ContinualBenchmark(shapes, exemplars)
 
-    for i, (train_dataset, val_dataset, test_dataset), exemplars in enumerate(dataset):
+    for i, (train_dataset, val_dataset, test_dataset), exemplars in enumerate(
+        benchmark
+    ):
         print(f"Saving task {i} to disk...")
         out_dir = Path(cfg.dataset_dir) / f"task_{i}"
         out_dir.mkdir(parents=True, exist_ok=True)

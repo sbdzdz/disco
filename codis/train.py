@@ -25,7 +25,7 @@ from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, random_split
 
 from codis.data import (
-    ContinualDataset,
+    ContinualBenchmark,
     InfiniteDSprites,
     Latents,
     RandomDSpritesMap,
@@ -77,7 +77,7 @@ def train_jointly(cfg: DictConfig, trainer, shapes, exemplars):
 
 def train_continually(cfg: DictConfig, trainer, shapes, exemplars):
     """Train continually with n shapes per tasks."""
-    dataset = ContinualDataset(cfg, shapes=shapes, exemplars=exemplars)
+    dataset = ContinualBenchmark(cfg, shapes=shapes, exemplars=exemplars)
     target = get_object(cfg.model._target_)
     if inspect.isclass(target):
         model = instantiate(cfg.model)
@@ -89,9 +89,9 @@ def train_continually(cfg: DictConfig, trainer, shapes, exemplars):
         raise ValueError(f"Unknown target: {target}.")
 
 
-def train_ours(cfg, model, trainer, dataset):
+def train_ours(cfg, model, trainer, benchmark):
     """Train our model in a continual learning setting."""
-    for task_id, (datasets, task_exemplars) in enumerate(dataset):
+    for task_id, (datasets, task_exemplars) in enumerate(benchmark):
         model.task_id = task_id
         train_dataset, val_dataset, test_dataset = datasets
         train_loader = DataLoader(
@@ -132,7 +132,6 @@ def train_baseline(cfg, model, continual_dataset):
         make_classification_dataset(
             dataset=datasets[0],
             task_labels=[task_id] * len(datasets[0]),
-            target_transform=lambda y: y.shape_id,
         )
         for task_id, (datasets, _) in enumerate(continual_dataset)
     )
@@ -140,7 +139,6 @@ def train_baseline(cfg, model, continual_dataset):
         make_classification_dataset(
             dataset=datasets[2],
             task_labels=[task_id] * len(datasets[2]),
-            target_transform=lambda y: y.shape_id,
         )
         for task_id, (datasets, _) in enumerate(continual_dataset)
     )
