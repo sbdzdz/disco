@@ -93,8 +93,8 @@ class ContinualBenchmark:
         if test_dataset is None:
             test_dataset = ContinualDSpritesMap(
                 dataset_size=1,
-                shapes=task_test_dataset.dataset.shapes,
-                shape_ids=task_test_dataset.dataset.shape_ids,
+                shapes=self.shapes,
+                shape_ids=self.shape_ids,
             )  # dummy dataset
             test_dataset.data = task_data
         else:
