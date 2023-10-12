@@ -3,13 +3,13 @@ from collections import defaultdict
 
 import numpy as np
 from omegaconf import DictConfig
-from torch.utils.data import Dataset, random_split
+from torch.utils.data import Dataset, random_split, Subset
 
 from codis.data import ContinualDSpritesMap
 from codis.utils import grouper
 
 
-class ContinualDataset:
+class ContinualBenchmark:
     def __init__(self, cfg: DictConfig, shapes: list, exemplars: list):
         self.shapes = shapes
         self.shape_ids = range(len(shapes))
@@ -68,22 +68,34 @@ class ContinualDataset:
         )
         return train_dataset, val_dataset, test_dataset
 
-    def update_test_dataset(self, test_dataset: Dataset, task_test_dataset: Dataset):
+    def update_test_dataset(
+        self, test_dataset: Dataset | None, task_test_dataset: Subset
+    ):
         """Update the test dataset keeping it class-balanced."""
         samples_per_shape = self.test_dataset_size // (
             self.tasks * self.shapes_per_task
         )
-        class_indices = defaultdict(list)
-        for i, factors in enumerate(task_test_dataset.data):
-            class_indices[factors.shape_id].append(i)
+
+        task_data = [
+            task_test_dataset.dataset.data[idx] for idx in task_test_dataset.indices
+        ]
+
+        # collect indices per shape and choose samples_per_shape samples randomly
+        shape_indices = defaultdict(list)
+        for i, factors in enumerate(task_data):
+            shape_indices[factors.shape_id].append(i)
         subset_indices = []
-        for indices in class_indices.values():
+        for indices in shape_indices.values():
             subset_indices.extend(np.random.choice(indices, samples_per_shape))
 
-        task_data = [task_test_dataset.data[i] for i in subset_indices]
+        task_data = [task_data[i] for i in subset_indices]
 
         if test_dataset is None:
-            test_dataset = ContinualDSpritesMap(dataset_size=1)  # dummy dataset
+            test_dataset = ContinualDSpritesMap(
+                dataset_size=1,
+                shapes=task_test_dataset.dataset.shapes,
+                shape_ids=task_test_dataset.dataset.shape_ids,
+            )  # dummy dataset
             test_dataset.data = task_data
         else:
             test_dataset.data.extend(task_data)
