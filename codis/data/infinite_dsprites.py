@@ -459,14 +459,6 @@ class ContinualDSpritesMap(Dataset):
     def targets(self):
         return [factors.shape_id for factors in self.data]
 
-    @property
-    def shapes(self):
-        return self.dataset.shapes
-
-    @property
-    def shape_ids(self):
-        return self.dataset.shape_ids
-
     def __len__(self):
         return len(self.data)
 
