@@ -101,6 +101,8 @@ class InfiniteDSprites(IterableDataset):
             self.shapes = shapes
         elif isinstance(shapes, int):
             self.shapes = [self.generate_shape() for _ in range(shapes)]
+        else:
+            self.shapes = None
         self.shape_ids = shape_ids
         self.orientation_marker = orientation_marker
         self.orientation_marker_color = tuple(
@@ -415,6 +417,9 @@ class InfiniteDSprites(IterableDataset):
 class InfiniteDSpritesNoImages(InfiniteDSprites):
     """Only return the latents."""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
     def __iter__(self):
         """Generate an infinite stream of latent vectors.
         Note: We set shape to None and only return shape_id."""
@@ -454,17 +459,24 @@ class ContinualDSpritesMap(Dataset):
     def targets(self):
         return [factors.shape_id for factors in self.data]
 
+    @property
+    def shapes(self):
+        return self.dataset.shapes
+
+    @property
+    def shape_ids(self):
+        return self.dataset.shape_ids
+
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, index):
-        if self.dataset.shape_ids is None:
-            shape_index = self.data[index].shape_id
-        else:
-            shape_index = self.dataset.shape_ids.index(self.data[index].shape_id)
+        shape_index = self.data[index].shape_id
+        if self.dataset.shape_ids is not None:
+            shape_index = self.dataset.shape_ids.index(shape_index)
         shape = self.dataset.shapes[shape_index]
         factors = self.data[index]._replace(shape=shape)
-        return self.dataset.draw(factors), self.data[index].shape_id
+        return self.dataset.draw(factors), factors
 
 
 class RandomDSprites(InfiniteDSprites):
