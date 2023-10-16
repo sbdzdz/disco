@@ -84,17 +84,16 @@ def train_continually(cfg: DictConfig, trainer, shapes, exemplars):
     benchmark = ContinualBenchmark(cfg, shapes=shapes, exemplars=exemplars)
     target = get_object(cfg.model._target_)
     if inspect.isclass(target):
-        model = instantiate(cfg.model)
-        train_ours(cfg, model, trainer, benchmark)
+        train_ours(cfg, benchmark, trainer)
     elif callable(target):
-        model = call(cfg.model)
-        train_baseline(cfg, model, benchmark)
+        train_baseline(cfg, benchmark)
     else:
         raise ValueError(f"Unknown target: {target}.")
 
 
-def train_ours(cfg, model, trainer, benchmark):
+def train_ours(cfg, trainer, benchmark):
     """Train our model in a continual learning setting."""
+    model = instantiate(cfg.model)
     for task_id, (datasets, task_exemplars) in enumerate(benchmark):
         model.task_id = task_id
         train_dataset, val_dataset, test_dataset = datasets
@@ -129,8 +128,9 @@ def train_ours(cfg, model, trainer, benchmark):
     trainer.test(model, test_loader)
 
 
-def train_baseline(cfg, model, benchmark):
-    """Train standard continual learning baselines using Avalanche."""
+def train_baseline(cfg, benchmark):
+    """Train a standard continual learning baseline using Avalanche."""
+    model = call(cfg.model)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     wandb.run.define_metric("*", step_metric="Step", step_sync=True)
     train_generator = (
