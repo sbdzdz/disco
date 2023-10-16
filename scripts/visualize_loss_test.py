@@ -17,7 +17,11 @@ def visualize_loss(args):
     names = args.wandb_groups if args.names is None else args.names
     assert len(names) == len(args.wandb_groups), "Please provide a name for each group."
     run_dict = {
-        name: api.runs(args.wandb_entity, filters={"group": group})
+        name: [
+            run
+            for run in api.runs(args.wandb_entity, filters={"group": group})
+            if run.name in args.wandb_names
+        ]
         for name, group in zip(names, args.wandb_groups)
     }
 
@@ -26,7 +30,7 @@ def visualize_loss(args):
 
     metrics = {}
     for name, runs in run_dict.items():
-        if name == "Naive":
+        if runs[0].config["model"] == "resnet":
             values = get_baseline_results(args.metric_name, runs)
         else:
             values = get_our_results(args.metric_name, runs)
@@ -50,13 +54,13 @@ def visualize_loss(args):
     plot(args, metrics)
 
 
-def get_baseline_results(runs):
+def get_baseline_results(metric_name, runs):
     """Get the metric values for each baseline run."""
     values = []
-    for run in tqdm(runs):
+    for run in runs:
         task_values = []
         num_tasks = run.config["dataset"]["tasks"]
-        for task in range(num_tasks):
+        for task in tqdm(range(num_tasks)):
             metric_name = (
                 f"Top1_Acc_Exp/eval_phase/test_stream/Task{task:03d}/Exp{task:03d}"
             )
@@ -70,11 +74,25 @@ def get_baseline_results(runs):
 
 def get_our_results(metric_name: str, runs: list):
     """Get the metric values for each run."""
-    metric_name = f"{metric_name}_test"
-    return [
-        [row[metric_name] for row in run.history(keys=[metric_name], pandas=False)]
+    metric_name = f"test/{metric_name}"
+    values = [
+        take_last(run.scan_history(keys=["trainer/global_step", metric_name]))
         for run in tqdm(runs)
     ]
+    shortest_len = min(len(v) for v in values)
+    return [value[:shortest_len] for value in values]
+
+
+def take_last(scan):
+    """If there are multiple values for the same step, take the last one."""
+    result = []
+    current_step = None
+    for row in reversed(list(scan)):
+        step, value = row.values()
+        if step != current_step:
+            result.append(value)
+            current_step = step
+    return result[::-1]
 
 
 def plot(args, metrics):
@@ -121,6 +139,12 @@ def _main():
         default="codis/codis",
     )
     parser.add_argument("--wandb_groups", type=str, nargs="+", help="Wandb group name")
+    parser.add_argument(
+        "--wandb_names",
+        type=str,
+        nargs="+",
+        help="Wandb run names. Takes precedence over --wandb_groups",
+    )
     parser.add_argument("--names", type=str, nargs="+", help="Name for each group.")
     parser.add_argument(
         "--metric_name", type=str, help="Metric name", default="accuracy"
