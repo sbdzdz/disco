@@ -10,7 +10,7 @@ def to_numpy(x: torch.Tensor) -> np.ndarray:
     return x.detach().cpu().numpy()
 
 
-def grouper(n, iterable):
+def grouper(iterable, n):
     """Iterate in groups of n elements, e.g. grouper(3, 'ABCDEF') --> ABC DEF.
     Args:
         n: The number of elements per group.

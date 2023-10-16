@@ -29,16 +29,14 @@ class ContinualBenchmark:
     def __iter__(self):
         test_dataset = None
         for task_shapes, task_shape_ids, task_exemplars in zip(
-            grouper(self.shapes_per_task, self.shapes),
-            grouper(self.shapes_per_task, self.shape_ids),
-            grouper(self.shapes_per_task, self.exemplars),
+            grouper(self.shapes, self.shapes_per_task),
+            grouper(self.shape_ids, self.shapes_per_task),
+            grouper(self.exemplars, self.shapes_per_task),
         ):
             train_dataset, val_dataset, task_test_dataset = self.build_datasets(
                 task_shapes, task_shape_ids
             )
-
             test_dataset = self.update_test_dataset(test_dataset, task_test_dataset)
-
             yield (train_dataset, val_dataset, test_dataset), task_exemplars
 
     def build_datasets(self, shapes: list, shape_ids: list):
