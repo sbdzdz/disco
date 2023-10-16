@@ -15,9 +15,9 @@ from avalanche.evaluation.metrics import (
     confusion_matrix_metrics,
     forgetting_metrics,
     loss_metrics,
-    timing_metrics,
 )
-from avalanche.logging import InteractiveLogger, WandBLogger
+import wandb
+from avalanche.logging import WandBLogger
 from avalanche.training.plugins import EvaluationPlugin
 from hydra.utils import call, get_object, instantiate
 from lightning.pytorch.callbacks import ModelCheckpoint
@@ -132,21 +132,22 @@ def train_ours(cfg, model, trainer, benchmark):
 def train_baseline(cfg, model, benchmark):
     """Train standard continual learning baselines using Avalanche."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    wandb.run.define_metric("*", step_metric="Step", step_sync=True)
     train_generator = (
         make_classification_dataset(
             dataset=datasets[0],
-            task_labels=[task_id] * len(datasets[0]),
+            task_labels=[0] * len(datasets[0]),
             target_transform=lambda y: y.shape_id,
         )
-        for task_id, (datasets, _) in enumerate(benchmark)
+        for datasets, _ in benchmark
     )
     test_generator = (
         make_classification_dataset(
             dataset=datasets[2],
-            task_labels=[task_id] * len(datasets[2]),
+            task_labels=[0] * len(datasets[2]),
             target_transform=lambda y: y.shape_id,
         )
-        for task_id, (datasets, _) in enumerate(benchmark)
+        for datasets, _ in benchmark
     )
     train_stream = LazyStreamDefinition(
         train_generator,
@@ -162,7 +163,6 @@ def train_baseline(cfg, model, benchmark):
     config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
     config["job_id"] = os.environ.get("SLURM_JOB_ID")
     loggers = [
-        InteractiveLogger(),
         WandBLogger(
             dir=cfg.wandb.save_dir,
             project_name=f"{cfg.wandb.project}_baselines",
