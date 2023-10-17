@@ -91,7 +91,7 @@ def train_continually(cfg: DictConfig, trainer, shapes, exemplars):
         raise ValueError(f"Unknown target: {target}.")
 
 
-def train_ours(cfg, trainer, benchmark):
+def train_ours(cfg, benchmark, trainer):
     """Train our model in a continual learning setting."""
     model = instantiate(cfg.model)
     for task_id, (datasets, task_exemplars) in enumerate(benchmark):
@@ -136,7 +136,6 @@ def train_baseline(cfg, benchmark):
     train_generator = (
         make_classification_dataset(
             dataset=datasets[0],
-            # task_labels=[0] * len(datasets[0]),
             target_transform=lambda y: y.shape_id,
         )
         for datasets, _ in benchmark
@@ -144,7 +143,6 @@ def train_baseline(cfg, benchmark):
     test_generator = (
         make_classification_dataset(
             dataset=datasets[2],
-            # task_labels=[0] * len(datasets[2]),
             target_transform=lambda y: y.shape_id,
         )
         for datasets, _ in benchmark
