@@ -136,7 +136,7 @@ def train_baseline(cfg, benchmark):
     train_generator = (
         make_classification_dataset(
             dataset=datasets[0],
-            task_labels=[0] * len(datasets[0]),
+            # task_labels=[0] * len(datasets[0]),
             target_transform=lambda y: y.shape_id,
         )
         for datasets, _ in benchmark
@@ -144,7 +144,7 @@ def train_baseline(cfg, benchmark):
     test_generator = (
         make_classification_dataset(
             dataset=datasets[2],
-            task_labels=[0] * len(datasets[2]),
+            # task_labels=[0] * len(datasets[2]),
             target_transform=lambda y: y.shape_id,
         )
         for datasets, _ in benchmark
@@ -152,12 +152,12 @@ def train_baseline(cfg, benchmark):
     train_stream = LazyStreamDefinition(
         train_generator,
         stream_length=benchmark.tasks,
-        exps_task_labels=range(benchmark.tasks),
+        exps_task_labels=[0] * benchmark.tasks,
     )
     test_stream = LazyStreamDefinition(
         test_generator,
         stream_length=benchmark.tasks,
-        exps_task_labels=range(benchmark.tasks),
+        exps_task_labels=[0] * benchmark.tasks,
     )
     benchmark = create_lazy_generic_benchmark(train_stream, test_stream)
     config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
