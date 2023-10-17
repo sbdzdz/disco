@@ -194,7 +194,9 @@ def train_baseline(cfg, benchmark):
 
         test_task = test_experience.current_experience
         print(f"Task {test_task} test: {len(test_experience.dataset)} samples.")
-        print(f"Classes test: {test_experience.classes_in_this_experience}")
+        min_class_id = min(test_experience.classes_in_this_experience)
+        max_class_id = max(test_experience.classes_in_this_experience)
+        print(f"Classes test: {min_class_id}-{max_class_id}")
         strategy.eval(test_experience)
 
 
