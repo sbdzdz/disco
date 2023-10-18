@@ -16,7 +16,7 @@ training:
   callbacks: [metrics, logging, visualization, checkpointing]
   lr: 0.001
   test_once: false
-  test_every_n_tasks: 10
+  test_every_n_tasks: 1
 
 trainer:
   _target_: lightning.pytorch.Trainer
