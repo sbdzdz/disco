@@ -261,7 +261,7 @@ def draw_shapes_animated(
     dataset = InfiniteDSprites(
         img_size=img_size,
         color_range=COLORS,
-        scale_range=np.linspace(0.1, 0.9, num_frames // 4),
+        scale_range=np.linspace(0.1, 0.8, num_frames // 4),
         orientation_range=np.linspace(0.0, 2 * np.pi, num_frames // 4),
         position_x_range=np.linspace(0.0, 1.0, num_frames // 4),
         position_y_range=np.linspace(0.0, 1.0, num_frames // 4),
