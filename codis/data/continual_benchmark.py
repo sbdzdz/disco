@@ -7,7 +7,6 @@ from omegaconf import DictConfig
 from torch.utils.data import Dataset, Subset, random_split
 
 from codis.data import ContinualDSpritesMap
-from codis.utils import grouper
 
 
 class ContinualBenchmark:
