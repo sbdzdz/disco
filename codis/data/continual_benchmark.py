@@ -1,9 +1,10 @@
 """Class-incremental continual learning dataset."""
 from collections import defaultdict
+from itertools import zip_longest
 
 import numpy as np
 from omegaconf import DictConfig
-from torch.utils.data import Dataset, random_split, Subset
+from torch.utils.data import Dataset, Subset, random_split
 
 from codis.data import ContinualDSpritesMap
 from codis.utils import grouper
@@ -38,6 +39,18 @@ class ContinualBenchmark:
             )
             test_dataset = self.update_test_dataset(test_dataset, task_test_dataset)
             yield (train_dataset, val_dataset, test_dataset), task_exemplars
+
+    @staticmethod
+    def grouper(iterable, n):
+        """Iterate in groups of n elements, e.g. grouper(3, 'ABCDEF') --> ABC DEF.
+        Args:
+            n: The number of elements per group.
+            iterable: The iterable to be grouped.
+        Returns:
+            An iterator over the groups.
+        """
+        args = [iter(iterable)] * n
+        return (list(group) for group in zip_longest(*args))
 
     def build_datasets(self, shapes: list, shape_ids: list):
         """Build data loaders for a class-incremental continual learning scenario."""

@@ -7,7 +7,6 @@ import torch
 from lightning.pytorch.callbacks import Callback
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 
-from codis.utils import to_numpy
 from codis.visualization import draw_batch_and_reconstructions
 
 
@@ -67,7 +66,7 @@ class VisualizationCallback(Callback):
         """Log images and reconstructions"""
         x = np.stack(x[:num_imgs])
         x_hat, *_ = pl_module(torch.from_numpy(x).to(pl_module.device))
-        images = draw_batch_and_reconstructions(x, to_numpy(x_hat))
+        images = draw_batch_and_reconstructions(x, x_hat.detach().cpu().numpy())
         pl_module.logger.log_image(name, images=[images])
 
     @staticmethod
@@ -81,8 +80,8 @@ class VisualizationCallback(Callback):
         closest = np.stack([pl_module._buffer[i] for i in labels])
         actual = np.stack([pl_module._buffer[i] for i in y.shape_id[:num_imgs]])
         images = draw_batch_and_reconstructions(
-            to_numpy(x),
-            to_numpy(x_hat),
+            x.detach().cpu().numpy(),
+            x_hat.detach().cpu().numpy(),
             closest,
             actual,
         )
