@@ -218,54 +218,6 @@ class SpatialTransformer(ContinualModule):
         )
 
 
-class SpatialTransformerGF(SpatialTransformer):
-    """A SpatialTransformer that predicts the generative factors instead of a transformation matrix."""
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.regressor = MLP(
-            dims=[self.enc_out_size, 64, 32, self.num_factors],
-        )
-
-    def forward(self, x):
-        """Perform the forward pass."""
-        xs = self.encoder(x).view(-1, self.enc_out_size)
-        y_hat = self.regressor(xs)
-        theta = self.convert_parameters_to_matrix(self._unstack_factors(y_hat))
-
-        grid = F.affine_grid(theta, x.size(), align_corners=False)
-        x_hat = F.grid_sample(x, grid, padding_mode="border", align_corners=False)
-        return x_hat, y_hat
-
-    def _step(self, batch):
-        """Perform a training or validation step."""
-        x, y = batch
-        x_hat, y_hat = self.forward(x)
-        exemplars = torch.stack(
-            [torch.from_numpy(self._buffer[i]) for i in y.shape_id]
-        ).to(self.device)
-        regression_loss = F.mse_loss(self._stack_factors(y), y_hat)
-        reconstruction_loss = F.mse_loss(exemplars, x_hat)
-        y_hat = self._unstack_factors(y_hat)
-        orientation_loss = F.mse_loss(y.orientation, y_hat.orientation)
-        scale_loss = F.mse_loss(y.scale, y_hat.scale)
-        position_loss = F.mse_loss(
-            torch.stack([y.position_x, y.position_y], dim=1),
-            torch.stack([y_hat.position_x, y_hat.position_y], dim=1),
-        )
-        accuracy = (y.shape_id == self.classify(x)).float().mean()
-        return {
-            "accuracy": accuracy.item(),
-            "orientation_loss": orientation_loss.item(),
-            "position_loss": position_loss.item(),
-            "reconstruction_loss": reconstruction_loss.item(),
-            "regression_loss": regression_loss.item(),
-            "scale_loss": scale_loss.item(),
-            "loss": self.gamma * regression_loss
-            + (1 - self.gamma) * reconstruction_loss,
-        }
-
-
 class SupervisedVAE(ContinualModule):
     """A model that combines a VAE backbone and an MLP regressor."""
 
