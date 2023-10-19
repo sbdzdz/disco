@@ -60,25 +60,6 @@ class ContinualModule(pl.LightningModule):
         """Add an exemplar to the buffer."""
         self._buffer.append(exemplar)
 
-    @torch.no_grad()
-    def classify(self, x: torch.Tensor):
-        """Classify the input."""
-        x_hat, *_ = self(x)
-        x_hat = x_hat.unsqueeze(1).detach()
-        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
-            self.device
-        )
-        buffer = buffer.unsqueeze(0).detach()
-
-        losses = []  # classify in chunks to avoid OOM
-        for chunk in torch.split(buffer, self.buffer_chunk_size, dim=1):
-            chunk = chunk.repeat(x_hat.shape[0], 1, 1, 1, 1)
-            loss = F.mse_loss(
-                x_hat.repeat(1, chunk.shape[1], 1, 1, 1), chunk, reduction="none"
-            ).mean(dim=(2, 3, 4))
-            losses.append(loss)
-        return torch.cat(losses, dim=1).argmin(dim=1)
-
     def _stack_factors(self, factors):
         """Stack the factors."""
         return torch.cat(
@@ -167,6 +148,25 @@ class SpatialTransformer(ContinualModule):
             "loss": self.gamma * regression_loss
             + (1 - self.gamma) * reconstruction_loss,
         }
+
+    @torch.no_grad()
+    def classify(self, x: torch.Tensor):
+        """Classify the input."""
+        x_hat, *_ = self(x)
+        x_hat = x_hat.unsqueeze(1).detach()
+        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
+            self.device
+        )
+        buffer = buffer.unsqueeze(0).detach()
+
+        losses = []  # classify in chunks to avoid OOM
+        for chunk in torch.split(buffer, self.buffer_chunk_size, dim=1):
+            chunk = chunk.repeat(x_hat.shape[0], 1, 1, 1, 1)
+            loss = F.mse_loss(
+                x_hat.repeat(1, chunk.shape[1], 1, 1, 1), chunk, reduction="none"
+            ).mean(dim=(2, 3, 4))
+            losses.append(loss)
+        return torch.cat(losses, dim=1).argmin(dim=1)
 
     def convert_parameters_to_matrix(self, factors):
         """Convert the ground truth factors to a transformation matrix.
