@@ -37,7 +37,8 @@ def draw_batch(
     path: Path = repo_root / "img/batch_grid.png",
     fig_height: float = 10,
     num_images: int = 16,
-    show=False,
+    save: bool = True,
+    show: bool = False,
 ):
     """Show a batch of images on a grid.
     Only the first n_max images are shown.
@@ -67,8 +68,9 @@ def draw_batch(
     for ax, img in zip(axes.flat, images[:num_images]):
         ax.imshow(img, cmap="Greys_r", aspect="equal")
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    plt.savefig(path, bbox_inches="tight")
+    if save:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(path, bbox_inches="tight")
     if show:
         plt.show()
     buffer = io.BytesIO()
@@ -82,7 +84,8 @@ def draw_batch_and_reconstructions(
     *image_arrays,
     fig_height: float = 10,
     num_images: int = 25,
-    path: Path = None,
+    path: Path = repo_root / "img/reconstructions.png",
+    save=True,
     show=False,
 ):
     """Show a batch of images and their reconstructions on a grid.
@@ -126,11 +129,11 @@ def draw_batch_and_reconstructions(
             mid = j * concatenated.shape[1] // len(image_arrays)
             concatenated[:, mid - border_width : mid + border_width] = 1.0
         ax.imshow(concatenated, cmap="Greys_r", aspect="equal")
-    if show:
-        plt.show()
-    if path is not None:
+    if save:
         path.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(path, bbox_inches="tight")
+    if show:
+        plt.show()
     buffer = io.BytesIO()
     plt.savefig(buffer, bbox_inches="tight")
     plt.close()
