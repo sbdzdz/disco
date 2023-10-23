@@ -174,6 +174,7 @@ def draw_shapes(
     seed: int = 0,
     fill_shape: bool = True,
     debug: bool = False,
+    canonical: bool = True,
 ):
     """Plot an n x n grid of random shapes.
     Args:
@@ -187,6 +188,7 @@ def draw_shapes(
         seed: The random seed to use
         fill_shape: Whether to fill the shape or just draw the outline
         debug: Whether to draw additional debug info
+        canonical: Whether to draw the shape in canonical form.
     Returns:
         None
     """
@@ -207,15 +209,18 @@ def draw_shapes(
         shape = dataset.generate_shape()
         ax.axis("off")
         if fill_shape:
-            latents = Latents(
-                color=colors.to_rgb(fg_color),
-                shape=shape,
-                shape_id=None,
-                scale=1.0,
-                orientation=0.0,
-                position_x=0.5,
-                position_y=0.5,
-            )
+            if canonical:
+                latents = Latents(
+                    color=colors.to_rgb(fg_color),
+                    shape=shape,
+                    shape_id=None,
+                    scale=1.0,
+                    orientation=0.0,
+                    position_x=0.5,
+                    position_y=0.5,
+                )
+            else:
+                latents = dataset.sample_latents().replace(shape=shape)
             img = dataset.draw(latents, channels_first=False, debug=debug)
             ax.imshow(img, cmap="Greys_r", aspect="equal")
         else:
