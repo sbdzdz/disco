@@ -43,7 +43,7 @@ class VisualizationCallback(Callback):
             num_imgs=self._num_reconstructions,
         )
         current_task_exemplars = pl_module.get_current_task_exemplars()
-        draw_batch(np.array(current_task_exemplars), save=False)
+        self.log_batch(pl_module, np.array(current_task_exemplars))
 
     def on_test_batch_end(
         self,
@@ -64,14 +64,20 @@ class VisualizationCallback(Callback):
 
     @staticmethod
     @torch.no_grad()
-    def log_reconstructions(pl_module, x, name, num_imgs):
+    def log_reconstructions(pl_module, batch, name, num_imgs):
         """Log images and reconstructions"""
-        x = np.stack(x[:num_imgs])
-        x_hat, *_ = pl_module(torch.from_numpy(x).to(pl_module.device))
+        batch = np.stack(batch[:num_imgs])
+        x_hat, *_ = pl_module(torch.from_numpy(batch).to(pl_module.device))
         images = draw_batch_and_reconstructions(
-            x, x_hat.detach().cpu().numpy(), save=False
+            batch, x_hat.detach().cpu().numpy(), save=False
         )
         pl_module.logger.log_image(name, images=[images])
+
+    @staticmethod
+    @torch.no_grad()
+    def log_batch(pl_module, batch):
+        images = draw_batch(np.array(batch), save=False)
+        pl_module.logger.log_image("current_task_exemplars", images=[images])
 
     @staticmethod
     @torch.no_grad()
