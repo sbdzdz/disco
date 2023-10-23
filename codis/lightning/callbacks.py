@@ -42,7 +42,8 @@ class VisualizationCallback(Callback):
             name="reconstructions_random",
             num_imgs=self._num_reconstructions,
         )
-        draw_batch(pl_module.get_current_task_exemplars(), save=False)
+        current_task_exemplars = pl_module.get_current_task_exemplars()
+        draw_batch(np.array(current_task_exemplars), save=False)
 
     def on_test_batch_end(
         self,
