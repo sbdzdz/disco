@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 import wandb
 from matplotlib import pyplot as plt
+from matplotlib.ticker import MaxNLocator
 from tqdm import tqdm
 
 
@@ -17,20 +18,22 @@ def visualize_loss(args):
     names = args.wandb_groups if args.names is None else args.names
     assert len(names) == len(args.wandb_groups), "Please provide a name for each group."
     run_dict = {
-        name: [
-            run
-            for run in api.runs(args.wandb_entity, filters={"group": group})
-            if run.name in args.wandb_names
-        ]
+        name: api.runs(args.wandb_entity, filters={"group": group})
         for name, group in zip(names, args.wandb_groups)
     }
+
+    if args.wandb_names is not None:
+        run_dict = {
+            name: [run for run in runs if run.name in args.wandb_names]
+            for name, runs in run_dict.items()
+        }
 
     for name, runs in run_dict.items():
         print(f"Found {len(runs)} runs for {name}.")
 
     metrics = {}
     for name, runs in run_dict.items():
-        if runs[0].config["model"] == "resnet":
+        if runs[0].config["model"].get("name") == "resnet18":
             values = get_baseline_results(args.metric_name, runs)
         else:
             values = get_our_results(args.metric_name, runs)
@@ -59,11 +62,12 @@ def get_baseline_results(metric_name, runs):
     values = []
     for run in runs:
         task_values = []
-        num_tasks = run.config["dataset"]["tasks"]
-        for task in tqdm(range(num_tasks)):
-            metric_name = (
-                f"Top1_Acc_Exp/eval_phase/test_stream/Task{task:03d}/Exp{task:03d}"
-            )
+        num_experiences = max(
+            row["TrainingExperience"]
+            for row in run.history(keys=["TrainingExperience"], pandas=False)
+        )
+        for task in tqdm(range(num_experiences)):
+            metric_name = f"Top1_Acc_Exp/eval_phase/test_stream/Task000/Exp{task:03d}"
             task_values.extend(
                 row[metric_name]
                 for row in run.history(keys=[metric_name], pandas=False)
@@ -112,11 +116,12 @@ def plot(args, metrics):
 
     ax.set_xlabel("Tasks", fontsize=args.fontsize)
     ax.set_xlim([args.xmin, args.xmax])
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
     ax.xaxis.labelpad = 20
     ax.yaxis.labelpad = 20
 
-    ax.yaxis.set_major_formatter("{x:.3f}")
+    ax.yaxis.set_major_formatter("{x:.1f}")
     metric_name = args.metric_name.replace("_", " ").capitalize()
     ax.set_ylabel(metric_name, fontsize=args.fontsize)
     ax.set_ylim([args.ymin, args.ymax])
