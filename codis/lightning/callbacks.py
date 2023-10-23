@@ -7,7 +7,7 @@ import torch
 from lightning.pytorch.callbacks import Callback
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 
-from codis.visualization import draw_batch_and_reconstructions
+from codis.visualization import draw_batch, draw_batch_and_reconstructions
 
 
 class VisualizationCallback(Callback):
@@ -42,6 +42,7 @@ class VisualizationCallback(Callback):
             name="reconstructions_random",
             num_imgs=self._num_reconstructions,
         )
+        draw_batch(pl_module.get_current_task_exemplars(), save=False)
 
     def on_test_batch_end(
         self,
@@ -66,7 +67,9 @@ class VisualizationCallback(Callback):
         """Log images and reconstructions"""
         x = np.stack(x[:num_imgs])
         x_hat, *_ = pl_module(torch.from_numpy(x).to(pl_module.device))
-        images = draw_batch_and_reconstructions(x, x_hat.detach().cpu().numpy())
+        images = draw_batch_and_reconstructions(
+            x, x_hat.detach().cpu().numpy(), save=False
+        )
         pl_module.logger.log_image(name, images=[images])
 
     @staticmethod
@@ -84,6 +87,7 @@ class VisualizationCallback(Callback):
             x_hat.detach().cpu().numpy(),
             closest,
             actual,
+            save=False,
         )
         pl_module.logger.log_image(name, images=[images])
 

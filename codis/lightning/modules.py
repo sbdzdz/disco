@@ -20,6 +20,7 @@ class ContinualModule(pl.LightningModule):
         lr: float = 1e-3,
         factors_to_regress: list = None,
         buffer_chunk_size: int = 64,
+        shapes_per_task: int = 10,
     ):
         super().__init__()
         self.lr = lr
@@ -30,6 +31,7 @@ class ContinualModule(pl.LightningModule):
         self.num_factors = len(self.factors_to_regress)
 
         self._task_id = None
+        self._shapes_per_task = shapes_per_task
         self._buffer = []
 
     @property
@@ -59,6 +61,12 @@ class ContinualModule(pl.LightningModule):
     def add_exemplar(self, exemplar):
         """Add an exemplar to the buffer."""
         self._buffer.append(exemplar)
+
+    def get_current_task_exemplars(self):
+        """Get the exemplars for the current task."""
+        start = self._shapes_per_task * self.task_id
+        end = self._shapes_per_task * (self.task_id + 1)
+        return self._buffer[start:end]
 
     def _stack_factors(self, factors):
         """Stack the factors."""
