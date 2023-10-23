@@ -80,6 +80,37 @@ class ContinualModule(pl.LightningModule):
         )
 
 
+class SupervisedClassifier(ContinualModule):
+    """A supervised classification model."""
+
+    def __init__(
+        self,
+        num_classes: int = 10,
+        backbone: str = "resnet18",
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        if backbone in list_models(module=torchvision.models):
+            self.backbone = get_model(backbone, weights=None, num_classes=num_classes)
+        else:
+            raise ValueError(f"Unknown backbone: {backbone}")
+
+    def configure_optimizers(self):
+        """Configure the optimizers."""
+        return torch.optim.Adam(self.backbone.parameters(), lr=self.lr)
+
+    def forward(self, x):
+        """Perform the forward pass."""
+        return self.backbone(x)
+
+    def _step(self, batch):
+        """Perform a training or validation step."""
+        x, y = batch
+        y_hat = self.forward(x)
+        loss = F.cross_entropy(y_hat, y)
+        return {"loss": loss, "accuracy": (y_hat.argmax(dim=1) == y).float().mean()}
+
+
 class SpatialTransformer(ContinualModule):
     """A model that combines a parameter regressor and differentiable affine transforms."""
 
