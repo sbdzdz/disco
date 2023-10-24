@@ -5,6 +5,7 @@ Example:
 from argparse import ArgumentParser
 from pathlib import Path
 
+import json
 import numpy as np
 import wandb
 from matplotlib import pyplot as plt
@@ -29,19 +30,22 @@ def visualize_loss(args):
         }
 
     for name, runs in run_dict.items():
-        print(f"Found {len(runs)} runs for {name}.")
+        print(f"Found {len(runs)} {'runs' if len(runs) > 1 else 'run'} for {name}.")
 
     metrics = {}
     for name, runs in run_dict.items():
-        if runs[0].config["model"].get("name") == "resnet18":
-            values = get_baseline_results(args.metric_name, runs)
-        else:
-            values = get_our_results(args.metric_name, runs)
+        values = [load_run(run, args) for run in runs]
         try:
-            test_every_n_tasks = runs[0].config["training"]["test_every_n_tasks"]
+            test_every_n_tasks = [
+                run.config["training"]["test_every_n_tasks"] for run in runs
+            ]
+            assert (
+                len(set(test_every_n_tasks)) == 1
+            ), "All runs must have the same testing frequency."
+            test_every_n_tasks = test_every_n_tasks[0]
         except KeyError:
             test_every_n_tasks = 1
-        steps = [i * test_every_n_tasks for i in range(len(values[0]))]
+        steps = [i * test_every_n_tasks for i in range(min(map(len, values)))]
         metrics[name] = (steps, values)
 
     # truncate steps and values to match the smallest step number
@@ -57,34 +61,47 @@ def visualize_loss(args):
     plot(args, metrics)
 
 
-def get_baseline_results(metric_name, runs):
-    """Get the metric values for each baseline run."""
-    values = []
-    for run in runs:
-        task_values = []
-        num_experiences = max(
-            row["TrainingExperience"]
-            for row in run.history(keys=["TrainingExperience"], pandas=False)
-        )
-        for task in tqdm(range(num_experiences)):
-            metric_name = f"Top1_Acc_Exp/eval_phase/test_stream/Task000/Exp{task:03d}"
-            task_values.extend(
-                row[metric_name]
-                for row in run.history(keys=[metric_name], pandas=False)
-            )
-        values.append(task_values)
+def load_run(run, args):
+    """Load the metric values for a single run."""
+    path = Path(__file__).parent.parent / f"img/media/{run.name}/metrics.json"
+    if path.exists() and not args.force_download:
+        print(f"Found saved run data for {run.name}.")
+        with open(path, "r") as f:
+            values = json.load(f)
+    elif run.config["model"].get("name") == "resnet18":
+        values = download_baseline_results(run, args.metric_name)
+    else:
+        values = download_our_results(run, args.metric_name)
+    if not path.exists() or args.force_download:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(values, f)
     return values
 
 
-def get_our_results(metric_name: str, runs: list):
+def download_baseline_results(run, metric_name):
+    """Get the metric values for each baseline run."""
+    num_experiences = max(
+        row["TrainingExperience"]
+        for row in run.history(keys=["TrainingExperience"], pandas=False)
+    )
+    values = []
+    for task in tqdm(
+        range(num_experiences),
+        desc=f"Downloading run data for {run.name}",
+    ):
+        metric_name = f"Top1_Acc_Exp/eval_phase/test_stream/Task000/Exp{task:03d}"
+        values.extend(
+            row[metric_name] for row in run.history(keys=[metric_name], pandas=False)
+        )
+    return values
+
+
+def download_our_results(run, metric_name: str):
     """Get the metric values for each run."""
+    print(f"Downloading run data for {run.name}.")
     metric_name = f"test/{metric_name}"
-    values = [
-        take_last(run.scan_history(keys=["trainer/global_step", metric_name]))
-        for run in tqdm(runs)
-    ]
-    shortest_len = min(len(v) for v in values)
-    return [value[:shortest_len] for value in values]
+    return take_last(run.scan_history(keys=["trainer/global_step", metric_name]))
 
 
 def take_last(scan):
@@ -129,7 +146,7 @@ def plot(args, metrics):
     if args.plot_title is None:
         args.plot_title = f"{metric_name.capitalize()} (test)"
     ax.set_title(args.plot_title, y=1.05, fontsize=args.fontsize)
-    ax.legend(loc="upper right")
+    ax.legend(loc="best", fontsize=args.fontsize)
 
     plt.savefig(args.out_path, bbox_inches="tight")
 
@@ -157,9 +174,8 @@ def _main():
     parser.add_argument(
         "--out_path", type=Path, default=repo_root / "img/joint_training.png"
     )
-    parser.add_argument("--subsample", type=int, default=1, help="Subsample rate.")
     parser.add_argument(
-        "--max_samples", type=int, default=None, help="Max number of data points."
+        "--force_download", action="store_true", help="Don't use cached data."
     )
     parser.add_argument(
         "--show_std", action="store_true", help="Visualize standard deviation."
