@@ -60,7 +60,7 @@ def train(cfg: DictConfig) -> None:
     trainer = instantiate(cfg.trainer, callbacks=callbacks)
     trainer.logger.log_hyperparams(config)
 
-    strategy = cfg.trainin.strategy
+    strategy = cfg.training.strategy
     if strategy == "naive":
         benchmark = ContinualBenchmark(cfg, shapes=shapes, exemplars=exemplars)
     elif strategy == "rehearsal":
