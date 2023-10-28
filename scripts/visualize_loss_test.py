@@ -68,7 +68,7 @@ def load_run(run, args):
         print(f"Found saved run data for {run.name}.")
         with open(path, "r") as f:
             values = json.load(f)
-    elif run.config["model"].get("name") == "resnet18":
+    elif run.config["model"].get("name") == "baseline":
         values = download_baseline_results(run, args.metric_name)
     else:
         values = download_our_results(run, args.metric_name)
