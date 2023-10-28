@@ -29,17 +29,17 @@ class ContinualBenchmark:
         self.val_split = cfg.dataset.val_split
 
     def __iter__(self):
-        test_dataset = None
+        test = None
         for task_shapes, task_shape_ids, task_exemplars in zip(
             self.grouper(self.shapes, self.shapes_per_task),
             self.grouper(self.shape_ids, self.shapes_per_task),
             self.grouper(self.exemplars, self.shapes_per_task),
         ):
-            train_dataset, val_dataset, task_test_dataset = self.build_datasets(
+            train, val, test_task = self.build_datasets(
                 task_shapes, task_shape_ids, self.test_dataset_size
             )
-            test_dataset = self.update_dataset(test_dataset, task_test_dataset)
-            yield (train_dataset, val_dataset, test_dataset), task_exemplars
+            test = self.update_dataset(test, test_task, self.test_dataset_size)
+            yield (train, val, test), task_exemplars
 
     @staticmethod
     def grouper(iterable, n):
@@ -121,24 +121,18 @@ class ContinualBenchmarkRehearsal(ContinualBenchmark):
         super().__init__(cfg, shapes, exemplars)
 
     def __iter__(self):
-        train_dataset = None
-        val_dataset = None
-        test_dataset = None
+        train = None
+        val = None
+        test = None
         for task_shapes, task_shape_ids, task_exemplars in zip(
             self.grouper(self.shapes, self.shapes_per_task),
             self.grouper(self.shape_ids, self.shapes_per_task),
             self.grouper(self.exemplars, self.shapes_per_task),
         ):
-            task_train_dataset, val_dataset, task_test_dataset = self.build_datasets(
+            train_task, val_task, test_task = self.build_datasets(
                 task_shapes, task_shape_ids
             )
-            train_dataset = self.update_dataset(
-                train_dataset, task_train_dataset, self.train_dataset_size
-            )
-            val_dataset = self.update_dataset(
-                val_dataset, task_train_dataset, self.val_dataset_size
-            )
-            test_dataset = self.update_dataset(
-                test_dataset, task_test_dataset, self.test_dataset_size
-            )
-            yield (train_dataset, val_dataset, test_dataset), task_exemplars
+            train = self.update_dataset(train, train_task, self.train_dataset_size)
+            val = self.update_dataset(val, val_task, self.val_dataset_size)
+            test = self.update_dataset(test, test_task, self.test_dataset_size)
+            yield (train, val, test), task_exemplars
