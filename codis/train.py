@@ -22,13 +22,13 @@ from avalanche.training.plugins import EvaluationPlugin
 from hydra.utils import call, get_object, instantiate
 from lightning.pytorch.callbacks import ModelCheckpoint
 from omegaconf import DictConfig, OmegaConf
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 
 from codis.data import (
     ContinualBenchmark,
+    ContinualBenchmarkRehearsal,
     InfiniteDSprites,
     Latents,
-    RandomDSpritesMap,
 )
 from codis.lightning.callbacks import (
     MetricsCallback,
@@ -60,23 +60,21 @@ def train(cfg: DictConfig) -> None:
     trainer = instantiate(cfg.trainer, callbacks=callbacks)
     trainer.logger.log_hyperparams(config)
 
-    if cfg.training.mode == "joint":
-        train_jointly(cfg, trainer, shapes, exemplars)
-    elif cfg.training.mode == "continual":
-        train_continually(cfg, trainer, shapes, exemplars)
+    strategy = cfg.trainin.strategy
+    if strategy == "naive":
+        benchmark = ContinualBenchmark(cfg, shapes=shapes, exemplars=exemplars)
+    elif strategy == "rehearsal":
+        benchmark = ContinualBenchmarkRehearsal(cfg, shapes=shapes, exemplars=exemplars)
     else:
-        raise ValueError(f"Unknown training mode: {cfg.training.mode}.")
+        raise ValueError(f"Unknown strategy: {strategy}.")
 
-
-def train_jointly(cfg: DictConfig, trainer, shapes, exemplars):
-    """Train jointly on all shapes."""
-    model = instantiate(cfg.model)
-    model.task_id = 0
-    for exemplar in exemplars:
-        model.add_exemplar(exemplar)
-    train_loader, val_loader, test_loader = build_joint_data_loaders(cfg, shapes)
-    trainer.fit(model, train_loader, val_loader)
-    trainer.test(model, test_loader)
+    target = get_object(cfg.model._target_)
+    if inspect.isclass(target):
+        train_ours_continually(cfg, benchmark, trainer)
+    elif callable(target):
+        train_baseline_continually(cfg, benchmark)
+    else:
+        raise ValueError(f"Unknown target: {target}.")
 
 
 def train_continually(cfg: DictConfig, trainer, shapes, exemplars):
@@ -84,14 +82,14 @@ def train_continually(cfg: DictConfig, trainer, shapes, exemplars):
     benchmark = ContinualBenchmark(cfg, shapes=shapes, exemplars=exemplars)
     target = get_object(cfg.model._target_)
     if inspect.isclass(target):
-        train_ours(cfg, benchmark, trainer)
+        train_ours_continually(cfg, benchmark, trainer)
     elif callable(target):
-        train_baseline(cfg, benchmark)
+        train_baseline_continually(cfg, benchmark)
     else:
         raise ValueError(f"Unknown target: {target}.")
 
 
-def train_ours(cfg, benchmark, trainer):
+def train_ours_continually(cfg, benchmark, trainer):
     """Train our model in a continual learning setting."""
     model = instantiate(cfg.model)
     for task_id, (datasets, task_exemplars) in enumerate(benchmark):
@@ -128,7 +126,7 @@ def train_ours(cfg, benchmark, trainer):
     trainer.test(model, test_loader)
 
 
-def train_baseline(cfg, benchmark):
+def train_baseline_continually(cfg, benchmark):
     """Train a standard continual learning baseline using Avalanche."""
     model = call(cfg.model)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -260,56 +258,6 @@ def build_callbacks(cfg: DictConfig, canonical_images: list, random_images: list
             )
         )
     return callbacks
-
-
-def build_joint_data_loaders(cfg: DictConfig, shapes):
-    """Build data loaders for a joint training scenario."""
-    scale_range = np.linspace(0.5, 1.5, cfg.dataset.factor_resolution)
-    orientation_range = np.linspace(0, 2 * np.pi, cfg.dataset.factor_resolution)
-    position_x_range = np.linspace(0, 1, cfg.dataset.factor_resolution)
-    position_y_range = np.linspace(0, 1, cfg.dataset.factor_resolution)
-
-    dataset = RandomDSpritesMap(
-        img_size=cfg.dataset.img_size,
-        shapes=shapes,
-        dataset_size=cfg.dataset.train_dataset_size,
-        scale_range=scale_range,
-        orientation_range=orientation_range,
-        position_x_range=position_x_range,
-        position_y_range=position_y_range,
-    )
-    train_dataset, val_dataset = random_split(dataset, [0.95, 0.05])
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=cfg.dataset.batch_size,
-        num_workers=cfg.dataset.num_workers,
-        shuffle=True,
-    )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=cfg.dataset.batch_size,
-        num_workers=cfg.dataset.num_workers,
-    )
-
-    test_shapes = [
-        InfiniteDSprites().generate_shape() for _ in range(cfg.dataset.num_test_shapes)
-    ]
-    test_dataset = RandomDSpritesMap(
-        img_size=cfg.dataset.img_size,
-        shapes=test_shapes,
-        dataset_size=cfg.dataset.test_dataset_size,
-        scale_range=scale_range,
-        orientation_range=orientation_range,
-        position_x_range=position_x_range,
-        position_y_range=position_y_range,
-    )
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=cfg.dataset.batch_size,
-        num_workers=cfg.dataset.num_workers,
-    )
-
-    return train_loader, val_loader, test_loader
 
 
 if __name__ == "__main__":

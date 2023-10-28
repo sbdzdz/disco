@@ -12,7 +12,7 @@ hydra:
     dir: ${oc.env:WORK}/${project.name}/hydra/${now:%Y-%m-%d}/${now:%H-%M-%S}
 
 training:
-  mode: continual
+  strategy: naive
   callbacks: [metrics, logging, visualization, checkpointing]
   lr: 0.001
   test_once: false

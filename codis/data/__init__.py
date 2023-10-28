@@ -8,4 +8,7 @@ from codis.data.infinite_dsprites import (
     InfiniteDSpritesTriplets,
     Latents,
 )
-from codis.data.continual_benchmark import ContinualBenchmark
+from codis.data.continual_benchmark import (
+    ContinualBenchmark,
+    ContinualBenchmarkRehearsal,
+)
