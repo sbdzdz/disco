@@ -36,7 +36,7 @@ class ContinualBenchmark:
             self.grouper(self.exemplars, self.shapes_per_task),
         ):
             train_dataset, val_dataset, task_test_dataset = self.build_datasets(
-                task_shapes, task_shape_ids
+                task_shapes, task_shape_ids, self.test_dataset_size
             )
             test_dataset = self.update_dataset(test_dataset, task_test_dataset)
             yield (train_dataset, val_dataset, test_dataset), task_exemplars
