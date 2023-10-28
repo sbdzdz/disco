@@ -119,7 +119,6 @@ class ContinualBenchmark:
 class ContinualBenchmarkRehearsal(ContinualBenchmark):
     def __init__(self, cfg: DictConfig, shapes: list, exemplars: list):
         super().__init__(cfg, shapes, exemplars)
-        self.rehearsal_dataset_size = cfg.dataset.rehearsal_dataset_size
 
     def __iter__(self):
         train_dataset = None
