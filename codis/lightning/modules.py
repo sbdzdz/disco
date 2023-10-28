@@ -110,6 +110,11 @@ class SupervisedClassifier(ContinualModule):
         loss = F.cross_entropy(y_hat, y)
         return {"loss": loss, "accuracy": (y_hat.argmax(dim=1) == y).float().mean()}
 
+    @torch.no_grad()
+    def classify(self, x: torch.Tensor):
+        """Classify the input."""
+        return self.forward(x).argmax(dim=1)
+
 
 class SpatialTransformer(ContinualModule):
     """A model that combines a parameter regressor and differentiable affine transforms."""
