@@ -9,7 +9,6 @@ from torchvision.models import get_model, list_models
 
 from codis.data import Latents
 from codis.models import MLP, BetaVAE
-from codis.models.blocks import Encoder
 
 
 class ContinualModule(pl.LightningModule):
@@ -18,17 +17,12 @@ class ContinualModule(pl.LightningModule):
     def __init__(
         self,
         lr: float = 1e-3,
-        factors_to_regress: list = None,
-        buffer_chunk_size: int = 64,
         shapes_per_task: int = 10,
     ):
         super().__init__()
         self.lr = lr
-        if factors_to_regress is None:
-            factors_to_regress = ["scale", "orientation", "position_x", "position_y"]
-        self.factors_to_regress = factors_to_regress
-        self.buffer_chunk_size = buffer_chunk_size
-        self.num_factors = len(self.factors_to_regress)
+        self.factor_names = ["scale", "orientation", "position_x", "position_y"]
+        self.num_factors = len(self.factor_names)
 
         self._task_id = None
         self._shapes_per_task = shapes_per_task
@@ -71,7 +65,7 @@ class ContinualModule(pl.LightningModule):
     def _stack_factors(self, factors):
         """Stack the factors."""
         return torch.cat(
-            [getattr(factors, name).unsqueeze(-1) for name in self.factors_to_regress],
+            [getattr(factors, name).unsqueeze(-1) for name in self.factor_names],
             dim=-1,
         ).float()
 
@@ -81,10 +75,7 @@ class ContinualModule(pl.LightningModule):
             shape=None,
             shape_id=None,
             color=None,
-            **{
-                name: stacked_factors[:, i]
-                for i, name in enumerate(self.factors_to_regress)
-            },
+            **{name: stacked_factors[:, i] for i, name in enumerate(self.factor_names)},
         )
 
 
@@ -124,25 +115,20 @@ class SpatialTransformer(ContinualModule):
 
     def __init__(
         self,
-        img_size: int = 64,
-        in_channels: int = 1,
-        encoder: str = "simple_cnn",
-        channels: Optional[list] = None,
+        backbone: str = "resnet18",
+        enc_out_size: int = 64,
         gamma: float = 0.5,
+        buffer_chunk_size: int = 64,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        if channels is None:
-            channels = [16, 16, 32, 32, 64]
+        self.enc_out_size = enc_out_size
+        self.buffer_chunk_size = buffer_chunk_size
 
-        if encoder == "simple_cnn":
-            self.encoder = Encoder(channels, in_channels)
-            self.enc_out_size = self.encoder.out_size(img_size)
-        elif encoder in list_models(module=torchvision.models):
-            self.encoder = get_model(encoder, weights=None, num_classes=channels[-1])
-            self.enc_out_size = channels[-1]
-        else:
-            raise ValueError(f"Unknown encoder: {encoder}")
+        if backbone not in list_models(module=torchvision.models):
+            raise ValueError(f"Unknown backbone: {backbone}")
+
+        self.encoder = get_model(backbone, weights=None, num_classes=self.enc_out_size)
 
         # initialize the regressor to the identity transform
         self.regressor = MLP(dims=[self.enc_out_size, 64, 32, 6])
@@ -270,7 +256,7 @@ class SupervisedVAE(ContinualModule):
         self.backbone = vae
         self.gamma = gamma
         self.regressor = LightningMLP(
-            dims=[self.backbone.latent_dim, 64, 64, len(self.factors_to_regress)],
+            dims=[self.backbone.latent_dim, 64, 64, len(self.factor_names)],
         )
 
     def configure_optimizers(self):
