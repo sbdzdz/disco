@@ -23,7 +23,7 @@ trainer:
   default_root_dir: ${oc.env:WORK}/${project.name}/lightning
   enable_checkpointing: true
   enable_progress_bar: false
-  max_epochs: 5
+  max_epochs: 1
   log_every_n_steps: 1
   logger: ${wandb}
   strategy: auto
