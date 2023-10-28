@@ -105,9 +105,10 @@ class SupervisedClassifier(ContinualModule):
     def _step(self, batch):
         """Perform a training or validation step."""
         x, y = batch
+        y = y.shape_id
         y_hat = self.forward(x)
         loss = F.cross_entropy(y_hat, y)
-        return {"loss": loss, "accuracy": (y_hat.argmax(dim=1) == y).float().mean()}
+        return {"loss": loss, "accuracy": (y_hat == y).float().mean()}
 
 
 class SpatialTransformer(ContinualModule):
