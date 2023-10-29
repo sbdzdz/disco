@@ -100,7 +100,6 @@ def download_baseline_results(run, metric_name):
 def download_our_results(run, metric_name: str):
     """Get the metric values for each run."""
     print(f"Downloading run data for {run.name}.")
-    metric_name = f"test/{metric_name}"
     return take_last(run.scan_history(keys=["trainer/global_step", metric_name]))
 
 
