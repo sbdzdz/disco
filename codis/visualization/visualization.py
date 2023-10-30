@@ -239,7 +239,7 @@ def draw_shapes_animated(
     ncols: int = 12,
     fig_height: float = 10,
     img_size: int = 256,
-    frame_color: str = "black",
+    frame_color: str = "darkgray",
     background_color: str = "lightgray",
     orientation_marker_color: str = "black",
     duration: int = 8,
@@ -375,7 +375,9 @@ def draw_shape_interpolation(
     ncols: int = 12,
     fig_height: float = 10,
     img_size: int = 256,
-    bg_color="white",
+    frame_color: str = "darkgray",
+    background_color="lightgray",
+    orientation_marker_color: str = "black",
     num_shapes: int = 10,
     duration_per_shape: int = 2,
     fps: int = 60,
@@ -395,7 +397,12 @@ def draw_shape_interpolation(
         seed: The random seed
     """
     np.random.seed(seed)
-    dataset = InfiniteDSprites(img_size=img_size, color_range=COLORS)
+    dataset = InfiniteDSprites(
+        img_size=img_size,
+        color_range=COLORS,
+        background_color=background_color,
+        orientation_marker_color=orientation_marker_color,
+    )
     colors = [
         [dataset.sample_latents().color for _ in range(num_shapes)]
         for _ in range(nrows * ncols)
@@ -425,7 +432,7 @@ def draw_shape_interpolation(
         ]
         for shape_sequence, color_sequence in zip(shape_sequences, color_sequences)
     ]
-    save_animation(path, frames, nrows, ncols, fig_height, bg_color, fps)
+    save_animation(path, frames, nrows, ncols, fig_height, frame_color, fps)
 
 
 def interpolate(values, num_frames):
