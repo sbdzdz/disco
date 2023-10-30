@@ -117,8 +117,8 @@ class LoggingCallback(Callback):
             f"Task {pl_module.task_id} training: "
             f"{len(trainer.train_dataloader)} batches, "
             f"{len(trainer.train_dataloader.dataset)} samples."
-            f"Shape distribution: {np.unique(shape_ids, return_counts=True)}"
         )
+        print(f"Shape distribution: {np.unique(shape_ids, return_counts=True)}")
 
     def on_validation_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
@@ -130,8 +130,8 @@ class LoggingCallback(Callback):
             f"Task {pl_module.task_id} validation: "
             f"{len(trainer.val_dataloaders)} batches, "
             f"{len(trainer.val_dataloaders.dataset)} samples."
-            f"Shape distribution: {np.unique(shape_ids, return_counts=True)}"
         )
+        print(f"Shape distribution: {np.unique(shape_ids, return_counts=True)}")
 
     def on_test_epoch_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
@@ -143,8 +143,8 @@ class LoggingCallback(Callback):
             f"Task {pl_module.task_id} testing: "
             f"{len(trainer.test_dataloaders)} batches, "
             f"{len(trainer.test_dataloaders.dataset)} samples."
-            f"Shape distribution: {np.unique(shape_ids, return_counts=True)}"
         )
+        print(f"Shape distribution: {np.unique(shape_ids, return_counts=True)}")
 
 
 class MetricsCallback(Callback):
