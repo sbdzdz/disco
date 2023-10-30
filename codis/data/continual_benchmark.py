@@ -158,12 +158,12 @@ class BalancedDataset:
         task_class_ids = [factors.shape_id for factors in task_data]
 
         if self.dataset is None:  # empty
-            dataset = ContinualDSpritesMap(
+            self.dataset = ContinualDSpritesMap(
                 img_size=self.img_size,
                 dataset_size=1,
                 shapes=self.shapes,
             )  # dummy dataset
-            dataset.data = task_data
+            self.dataset.data = task_data
             self.stored_class_counts.update(task_class_ids)
             self.seen_class_counts.update(task_class_ids)
 
