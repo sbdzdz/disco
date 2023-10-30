@@ -13,11 +13,13 @@ from matplotlib.ticker import MaxNLocator
 from tqdm import tqdm
 
 
-def visualize_loss(args):
-    """Visualize train, validation, and optionally test metrics."""
+def visualize_metric(args):
+    """Visualize a metric across selected wandb runs."""
     api = wandb.Api(timeout=60)
     names = args.wandb_groups if args.names is None else args.names
-    assert len(names) == len(args.wandb_groups), "Please provide a name for each group."
+    assert len(names) == len(
+        args.wandb_groups
+    ), "Please provide a name for each run group."
     run_dict = {
         name: api.runs(args.wandb_entity, filters={"group": group})
         for name, group in zip(names, args.wandb_groups)
@@ -35,17 +37,11 @@ def visualize_loss(args):
     metrics = {}
     for name, runs in run_dict.items():
         values = [load_run(run, args) for run in runs]
-        try:
-            test_every_n_tasks = [
-                run.config["training"]["test_every_n_tasks"] for run in runs
-            ]
-            assert (
-                len(set(test_every_n_tasks)) == 1
-            ), "All runs must have the same testing frequency."
-            test_every_n_tasks = test_every_n_tasks[0]
-        except KeyError:
-            test_every_n_tasks = 1
-        steps = [i * test_every_n_tasks for i in range(min(map(len, values)))]
+        min_len = min(map(len, values))
+        if name.startswith("test"):
+            steps = [i * get_testing_frequency(runs) for i in range(min_len)]
+        else:
+            steps = list(range(min_len))
         metrics[name] = (steps, values)
 
     # truncate steps and values to match the smallest step number
@@ -61,6 +57,35 @@ def visualize_loss(args):
     plot(args, metrics)
 
 
+def get_task_transitions(run):
+    """Get task transitions from a wandb run."""
+    task_id_steps, task_id_values = zip(
+        *[
+            (row["_step"], row["task_id"])
+            for row in run.scan_history(keys=["_step", "task_id"])
+        ]
+    )
+    return [
+        task_id_steps[i]
+        for i in range(len(task_id_steps) - 1)
+        if task_id_values[i] != task_id_values[i + 1]
+    ]
+
+
+def get_testing_frequency(runs):
+    """Get the frequency at which the model is tested."""
+    try:
+        test_every_n_tasks = [
+            run.config["training"]["test_every_n_tasks"] for run in runs
+        ]
+        assert (
+            len(set(test_every_n_tasks)) == 1
+        ), "All runs must have the same testing frequency."
+        return test_every_n_tasks[0]
+    except KeyError:
+        return 1
+
+
 def load_run(run, args):
     """Load the metric values for a single run."""
     path = Path(__file__).parent.parent / f"img/media/{run.name}/metrics.json"
@@ -68,7 +93,7 @@ def load_run(run, args):
         print(f"Found saved run data for {run.name}.")
         with open(path, "r") as f:
             values = json.load(f)
-    elif run.config["model"].get("name") == "baseline":
+    elif run.config["model"].get("name") == "baseline":  # TODO: fix this
         values = download_baseline_results(run, args.metric_name)
     else:
         values = download_our_results(run, args.metric_name)
@@ -138,7 +163,7 @@ def plot(args, metrics):
     ax.yaxis.labelpad = 20
 
     ax.yaxis.set_major_formatter("{x:.1f}")
-    metric_name = args.metric_name.replace("_", " ").capitalize()
+    metric_name = args.metric_name.split("/")[-1].replace("_", " ").capitalize()
     ax.set_ylabel(metric_name, fontsize=args.fontsize)
     ax.set_ylim([args.ymin, args.ymax])
 
@@ -194,7 +219,7 @@ def _main():
     parser.add_argument("--ymax", type=float, help="Y-axis max limit.")
     parser.add_argument("--fontsize", type=int, default=20)
     args = parser.parse_args()
-    visualize_loss(args)
+    visualize_metric(args)
 
 
 if __name__ == "__main__":
