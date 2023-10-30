@@ -135,7 +135,7 @@ class ContinualBenchmarkRehearsal(ContinualBenchmark):
             train.update(train_task)
             val.update(val_task)
             test.update(test_task)
-            yield (train, val, test), task_exemplars
+            yield (train.dataset, val.dataset, test.dataset), task_exemplars
 
 
 class BalancedDataset:
@@ -151,9 +151,6 @@ class BalancedDataset:
         self.stored_class_counts = Counter()
         self.seen_class_counts = Counter()
         self.full_classes = set()
-
-    def __iter__(self):
-        return iter(self.dataset)
 
     def update(self, task_dataset: Dataset) -> None:
         task_data = [task_dataset.dataset.data[idx] for idx in task_dataset.indices]
