@@ -15,10 +15,8 @@ class ContinualBenchmark:
         self.shape_ids = range(len(shapes))
         self.exemplars = exemplars
 
-        self.batch_size = cfg.dataset.batch_size
         self.factor_resolution = cfg.dataset.factor_resolution
         self.img_size = cfg.dataset.img_size
-        self.num_workers = cfg.dataset.num_workers
         self.shapes_per_task = cfg.dataset.shapes_per_task
         self.tasks = cfg.dataset.tasks
         self.train_dataset_size = cfg.dataset.train_dataset_size
@@ -121,9 +119,9 @@ class ContinualBenchmarkRehearsal(ContinualBenchmark):
         super().__init__(cfg, shapes, exemplars)
 
     def __iter__(self):
-        train = BalancedDataset(self.train_dataset_size)
-        val = BalancedDataset(self.val_dataset_size)
-        test = BalancedDataset(self.test_dataset_size)
+        train = BalancedDataset(self.train_dataset_size, self.img_size, self.shapes)
+        val = BalancedDataset(self.val_dataset_size, self.img_size, self.shapes)
+        test = BalancedDataset(self.test_dataset_size, self.img_size, self.shapes)
         for task_shapes, task_shape_ids, task_exemplars in zip(
             self.grouper(self.shapes, self.shapes_per_task),
             self.grouper(self.shape_ids, self.shapes_per_task),
@@ -141,12 +139,15 @@ class ContinualBenchmarkRehearsal(ContinualBenchmark):
 class BalancedDataset:
     """Class-balanced reservoir sampling."""
 
-    def __init__(self, max_size: int) -> None:
+    def __init__(self, max_size: int, img_size: int, shapes: list) -> None:
         """Initialize the class-balanced reservoir sampling.
         Args:
             max_size: The maximum size of the dataset.
         """
         self.max_size = max_size
+        self.img_size = img_size
+        self.shapes = shapes
+
         self.dataset = None
         self.stored_class_counts = Counter()
         self.seen_class_counts = Counter()
@@ -161,7 +162,6 @@ class BalancedDataset:
                 img_size=self.img_size,
                 dataset_size=1,
                 shapes=self.shapes,
-                shape_ids=self.shape_ids,
             )  # dummy dataset
             dataset.data = task_data
             self.stored_class_counts.update(task_class_ids)
