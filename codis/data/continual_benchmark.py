@@ -148,47 +148,40 @@ class BalancedDataset:
         self.img_size = img_size
         self.shapes = shapes
 
-        self.dataset = None
+        self.dataset = ContinualDSpritesMap(
+            img_size=self.img_size,
+            dataset_size=1,
+            shapes=self.shapes,
+        )
+        self.dataset.data = []  # dummy dataset
         self.stored_class_counts = Counter()
         self.seen_class_counts = Counter()
         self.full_classes = set()
 
     def update(self, task_dataset: Dataset) -> None:
         task_data = [task_dataset.dataset.data[idx] for idx in task_dataset.indices]
-        task_class_ids = [factors.shape_id for factors in task_data]
 
-        if self.dataset is None:  # empty
-            self.dataset = ContinualDSpritesMap(
-                img_size=self.img_size,
-                dataset_size=1,
-                shapes=self.shapes,
-            )  # dummy dataset
-            self.dataset.data = task_data
-            self.stored_class_counts.update(task_class_ids)
-            self.seen_class_counts.update(task_class_ids)
-
-        elif len(self.dataset) < self.max_size:  # not full yet
-            self.dataset.data.extend(task_data)
-            self.stored_class_counts.update(task_class_ids)
-            self.seen_class_counts.update(task_class_ids)
-        else:  # full
-            for factors in task_data:
+        for factors in task_data:
+            shape_id = factors.shape_id
+            if len(self.dataset) < self.max_size:
+                self.dataset.data.append(factors)
+                self.stored_class_counts[shape_id] += 1
+            else:  # buffer is full
                 self.full_classes.update(self.get_largest_classes())
-                class_id = factors.shape_id
-                if class_id in self.full_classes:
+                if shape_id in self.full_classes:
                     u = np.random.uniform()
-                    stored = self.stored_class_counts[class_id]
-                    seen = self.seen_class_counts[class_id]
+                    stored = self.stored_class_counts[shape_id]
+                    seen = self.seen_class_counts[shape_id]
                     if u <= stored / seen:
-                        idx = self.get_random_instance(class_id)
+                        idx = self.get_random_instance(shape_id)
                         self.dataset.data[idx] = factors
-                else:
+                else:  # replace a random instance of the largest class
                     largest_class = np.random.choice(self.get_largest_classes())
                     idx = self.get_random_instance(largest_class)
                     self.dataset.data[idx] = factors
-                    self.stored_class_counts[class_id] += 1
+                    self.stored_class_counts[shape_id] += 1
                     self.stored_class_counts[largest_class] -= 1
-                self.seen_class_counts[class_id] += 1
+            self.seen_class_counts[shape_id] += 1
 
     def get_largest_classes(self):
         """Get the most represented classes."""
