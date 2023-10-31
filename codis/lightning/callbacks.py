@@ -123,28 +123,20 @@ class LoggingCallback(Callback):
     def on_validation_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
-        shape_ids = [
-            factors.shape_id for factors in trainer.val_dataloaders.dataset.data
-        ]
         print(
             f"Task {pl_module.task_id} validation: "
             f"{len(trainer.val_dataloaders)} batches, "
             f"{len(trainer.val_dataloaders.dataset)} samples."
         )
-        print(f"Shape distribution: {np.unique(shape_ids, return_counts=True)}")
 
     def on_test_epoch_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
-        shape_ids = [
-            factors.shape_id for factors in trainer.test_dataloaders.dataset.data
-        ]
         print(
             f"Task {pl_module.task_id} testing: "
             f"{len(trainer.test_dataloaders)} batches, "
             f"{len(trainer.test_dataloaders.dataset)} samples."
         )
-        print(f"Shape distribution: {np.unique(shape_ids, return_counts=True)}")
 
 
 class MetricsCallback(Callback):
