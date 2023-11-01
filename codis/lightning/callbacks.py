@@ -4,7 +4,7 @@ from typing import Any, Optional
 import lightning.pytorch as pl
 import numpy as np
 import torch
-from lightning.pytorch.callbacks import Callback
+from lightning.pytorch.callbacks import Callback, EarlyStopping
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 
 from codis.visualization import draw_batch, draw_batch_and_reconstructions
@@ -196,3 +196,11 @@ class MetricsCallback(Callback):
         x, y = batch
         accuracy = (y.shape_id == pl_module.classify(x)).float().mean().item()
         pl_module.log_dict({f"{stage}/accuracy": accuracy})
+
+
+class EarlyStoppingCallback(EarlyStopping):
+    def on_validation_end(self, trainer, pl_module):
+        pass
+
+    def on_train_end(self, trainer, pl_module):
+        self._run_early_stopping_check(trainer)

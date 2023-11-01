@@ -34,6 +34,7 @@ from codis.lightning.callbacks import (
     MetricsCallback,
     LoggingCallback,
     VisualizationCallback,
+    EarlyStoppingCallback,
 )
 
 torch.set_float32_matmul_precision("high")
@@ -255,6 +256,16 @@ def build_callbacks(cfg: DictConfig, canonical_images: list, random_images: list
             ModelCheckpoint(
                 dirpath=cfg.trainer.default_root_dir,
                 every_n_epochs=cfg.training.test_every_n_tasks * cfg.trainer.max_epochs,
+            )
+        )
+    if "early_stopping" in callback_names:
+        callbacks.append(
+            EarlyStoppingCallback(
+                monitor="train/accuracy",
+                min_delta=0.00,
+                patience=5,
+                verbose=False,
+                mode="max",
             )
         )
     return callbacks
