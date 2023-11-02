@@ -11,7 +11,7 @@ from codis.visualization import draw_batch, draw_batch_and_reconstructions
 
 
 class VisualizationCallback(Callback):
-    """Callback for visualizing VAE reconstructions."""
+    """Callback for visualizing reconstructions and classification results."""
 
     def __init__(
         self,
