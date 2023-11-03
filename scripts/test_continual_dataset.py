@@ -11,23 +11,24 @@ from codis.visualization import draw_batch
 def sample_and_draw(args):
     """Sample a batch from the dataset and visualize it."""
     np.random.seed(0)
-    shape = InfiniteDSprites().generate_shape()
+    shapes = [InfiniteDSprites().generate_shape() for _ in range(args.num_shapes)]
     dataset = ContinualDSpritesMap(
-        shapes=[shape],
+        shapes=shapes,
         orientation_range=np.linspace(0, 0.5 * np.pi, args.resolution),
-        scale_range=np.linspace(0.5, 1.5, 5),
-        position_x_range=np.linspace(0, 1, 5),
-        position_y_range=np.linspace(0, 1, 5),
+        scale_range=np.linspace(0.5, 1, args.resolution),
+        position_x_range=np.linspace(0, 1, args.resolution),
+        position_y_range=np.linspace(0, 1, args.resolution),
     )
-    dataloader = DataLoader(dataset, batch_size=49, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
     x, _ = next(iter(dataloader))
-    draw_batch(x, show=True, n_max=49)
+    draw_batch(x, show=True, num_images=args.batch_size)
 
 
 def _main():
     parser = ArgumentParser()
-    parser.add_argument("--batch_size", type=int, default=49)
-    parser.add_argument("--resolution", type=int, default=64)
+    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--num_shapes", type=int, default=2)
+    parser.add_argument("--resolution", type=int, default=2)
     args = parser.parse_args()
     sample_and_draw(args)
 

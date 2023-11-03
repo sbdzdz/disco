@@ -10,7 +10,7 @@ authors = [
 ]
 description = "Disentangling memorization and generalization in continual learning"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "hydra-core",
     "lightning",

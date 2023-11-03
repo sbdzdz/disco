@@ -1,5 +1,4 @@
 """Datasets and data utils."""
-from codis.data.dsprites import DSprites
 from codis.data.infinite_dsprites import (
     InfiniteDSprites,
     ContinualDSpritesMap,
@@ -9,4 +8,7 @@ from codis.data.infinite_dsprites import (
     InfiniteDSpritesTriplets,
     Latents,
 )
-from codis.data.balanced_dataset import BalancedDataset
+from codis.data.continual_benchmark import (
+    ContinualBenchmark,
+    ContinualBenchmarkRehearsal,
+)

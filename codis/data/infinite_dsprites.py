@@ -33,6 +33,9 @@ class Latents(BaseLatents):
             position_y=self.position_y.to(device),
         )
 
+    def replace(self, **kwargs):
+        return super()._replace(**kwargs)
+
 
 class InfiniteDSprites(IterableDataset):
     """Infinite dataset of procedurally generated shapes undergoing transformations."""
@@ -51,6 +54,7 @@ class InfiniteDSprites(IterableDataset):
         orientation_marker: bool = True,
         orientation_marker_color="black",
         background_color="darkgray",
+        grayscale: bool = False,
     ):
         """Create a dataset of images of random shapes.
         Args:
@@ -65,6 +69,8 @@ class InfiniteDSprites(IterableDataset):
                 to None to generate random shapes forever.
             shape_ids: The IDs of the shapes. If None, the shape ID is set to its index.
             orientation_marker: Whether to draw stripes indicating the orientation of the shape.
+            background_color: The color of the canvas background.
+            grayscale: If set to True, the images will have a single color channel.
         Returns:
             None
         """
@@ -87,11 +93,17 @@ class InfiniteDSprites(IterableDataset):
             "position_x": position_x_range,
             "position_y": position_y_range,
         }
+        self.scale_factor = 0.45
         self.num_latents = len(self.ranges) + 1
         self.dataset_size = dataset_size
         self.counter = 0
         self.current_shape_index = 0
-        self.shapes = shapes
+        if isinstance(shapes, list):
+            self.shapes = shapes
+        elif isinstance(shapes, int):
+            self.shapes = [self.generate_shape() for _ in range(shapes)]
+        else:
+            self.shapes = None
         self.shape_ids = shape_ids
         self.orientation_marker = orientation_marker
         self.orientation_marker_color = tuple(
@@ -100,7 +112,7 @@ class InfiniteDSprites(IterableDataset):
         self.background_color = tuple(
             int(255 * c) for c in colors.to_rgb(background_color)
         )
-        self.scale_factor = 0.45
+        self.grayscale = grayscale
 
     @property
     def current_shape_id(self):
@@ -134,10 +146,6 @@ class InfiniteDSprites(IterableDataset):
                 if self.current_shape_index >= len(self.shapes):
                     return
                 shape = self.shapes[self.current_shape_index]
-            elif isinstance(self.shapes, int):
-                if self.current_shape_index >= self.shapes:
-                    return
-                shape = self.generate_shape()
 
             for color, scale, orientation, position_x, position_y in product(
                 *self.ranges.values()
@@ -278,7 +286,7 @@ class InfiniteDSprites(IterableDataset):
             self.draw_orientation_marker(canvas, latents)
         if debug:
             self.add_debug_info(shape, canvas)
-        if self.is_monochrome(canvas):
+        if self.grayscale:
             canvas = np.mean(canvas, axis=2, keepdims=True)
         if channels_first:
             canvas = np.transpose(canvas, (2, 0, 1))
@@ -406,27 +414,61 @@ class InfiniteDSprites(IterableDataset):
         )
 
 
+class InfiniteDSpritesNoImages(InfiniteDSprites):
+    """Only return the latents."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def __iter__(self):
+        """Generate an infinite stream of latent vectors.
+        Note: We set shape to None and only return shape_id."""
+        while True:
+            if self.shapes is not None and self.current_shape_index >= len(self.shapes):
+                return
+            for color, scale, orientation, position_x, position_y in product(
+                *self.ranges.values()
+            ):
+                if self.dataset_size is not None and self.counter >= self.dataset_size:
+                    return
+                self.counter += 1
+                color = np.array(colors.to_rgb(color))
+                yield Latents(
+                    color,
+                    None,
+                    self.current_shape_id,
+                    scale,
+                    orientation,
+                    position_x,
+                    position_y,
+                )
+            self.current_shape_index += 1
+
+
 class ContinualDSpritesMap(Dataset):
     """Map-style (finite) continual learning dsprites dataset."""
 
     def __init__(self, *args, **kwargs):
-        self.dataset = InfiniteDSprites(*args, **kwargs)
+        self.dataset = InfiniteDSpritesNoImages(*args, **kwargs)
         assert (
             self.dataset.dataset_size is not None or self.dataset.shapes is not None
         ), "Dataset size must be finite. Please set dataset_size or pass a list of shapes."
-        self.data, self.targets = zip(*list(self.dataset))
-        self.data = list(self.data)
-        self.targets = list(self.targets)
+        self.data = list(self.dataset)
+
+    @property
+    def targets(self):
+        return [factors.shape_id for factors in self.data]
 
     def __len__(self):
-        if self.dataset.dataset_size is not None:
-            return self.dataset.dataset_size
-        return len(list(product(*self.dataset.ranges.values()))) * len(
-            self.dataset.shapes
-        )
+        return len(self.data)
 
     def __getitem__(self, index):
-        return self.data[index], self.targets[index]
+        shape_index = self.data[index].shape_id
+        if self.dataset.shape_ids is not None:
+            shape_index = self.dataset.shape_ids.index(shape_index)
+        shape = self.dataset.shapes[shape_index]
+        factors = self.data[index]._replace(shape=shape)
+        return self.dataset.draw(factors), factors
 
 
 class RandomDSprites(InfiniteDSprites):
@@ -468,19 +510,19 @@ class RandomDSpritesMap(Dataset):
         assert (
             self.dataset.dataset_size is not None
         ), "Dataset size must be finite. Please set dataset_size."
-        self.imgs, self.latents = zip(*list(self.dataset))
-        self.imgs = list(self.imgs)
+        self.data, self.latents = zip(*list(self.dataset))
+        self.data = list(self.data)
         self.latents = list(self.latents)
 
+    @property
+    def targets(self):
+        return [latents.shape_id for latents in self.latents]
+
     def __len__(self):
-        if self.dataset.dataset_size is not None:
-            return self.dataset.dataset_size
-        return len(list(product(*self.dataset.ranges.values()))) * len(
-            self.dataset.shapes
-        )
+        return len(self.data)
 
     def __getitem__(self, index):
-        return self.imgs[index], self.latents[index]
+        return self.data[index], self.latents[index]
 
 
 class InfiniteDSpritesTriplets(InfiniteDSprites):

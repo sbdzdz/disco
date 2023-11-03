@@ -1,7 +1,9 @@
+avalanche-lib
 hydra-core
 imageio
 lightning
 matplotlib
+memray
 numpy
 omegaconf
 opencv-python

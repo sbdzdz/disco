@@ -4,23 +4,28 @@ from typing import List, Optional
 import lightning.pytorch as pl
 import torch
 import torch.nn.functional as F
+import torchvision
+from torchvision.models import get_model, list_models
 
 from codis.data import Latents
 from codis.models import MLP, BetaVAE
-from codis.models.blocks import Encoder
 
 
 class ContinualModule(pl.LightningModule):
     """A base class for continual learning modules."""
 
-    def __init__(self, lr: float = 1e-3, factors_to_regress: list = None):
+    def __init__(
+        self,
+        lr: float = 1e-3,
+        shapes_per_task: int = 10,
+    ):
         super().__init__()
         self.lr = lr
-        if factors_to_regress is None:
-            factors_to_regress = ["scale", "orientation", "position_x", "position_y"]
-        self.factors_to_regress = factors_to_regress
-        self.num_factors = len(self.factors_to_regress)
+        self.factor_names = ["scale", "orientation", "position_x", "position_y"]
+        self.num_factors = len(self.factor_names)
+
         self._task_id = None
+        self._shapes_per_task = shapes_per_task
         self._buffer = []
 
     @property
@@ -35,48 +40,32 @@ class ContinualModule(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         """Perform a training step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_train": v for k, v in loss.items() if k != "loss"})
-        return loss
+        return self._step(batch)
 
+    @torch.no_grad()
     def validation_step(self, batch, batch_idx):
         """Perform a validation step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_val": v for k, v in loss.items() if k != "loss"})
-        return loss
+        return self._step(batch)
 
+    @torch.no_grad()
     def test_step(self, batch, batch_idx):
         """Perform a test step."""
-        loss = self._step(batch)
-        self.log_dict({f"{k}_test": v for k, v in loss.items() if k != loss})
-        return loss
+        return self._step(batch)
 
     def add_exemplar(self, exemplar):
         """Add an exemplar to the buffer."""
         self._buffer.append(exemplar)
 
-    def classify(self, x: torch.Tensor, split_size: int = 256):
-        """Classify the input."""
-        x_hat, *_ = self(x)
-        x_hat = x_hat.unsqueeze(1).detach()
-        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
-            self.device
-        )
-        buffer = buffer.unsqueeze(0).detach()
-
-        losses = []
-        for chunk in torch.split(buffer, split_size, dim=1):
-            chunk = chunk.repeat(x_hat.shape[0], 1, 1, 1, 1)
-            loss = F.mse_loss(
-                x_hat.repeat(1, chunk.shape[1], 1, 1, 1), chunk, reduction="none"
-            ).mean(dim=(2, 3, 4))
-            losses.append(loss)
-        return torch.cat(losses, dim=1).argmin(dim=1)
+    def get_current_task_exemplars(self):
+        """Get the exemplars for the current task."""
+        start = self._shapes_per_task * self.task_id
+        end = self._shapes_per_task * (self.task_id + 1)
+        return self._buffer[start:end]
 
     def _stack_factors(self, factors):
         """Stack the factors."""
         return torch.cat(
-            [getattr(factors, name).unsqueeze(-1) for name in self.factors_to_regress],
+            [getattr(factors, name).unsqueeze(-1) for name in self.factor_names],
             dim=-1,
         ).float()
 
@@ -86,11 +75,45 @@ class ContinualModule(pl.LightningModule):
             shape=None,
             shape_id=None,
             color=None,
-            **{
-                name: stacked_factors[:, i]
-                for i, name in enumerate(self.factors_to_regress)
-            },
+            **{name: stacked_factors[:, i] for i, name in enumerate(self.factor_names)},
         )
+
+
+class SupervisedClassifier(ContinualModule):
+    """A supervised classification model."""
+
+    def __init__(
+        self,
+        num_classes: int = 10,
+        backbone: str = "resnet18",
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        if backbone in list_models(module=torchvision.models):
+            self.backbone = get_model(backbone, weights=None, num_classes=num_classes)
+        else:
+            raise ValueError(f"Unknown backbone: {backbone}")
+
+    def configure_optimizers(self):
+        """Configure the optimizers."""
+        return torch.optim.Adam(self.backbone.parameters(), lr=self.lr)
+
+    def forward(self, x):
+        """Perform the forward pass."""
+        return self.backbone(x)
+
+    def _step(self, batch):
+        """Perform a training or validation step."""
+        x, y = batch
+        y = y.shape_id
+        y_hat = self.forward(x)
+        loss = F.cross_entropy(y_hat, y)
+        return {"loss": loss, "accuracy": (y_hat.argmax(dim=1) == y).float().mean()}
+
+    @torch.no_grad()
+    def classify(self, x: torch.Tensor):
+        """Classify the input."""
+        return self.forward(x).argmax(dim=1)
 
 
 class SpatialTransformer(ContinualModule):
@@ -98,22 +121,23 @@ class SpatialTransformer(ContinualModule):
 
     def __init__(
         self,
-        img_size: int = 64,
-        in_channels: int = 1,
-        channels: Optional[list] = None,
+        backbone: str = "resnet18",
+        enc_out_size: int = 64,
         gamma: float = 0.5,
+        buffer_chunk_size: int = 64,
         **kwargs,
     ):
         super().__init__(**kwargs)
+        self.enc_out_size = enc_out_size
+        self.buffer_chunk_size = buffer_chunk_size
 
-        if channels is None:
-            channels = [16, 16, 32, 32, 64]
-        self.encoder = Encoder(channels, in_channels)
-        self.encoder_output_dim = (img_size // 2 ** len(channels)) ** 2 * channels[-1]
-        self.regressor = MLP(
-            dims=[self.encoder_output_dim, 64, 32, 6],
-        )
+        if backbone not in list_models(module=torchvision.models):
+            raise ValueError(f"Unknown backbone: {backbone}")
+
+        self.encoder = get_model(backbone, weights=None, num_classes=self.enc_out_size)
+
         # initialize the regressor to the identity transform
+        self.regressor = MLP(dims=[self.enc_out_size, 64, 32, 6])
         self.regressor.model[-1].weight.data.zero_()
         self.regressor.model[-1].bias.data.copy_(
             torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float)
@@ -131,7 +155,7 @@ class SpatialTransformer(ContinualModule):
 
     def forward(self, x):
         """Perform the forward pass."""
-        xs = self.encoder(x).view(-1, self.encoder_output_dim)
+        xs = self.encoder(x).view(-1, self.enc_out_size)
         theta = self.regressor(xs).view(-1, 2, 3)
 
         grid = F.affine_grid(theta, x.size(), align_corners=False)
@@ -149,14 +173,31 @@ class SpatialTransformer(ContinualModule):
         theta = self.convert_parameters_to_matrix(y)
         regression_loss = F.mse_loss(theta, theta_hat)
         reconstruction_loss = F.mse_loss(exemplars, x_hat)
-        accuracy = (y.shape_id == self.classify(x)).float().mean()
         return {
-            "accuracy": accuracy.item(),
-            "reconstruction_loss": reconstruction_loss.item(),
-            "regression_loss": regression_loss.item(),
+            "reconstruction_loss": reconstruction_loss,
+            "regression_loss": regression_loss,
             "loss": self.gamma * regression_loss
             + (1 - self.gamma) * reconstruction_loss,
         }
+
+    @torch.no_grad()
+    def classify(self, x: torch.Tensor):
+        """Classify the input."""
+        x_hat, *_ = self(x)
+        x_hat = x_hat.unsqueeze(1).detach()
+        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
+            self.device
+        )
+        buffer = buffer.unsqueeze(0).detach()
+
+        losses = []  # classify in chunks to avoid OOM
+        for chunk in torch.split(buffer, self.buffer_chunk_size, dim=1):
+            chunk = chunk.repeat(x_hat.shape[0], 1, 1, 1, 1)
+            loss = F.mse_loss(
+                x_hat.repeat(1, chunk.shape[1], 1, 1, 1), chunk, reduction="none"
+            ).mean(dim=(2, 3, 4))
+            losses.append(loss)
+        return torch.cat(losses, dim=1).argmin(dim=1)
 
     def convert_parameters_to_matrix(self, factors):
         """Convert the ground truth factors to a transformation matrix.
@@ -208,54 +249,6 @@ class SpatialTransformer(ContinualModule):
         )
 
 
-class SpatialTransformerGF(SpatialTransformer):
-    """A SpatialTransformer that predicts the generative factors instead of a transformation matrix."""
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.regressor = MLP(
-            dims=[self.encoder_output_dim, 64, 32, self.num_factors],
-        )
-
-    def forward(self, x):
-        """Perform the forward pass."""
-        xs = self.encoder(x).view(-1, self.encoder_output_dim)
-        y_hat = self.regressor(xs)
-        theta = self.convert_parameters_to_matrix(self._unstack_factors(y_hat))
-
-        grid = F.affine_grid(theta, x.size(), align_corners=False)
-        x_hat = F.grid_sample(x, grid, padding_mode="border", align_corners=False)
-        return x_hat, y_hat
-
-    def _step(self, batch):
-        """Perform a training or validation step."""
-        x, y = batch
-        x_hat, y_hat = self.forward(x)
-        exemplars = torch.stack(
-            [torch.from_numpy(self._buffer[i]) for i in y.shape_id]
-        ).to(self.device)
-        regression_loss = F.mse_loss(self._stack_factors(y), y_hat)
-        reconstruction_loss = F.mse_loss(exemplars, x_hat)
-        y_hat = self._unstack_factors(y_hat)
-        orientation_loss = F.mse_loss(y.orientation, y_hat.orientation)
-        scale_loss = F.mse_loss(y.scale, y_hat.scale)
-        position_loss = F.mse_loss(
-            torch.stack([y.position_x, y.position_y], dim=1),
-            torch.stack([y_hat.position_x, y_hat.position_y], dim=1),
-        )
-        accuracy = (y.shape_id == self.classify(x)).float().mean()
-        return {
-            "accuracy": accuracy.item(),
-            "orientation_loss": orientation_loss.item(),
-            "position_loss": position_loss.item(),
-            "reconstruction_loss": reconstruction_loss.item(),
-            "regression_loss": regression_loss.item(),
-            "scale_loss": scale_loss.item(),
-            "loss": self.gamma * regression_loss
-            + (1 - self.gamma) * reconstruction_loss,
-        }
-
-
 class SupervisedVAE(ContinualModule):
     """A model that combines a VAE backbone and an MLP regressor."""
 
@@ -269,7 +262,7 @@ class SupervisedVAE(ContinualModule):
         self.backbone = vae
         self.gamma = gamma
         self.regressor = LightningMLP(
-            dims=[self.backbone.latent_dim, 64, 64, len(self.factors_to_regress)],
+            dims=[self.backbone.latent_dim, 64, 64, len(self.factor_names)],
         )
 
     def configure_optimizers(self):

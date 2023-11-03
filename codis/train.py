@@ -1,86 +1,209 @@
 """Training script."""
-from collections import defaultdict
+import inspect
+import os
 
 import hydra
 import numpy as np
 import torch
-from lightning.pytorch import Trainer
-from lightning.pytorch.loggers import WandbLogger
-from omegaconf import DictConfig, OmegaConf
-from torch.utils.data import ConcatDataset, DataLoader, Dataset, Subset, random_split
-
+from avalanche.benchmarks.scenarios.generic_benchmark_creation import (
+    LazyStreamDefinition,
+    create_lazy_generic_benchmark,
+)
+from avalanche.benchmarks.utils import make_classification_dataset
+from avalanche.evaluation.metrics import (
+    accuracy_metrics,
+    loss_metrics,
+)
 import wandb
+from avalanche.logging import WandBLogger
+from avalanche.training.plugins import EvaluationPlugin
+from hydra.utils import call, get_object, instantiate
+from lightning.pytorch.callbacks import ModelCheckpoint
+from omegaconf import DictConfig, OmegaConf
+from torch.utils.data import DataLoader
+
 from codis.data import (
-    ContinualDSpritesMap,
+    ContinualBenchmark,
+    ContinualBenchmarkRehearsal,
     InfiniteDSprites,
     Latents,
-    RandomDSpritesMap,
 )
-from codis.lightning.callbacks import LoggingCallback, VisualizationCallback
-from codis.lightning.modules import (
-    LightningBetaVAE,
-    SpatialTransformer,
-    SpatialTransformerGF,
-    SupervisedVAE,
+from codis.lightning.callbacks import (
+    MetricsCallback,
+    LoggingCallback,
+    VisualizationCallback,
+    EarlyStoppingCallback,
 )
-from codis.utils import grouper
 
-torch.set_float32_matmul_precision("medium")
+torch.set_float32_matmul_precision("high")
+OmegaConf.register_new_resolver("eval", eval)
 
 
 @hydra.main(config_path="../configs", config_name="main", version_base=None)
 def train(cfg: DictConfig) -> None:
     """Train the model in a continual learning setting."""
+    config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
+    config["job_id"] = os.environ.get("SLURM_JOB_ID")
+
     shapes = [
         InfiniteDSprites().generate_shape()
         for _ in range(cfg.dataset.tasks * cfg.dataset.shapes_per_task)
     ]
-    shape_ids = range(len(shapes))
-    model = build_model(cfg)
-    canonical_images = generate_canonical_images(shapes, img_size=cfg.dataset.img_size)
-    random_images = generate_random_images(shapes, img_size=cfg.dataset.img_size)
-    callbacks = build_callbacks(cfg, canonical_images, random_images)
-    trainer = build_trainer(cfg, callbacks=callbacks)
+    exemplars = generate_canonical_images(shapes, img_size=cfg.dataset.img_size)
+    random_images = generate_random_images(
+        shapes,
+        img_size=cfg.dataset.img_size,
+        factor_resolution=cfg.dataset.factor_resolution,
+    )
+    callbacks = build_callbacks(cfg, exemplars, random_images)
+    trainer = instantiate(cfg.trainer, callbacks=callbacks)
+    trainer.logger.log_hyperparams(config)
 
-    test_dataset = None
-    if cfg.training.mode == "continual":
-        for task_id, (task_shapes, task_shape_ids, task_exemplars) in enumerate(
-            zip(
-                grouper(cfg.dataset.shapes_per_task, shapes),
-                grouper(cfg.dataset.shapes_per_task, shape_ids),
-                grouper(cfg.dataset.shapes_per_task, canonical_images),
-            )
-        ):
-            train_dataset, val_dataset, task_test_dataset = build_continual_datasets(
-                cfg, task_shapes, task_shape_ids
-            )
-            train_loader = build_dataloader(cfg, train_dataset)
-            val_loader = build_dataloader(cfg, val_dataset, shuffle=False)
+    strategy = cfg.training.strategy
+    if strategy == "naive":
+        benchmark = ContinualBenchmark(cfg, shapes=shapes, exemplars=exemplars)
+    elif strategy == "rehearsal":
+        benchmark = ContinualBenchmarkRehearsal(cfg, shapes=shapes, exemplars=exemplars)
+    else:
+        raise ValueError(f"Unknown strategy: {strategy}.")
 
-            test_dataset = update_test_dataset(cfg, test_dataset, task_test_dataset)
-            test_loader = build_dataloader(cfg, test_dataset)  # shuffle for vis
+    target = get_object(cfg.model._target_)
+    if inspect.isclass(target):
+        train_ours_continually(cfg, benchmark, trainer)
+    elif callable(target):
+        train_baseline_continually(cfg, benchmark)
+    else:
+        raise ValueError(f"Unknown target: {target}.")
 
-            model.task_id = task_id
-            for exemplar in task_exemplars:
-                model.add_exemplar(exemplar)
-            trainer.fit(model, train_loader, val_loader)
-            trainer.fit_loop.max_epochs += cfg.training.max_epochs
-            trainer.test(model, test_loader)
 
-    elif cfg.training.mode == "joint":
-        model.task_id = 0
-        if model.has_buffer:
-            for exemplar in canonical_images:
-                model.add_exemplar(exemplar)
-        train_loader, val_loader, test_loader = build_joint_data_loaders(cfg, shapes)
+def train_continually(cfg: DictConfig, trainer, shapes, exemplars):
+    """Train continually with n shapes per tasks."""
+    benchmark = ContinualBenchmark(cfg, shapes=shapes, exemplars=exemplars)
+    target = get_object(cfg.model._target_)
+    if inspect.isclass(target):
+        train_ours_continually(cfg, benchmark, trainer)
+    elif callable(target):
+        train_baseline_continually(cfg, benchmark)
+    else:
+        raise ValueError(f"Unknown target: {target}.")
+
+
+def train_ours_continually(cfg, benchmark, trainer):
+    """Train our model in a continual learning setting."""
+    model = instantiate(cfg.model)
+    for task_id, (datasets, task_exemplars) in enumerate(benchmark):
+        model.task_id = task_id
+        train_dataset, val_dataset, test_dataset = datasets
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=cfg.dataset.batch_size,
+            num_workers=cfg.dataset.num_workers,
+            shuffle=True,
+        )
+        val_loader = DataLoader(
+            val_dataset,
+            batch_size=cfg.dataset.batch_size,
+            num_workers=cfg.dataset.num_workers,
+        )
+        test_loader = DataLoader(
+            test_dataset,
+            batch_size=cfg.dataset.batch_size,
+            num_workers=cfg.dataset.num_workers,
+            shuffle=True,  # shuffle for vis
+        )
+
+        for exemplar in task_exemplars:
+            model.add_exemplar(exemplar)
+
         trainer.fit(model, train_loader, val_loader)
-        trainer.test(model, test_loader)
-    wandb.finish()
+        if (
+            not cfg.training.test_once
+            and task_id % cfg.training.test_every_n_tasks == 0
+        ):
+            trainer.test(model, test_loader)
+        trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
+    trainer.test(model, test_loader)
 
 
-def generate_canonical_images(shapes, img_size):
+def train_baseline_continually(cfg, benchmark):
+    """Train a standard continual learning baseline using Avalanche."""
+    model = call(cfg.model)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    wandb.run.define_metric("*", step_metric="Step", step_sync=True)
+    train_generator = (
+        make_classification_dataset(
+            dataset=datasets[0],
+            target_transform=lambda y: y.shape_id,
+        )
+        for datasets, _ in benchmark
+    )
+    test_generator = (
+        make_classification_dataset(
+            dataset=datasets[2],
+            target_transform=lambda y: y.shape_id,
+        )
+        for datasets, _ in benchmark
+    )
+    train_stream = LazyStreamDefinition(
+        train_generator,
+        stream_length=benchmark.tasks,
+        exps_task_labels=[0] * benchmark.tasks,
+    )
+    test_stream = LazyStreamDefinition(
+        test_generator,
+        stream_length=benchmark.tasks,
+        exps_task_labels=[0] * benchmark.tasks,
+    )
+    benchmark = create_lazy_generic_benchmark(train_stream, test_stream)
+    config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
+    config["job_id"] = os.environ.get("SLURM_JOB_ID")
+    loggers = [
+        WandBLogger(
+            dir=cfg.wandb.save_dir,
+            project_name=f"{cfg.wandb.project}_baselines",
+            params={"group": cfg.wandb.group},
+            config=config,
+        ),
+    ]
+
+    eval_plugin = EvaluationPlugin(
+        accuracy_metrics(minibatch=True, experience=True),
+        loss_metrics(minibatch=True),
+        loggers=loggers,
+    )
+
+    strategy = instantiate(
+        cfg.strategy,
+        model=model,
+        device=device,
+        evaluator=eval_plugin,
+        optimizer={"params": model.parameters()},
+    )
+    for train_experience, test_experience in zip(
+        benchmark.train_stream, benchmark.test_stream
+    ):
+        train_task = train_experience.current_experience
+        print(f"Task {train_task} train: {len(train_experience.dataset)} samples.")
+        print(f"Classes train: {train_experience.classes_in_this_experience}")
+        strategy.train(train_experience)
+
+        test_task = test_experience.current_experience
+        if (
+            not cfg.training.test_once
+            and test_task % cfg.training.test_every_n_tasks == 0
+        ):
+            print(f"Task {test_task} test: {len(test_experience.dataset)} samples.")
+            min_class_id = min(test_experience.classes_in_this_experience)
+            max_class_id = max(test_experience.classes_in_this_experience)
+            print(f"Classes test: {min_class_id}-{max_class_id}")
+            strategy.eval(test_experience)
+
+
+def generate_canonical_images(shapes, img_size: int):
     """Generate a batch of exemplars for training and visualization."""
-    dataset = InfiniteDSprites(img_size=img_size)
+    dataset = InfiniteDSprites(
+        img_size=img_size,
+    )
     return [
         dataset.draw(
             Latents(
@@ -97,190 +220,53 @@ def generate_canonical_images(shapes, img_size):
     ]
 
 
-def generate_random_images(shapes, img_size, n=25):
+def generate_random_images(
+    shapes: list, img_size: int, factor_resolution: int, num_imgs: int = 25
+):
     """Generate a batch of images for visualization."""
-    dataset = InfiniteDSprites(img_size=img_size, shapes=shapes)
-    return [dataset.draw(dataset.sample_latents()) for _ in range(n)]
-
-
-def build_dataloader(cfg: DictConfig, dataset, shuffle=True):
-    """Prepare a data loader."""
-    return DataLoader(
-        dataset,
-        batch_size=cfg.dataset.batch_size,
-        num_workers=cfg.dataset.num_workers,
-        shuffle=shuffle,
+    scale_range = np.linspace(0.5, 1.0, factor_resolution)
+    orientation_range = np.linspace(0, 2 * np.pi, factor_resolution)
+    position_x_range = np.linspace(0, 1, factor_resolution)
+    position_y_range = np.linspace(0, 1, factor_resolution)
+    dataset = InfiniteDSprites(
+        img_size=img_size,
+        shapes=shapes,
+        scale_range=scale_range,
+        orientation_range=orientation_range,
+        position_x_range=position_x_range,
+        position_y_range=position_y_range,
     )
-
-
-def build_model(cfg: DictConfig):
-    """Prepare the appropriate model."""
-    if cfg.model.name == "vae":
-        vae = LightningBetaVAE(
-            img_size=cfg.dataset.img_size,
-            latent_dim=cfg.model.latent_dim,
-            beta=cfg.model.beta,
-            lr=cfg.training.lr,
-        )
-        model = SupervisedVAE(
-            vae=vae,
-            gamma=cfg.model.gamma,
-            factors_to_regress=cfg.model.factors_to_regress,
-        )
-    elif cfg.model.name == "stn":
-        model = SpatialTransformer(
-            img_size=cfg.dataset.img_size,
-            in_channels=cfg.dataset.num_channels,
-            channels=cfg.model.channels,
-            gamma=cfg.model.gamma,
-            lr=cfg.training.lr,
-            factors_to_regress=cfg.model.factors_to_regress,
-        )
-    elif cfg.model.name == "stn_gf":
-        model = SpatialTransformerGF(
-            img_size=cfg.dataset.img_size,
-            in_channels=cfg.dataset.num_channels,
-            channels=cfg.model.channels,
-            gamma=cfg.model.gamma,
-            lr=cfg.training.lr,
-        )
-    else:
-        raise ValueError(f"Unknown model {cfg.model.name}.")
-    return model
+    return [dataset.draw(dataset.sample_latents()) for _ in range(num_imgs)]
 
 
 def build_callbacks(cfg: DictConfig, canonical_images: list, random_images: list):
     """Prepare the appropriate callbacks."""
     callbacks = []
-    callback_names = cfg.model.callbacks
+    callback_names = cfg.training.callbacks
     if "logging" in callback_names:
         callbacks.append(LoggingCallback())
+    if "metrics" in callback_names:
+        callbacks.append(MetricsCallback())
     if "visualization" in callback_names:
         callbacks.append(VisualizationCallback(canonical_images, random_images))
+    if "checkpointing" in callback_names:
+        callbacks.append(
+            ModelCheckpoint(
+                dirpath=cfg.trainer.default_root_dir,
+                every_n_epochs=cfg.training.test_every_n_tasks * cfg.trainer.max_epochs,
+            )
+        )
+    if "early_stopping" in callback_names:
+        callbacks.append(
+            EarlyStoppingCallback(
+                monitor="train/accuracy",
+                min_delta=0.00,
+                patience=5,
+                verbose=False,
+                mode="max",
+            )
+        )
     return callbacks
-
-
-def build_trainer(cfg: DictConfig, callbacks=None):
-    """Configure the model trainer."""
-    config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
-    wandb_logger = WandbLogger(
-        project="codis",
-        save_dir=cfg.wandb.dir,
-        config=config,
-        group=cfg.wandb.group,
-        mode=cfg.wandb.mode,
-    )
-    return Trainer(
-        default_root_dir=cfg.wandb.dir,
-        enable_checkpointing=False,
-        enable_progress_bar=False,
-        log_every_n_steps=cfg.wandb.log_every_n_steps,
-        logger=wandb_logger,
-        max_epochs=cfg.training.max_epochs,
-        callbacks=callbacks,
-    )
-
-
-def build_continual_datasets(cfg: DictConfig, shapes: list, shape_ids: list):
-    """Build data loaders for a class-incremental continual learning scenario."""
-    n = cfg.dataset.factor_resolution
-    scale_range = np.linspace(0.5, 1.0, n)
-    orientation_range = np.linspace(0, 2 * np.pi * (n / (n + 1)), n)
-    position_x_range = np.linspace(0, 1, n)
-    position_y_range = np.linspace(0, 1, n)
-
-    dataset = ContinualDSpritesMap(
-        img_size=cfg.dataset.img_size,
-        shapes=shapes,
-        shape_ids=shape_ids,
-        scale_range=scale_range,
-        orientation_range=orientation_range,
-        position_x_range=position_x_range,
-        position_y_range=position_y_range,
-    )
-    train_dataset, val_dataset, test_dataset = random_split(
-        dataset,
-        [
-            cfg.dataset.train_split,
-            cfg.dataset.val_split,
-            cfg.dataset.test_split,
-        ],
-    )
-    return train_dataset, val_dataset, test_dataset
-
-
-def update_test_dataset(
-    cfg: DictConfig,
-    test_dataset: Dataset,
-    task_test_dataset: Dataset,
-):
-    """Update the test dataset keeping it class-balanced."""
-    samples_per_shape = cfg.dataset.test_dataset_size // (
-        cfg.dataset.tasks * cfg.dataset.shapes_per_task
-    )
-    class_indices = defaultdict(list)
-    for i, (_, factors) in enumerate(task_test_dataset):
-        class_indices[factors.shape_id].append(i)
-    subset_indices = []
-    for indices in class_indices.values():
-        subset_indices.extend(np.random.choice(indices, samples_per_shape))
-    subset = Subset(task_test_dataset, subset_indices)
-    if test_dataset is None:
-        test_dataset = subset
-    else:
-        test_dataset = ConcatDataset([test_dataset, subset])
-
-    return test_dataset
-
-
-def build_joint_data_loaders(cfg: DictConfig, shapes):
-    """Build data loaders for a joint training scenario."""
-    scale_range = np.linspace(0.5, 1.5, cfg.dataset.factor_resolution)
-    orientation_range = np.linspace(0, 2 * np.pi, cfg.dataset.factor_resolution)
-    position_x_range = np.linspace(0, 1, cfg.dataset.factor_resolution)
-    position_y_range = np.linspace(0, 1, cfg.dataset.factor_resolution)
-
-    dataset = RandomDSpritesMap(
-        img_size=cfg.dataset.img_size,
-        shapes=shapes,
-        dataset_size=cfg.dataset.train_dataset_size,
-        scale_range=scale_range,
-        orientation_range=orientation_range,
-        position_x_range=position_x_range,
-        position_y_range=position_y_range,
-    )
-    train_dataset, val_dataset = random_split(dataset, [0.95, 0.05])
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=cfg.dataset.batch_size,
-        num_workers=cfg.dataset.num_workers,
-        shuffle=True,
-    )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=cfg.dataset.batch_size,
-        num_workers=cfg.dataset.num_workers,
-    )
-
-    test_shapes = [
-        InfiniteDSprites().generate_shape() for _ in range(cfg.dataset.num_test_shapes)
-    ]
-    test_dataset = RandomDSpritesMap(
-        img_size=cfg.dataset.img_size,
-        shapes=test_shapes,
-        dataset_size=cfg.dataset.test_dataset_size,
-        scale_range=scale_range,
-        orientation_range=orientation_range,
-        position_x_range=position_x_range,
-        position_y_range=position_y_range,
-    )
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=cfg.dataset.batch_size,
-        num_workers=cfg.dataset.num_workers,
-    )
-
-    return train_loader, val_loader, test_loader
 
 
 if __name__ == "__main__":

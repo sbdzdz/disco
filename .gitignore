@@ -25,3 +25,9 @@ wandb
 
 # logs
 outputs
+
+# profiling
+*.html
+
+# results
+img/media
