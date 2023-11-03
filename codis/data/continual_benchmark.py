@@ -27,7 +27,7 @@ class ContinualBenchmark:
         self.val_split = cfg.dataset.val_split
 
     def __iter__(self):
-        test = None
+        test = BalancedDataset(self.test_dataset_size, self.img_size, self.shapes)
         for task_shapes, task_shape_ids, task_exemplars in zip(
             self.grouper(self.shapes, self.shapes_per_task),
             self.grouper(self.shape_ids, self.shapes_per_task),
@@ -36,8 +36,8 @@ class ContinualBenchmark:
             train, val, test_task = self.build_datasets(
                 task_shapes, task_shape_ids, self.test_dataset_size
             )
-            test = self.update_dataset(test, test_task, self.test_dataset_size)
-            yield (train, val, test), task_exemplars
+            test.update(test_task)
+            yield (train, val, test.dataset), task_exemplars
 
     @staticmethod
     def grouper(iterable, n):
@@ -78,43 +78,10 @@ class ContinualBenchmark:
         )
         return train_dataset, val_dataset, test_dataset
 
-    def update_dataset(
-        self, dataset: Dataset | None, task_dataset: Subset, total_size: int
-    ):
-        """Update the dataset keeping it class-balanced.
-        Args:
-            dataset: The cumulative dataset.
-            task_dataset: The test dataset for the current task.
-            total_size: The total size of the cumulative dataset.
-        """
-        samples_per_shape = total_size // (self.tasks * self.shapes_per_task)
-
-        # collect indices per shape and choose samples_per_shape samples randomly
-        task_data = [task_dataset.dataset.data[idx] for idx in task_dataset.indices]
-        shape_indices = defaultdict(list)
-        for i, factors in enumerate(task_data):
-            shape_indices[factors.shape_id].append(i)
-        subset_indices = []
-        for indices in shape_indices.values():
-            subset_indices.extend(np.random.choice(indices, samples_per_shape))
-
-        task_data = [task_data[i] for i in subset_indices]
-
-        if dataset is None:
-            dataset = ContinualDSpritesMap(
-                img_size=self.img_size,
-                dataset_size=1,
-                shapes=self.shapes,
-                shape_ids=self.shape_ids,
-            )  # dummy dataset
-            dataset.data = task_data
-        else:
-            dataset.data.extend(task_data)
-
-        return dataset
-
 
 class ContinualBenchmarkRehearsal(ContinualBenchmark):
+    """Class-incremental continual learning dataset with rehearsal."""
+
     def __init__(self, cfg: DictConfig, shapes: list, exemplars: list):
         super().__init__(cfg, shapes, exemplars)
 
