@@ -3,8 +3,11 @@ from typing import List, Optional
 
 import lightning.pytorch as pl
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
+from pl_bolts.optimizers.lars import LARS
+from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from torchvision.models import get_model, list_models
 
 from codis.data import Latents
@@ -77,6 +80,135 @@ class ContinualModule(pl.LightningModule):
             color=None,
             **{name: stacked_factors[:, i] for i, name in enumerate(self.factor_names)},
         )
+
+
+class ContrastiveClassifier(ContinualModule):
+    """A contrastive classifier based on SimCLR."""
+
+    def __init__(
+        self,
+        backbone: str = "resnet18",
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        if backbone in list_models(module=torchvision.models):
+            self.backbone = get_model(backbone, weights=None)
+        else:
+            raise ValueError(f"Unknown backbone: {backbone}")
+
+        # add a projection
+        mlp_dimension = self.backbone.fc.in_features
+        self.backbone.fc = nn.Sequential(
+            nn.Linear(mlp_dimension, mlp_dimension), nn.ReLU(), self.backbone.fc
+        )
+        self.save_hyperparameters()
+
+    def info_nce_loss(self, features, labels):
+        """Compute the InfoNCE loss.
+        Args:
+            features: A batch of features.
+            labels: A batch of shape labels.
+        """
+        labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
+        labels = labels.to(self.device)
+        features = F.normalize(features, dim=1)
+        similarity_matrix = torch.matmul(features, features.T)
+
+        # discard the main diagonal from both: labels and similarities matrix
+        mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.args.device)
+        labels = labels[~mask].view(labels.shape[0], -1)
+        similarity_matrix = similarity_matrix[~mask].view(
+            similarity_matrix.shape[0], -1
+        )
+
+        # select and combine multiple positives
+        positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)
+
+        # select only the negatives
+        negatives = similarity_matrix[~labels.bool()].view(
+            similarity_matrix.shape[0], -1
+        )
+
+        logits = torch.cat(
+            [positives, negatives], dim=1
+        )  # first column are the positives
+        labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.args.device)
+        logits = logits / self.args.temperature
+
+        return F.cross_entropy(
+            logits, labels
+        )  # maximise the probability of the positive (class 0)
+
+    def configure_optimizers(self):
+        # TRICK 1 (Use lars + filter weights)
+        # exclude certain parameters
+        parameters = self.exclude_from_weight_decay(
+            self.named_parameters(), weight_decay=self.hparams.opt_weight_decay
+        )
+
+        optimizer = LARS(torch.optim.Adam(parameters, lr=self.hparams.lr))
+
+        # Trick 2 (after each step)
+        self.hparams.warmup_epochs = (
+            self.hparams.warmup_epochs * self.train_iters_per_epoch
+        )
+        max_epochs = self.trainer.max_epochs * self.train_iters_per_epoch
+
+        linear_warmup_cosine_decay = LinearWarmupCosineAnnealingLR(
+            optimizer,
+            warmup_epochs=self.hparams.warmup_epochs,
+            max_epochs=max_epochs,
+            warmup_start_lr=0,
+            eta_min=0,
+        )
+
+        scheduler = {
+            "scheduler": linear_warmup_cosine_decay,
+            "interval": "step",
+            "frequency": 1,
+        }
+
+        return [optimizer], [scheduler]
+
+    def exclude_from_weight_decay(self, named_params, weight_decay, skip_list=None):
+        if skip_list is None:
+            skip_list = ["bias", "bn"]
+
+        params = []
+        excluded_params = []
+        for name, param in named_params:
+            if not param.requires_grad:
+                continue
+            elif any(layer_name in name for layer_name in skip_list):
+                excluded_params.append(param)
+            else:
+                params.append(param)
+
+        return [
+            {"params": params, "weight_decay": weight_decay},
+            {"params": excluded_params, "weight_decay": 0.0},
+        ]
+
+    def forward(self, x):
+        return self.backbone(x)
+
+    def _step(self, batch):
+        x, y = batch
+        y = y.shape_id
+
+        x = self.backbone(x)
+        return self.info_nce_loss(x, y)
+
+    @torch.no_grad()
+    def classify(self, x):
+        """Classify via nearest neighbor in the backbone representation space."""
+        x_hat, _ = self.forward(x)
+        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
+            self.device
+        )
+        buffer = self.forward(buffer)
+        distances = F.pairwise_distance(x_hat.unsqueeze(1), buffer.unsqueeze(0))
+        return distances.argmin(dim=1)
 
 
 class SupervisedClassifier(ContinualModule):
