@@ -103,6 +103,9 @@ class ContrastiveClassifier(ContinualModule):
         )
         self.save_hyperparameters()
 
+    def forward(self, x):
+        return self.backbone(x)
+
     def info_nce_loss(self, features, labels):
         """Compute the InfoNCE loss.
         Args:
@@ -188,9 +191,6 @@ class ContrastiveClassifier(ContinualModule):
             {"params": params, "weight_decay": weight_decay},
             {"params": excluded_params, "weight_decay": 0.0},
         ]
-
-    def forward(self, x):
-        return self.backbone(x)
 
     def _step(self, batch):
         x, y = batch
