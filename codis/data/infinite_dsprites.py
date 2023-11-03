@@ -93,6 +93,7 @@ class InfiniteDSprites(IterableDataset):
             "position_x": position_x_range,
             "position_y": position_y_range,
         }
+        self.scale_factor = 0.45
         self.num_latents = len(self.ranges) + 1
         self.dataset_size = dataset_size
         self.counter = 0
@@ -112,7 +113,6 @@ class InfiniteDSprites(IterableDataset):
             int(255 * c) for c in colors.to_rgb(background_color)
         )
         self.grayscale = grayscale
-        self.scale_factor = 0.45
 
     @property
     def current_shape_id(self):
