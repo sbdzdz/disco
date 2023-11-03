@@ -12,8 +12,6 @@ from avalanche.benchmarks.scenarios.generic_benchmark_creation import (
 from avalanche.benchmarks.utils import make_classification_dataset
 from avalanche.evaluation.metrics import (
     accuracy_metrics,
-    confusion_matrix_metrics,
-    forgetting_metrics,
     loss_metrics,
 )
 import wandb
