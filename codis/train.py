@@ -93,28 +93,12 @@ def train_ours_continually(cfg, benchmark, trainer):
     model = instantiate(cfg.model)
     for task_id, (datasets, task_exemplars) in enumerate(benchmark):
         model.task_id = task_id
-        train_dataset, val_dataset, test_dataset = datasets
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=cfg.dataset.batch_size,
-            num_workers=cfg.dataset.num_workers,
-            shuffle=True,
-        )
-        val_loader = DataLoader(
-            val_dataset,
-            batch_size=cfg.dataset.batch_size,
-            num_workers=cfg.dataset.num_workers,
-        )
-        test_loader = DataLoader(
-            test_dataset,
-            batch_size=cfg.dataset.batch_size,
-            num_workers=cfg.dataset.num_workers,
-            shuffle=True,  # shuffle for vis
-        )
+        train_loader, val_loader, test_loader = create_loaders(cfg, datasets)
 
         for exemplar in task_exemplars:
             model.add_exemplar(exemplar)
 
+        trainer.should_stop = False
         trainer.fit(model, train_loader, val_loader)
         if (
             not cfg.training.test_once
@@ -123,6 +107,29 @@ def train_ours_continually(cfg, benchmark, trainer):
             trainer.test(model, test_loader)
         trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
     trainer.test(model, test_loader)
+
+
+def create_loaders(cfg, datasets):
+    """Create the data loaders."""
+    train_dataset, val_dataset, test_dataset = datasets
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=cfg.dataset.batch_size,
+        num_workers=cfg.dataset.num_workers,
+        shuffle=True,
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=cfg.dataset.batch_size,
+        num_workers=cfg.dataset.num_workers,
+    )
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=cfg.dataset.batch_size,
+        num_workers=cfg.dataset.num_workers,
+        shuffle=True,  # shuffle for vis
+    )
+    return train_loader, val_loader, test_loader
 
 
 def train_baseline_continually(cfg, benchmark):
