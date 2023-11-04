@@ -1,10 +1,10 @@
 """Class-incremental continual learning dataset."""
-from collections import Counter, defaultdict
+from collections import Counter
 from itertools import zip_longest
 
 import numpy as np
 from omegaconf import DictConfig
-from torch.utils.data import Dataset, Subset, random_split
+from torch.utils.data import Dataset, random_split
 
 from codis.data import ContinualDSpritesMap
 
