@@ -98,7 +98,7 @@ def train_ours_continually(cfg, benchmark, trainer):
         for exemplar in task_exemplars:
             model.add_exemplar(exemplar)
 
-        trainer = instantiate(cfg.trainer, callbacks=trainer.callbacksj)
+        trainer = instantiate(cfg.trainer, callbacks=trainer.callbacks)
         trainer.fit(model, train_loader, val_loader)
         if (
             not cfg.training.test_once
