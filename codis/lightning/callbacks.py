@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from lightning.pytorch.callbacks import Callback, EarlyStopping
 from lightning.pytorch.utilities.types import STEP_OUTPUT
+from torch.utils.data import Subset
 
 from codis.visualization import draw_batch, draw_batch_and_reconstructions
 
@@ -110,9 +111,11 @@ class LoggingCallback(Callback):
     def on_train_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
-        shape_ids = [
-            factors.shape_id for factors in trainer.train_dataloader.dataset.data
-        ]
+        dataset = trainer.train_dataloader.dataset
+        if isinstance(dataset, Subset):
+            shape_ids = [dataset.dataset.data[idx].shape_id for idx in dataset.indices]
+        else:
+            shape_ids = [factors.shape_id for factors in dataset.data]
         print(
             f"Task {pl_module.task_id} training: "
             f"{len(trainer.train_dataloader)} batches, "
