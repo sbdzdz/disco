@@ -32,7 +32,7 @@ def visualize_metric(args):
         }
 
     for name, runs in run_dict.items():
-        print(f"Found {len(runs)} {'runs' if len(runs) > 1 else 'run'} for {name}.")
+        print(f"Found {len(runs)} {'run' if len(runs) == 1 else 'runs'} for {name}.")
 
     metrics = {}
     for name, runs in run_dict.items():
