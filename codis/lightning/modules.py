@@ -126,6 +126,8 @@ class ContrastiveClassifier(ContinualModule):
             features: A batch of features.
             labels: A batch of shape labels.
         """
+        features, labels = self.balance_batch(features, labels)
+
         labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
         labels = labels.to(self.device)
         features = F.normalize(features, dim=1)
@@ -155,6 +157,22 @@ class ContrastiveClassifier(ContinualModule):
         return F.cross_entropy(
             logits, labels
         )  # maximise the probability of the positive (class 0)
+
+    def balance_batch(self, features, labels):
+        """Balance the batch by undersampling the majority classes."""
+
+        min_examples_per_class = torch.min(torch.bincount(labels)).item()
+
+        indices_per_class = [
+            (labels == label).nonzero(as_tuple=False).squeeze()
+            for label in labels.unique()
+        ]
+
+        balanced_subset_indices = torch.cat(
+            [indices[:min_examples_per_class] for indices in indices_per_class]
+        )
+
+        return features[balanced_subset_indices], labels[balanced_subset_indices]
 
     def configure_optimizers(self):
         # TRICK 1 (Use lars + filter weights)
