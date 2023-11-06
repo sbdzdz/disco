@@ -76,18 +76,6 @@ def train(cfg: DictConfig) -> None:
         raise ValueError(f"Unknown target: {target}.")
 
 
-def train_continually(cfg: DictConfig, trainer, shapes, exemplars):
-    """Train continually with n shapes per tasks."""
-    benchmark = ContinualBenchmark(cfg, shapes=shapes, exemplars=exemplars)
-    target = get_object(cfg.model._target_)
-    if inspect.isclass(target):
-        train_ours_continually(cfg, benchmark, trainer)
-    elif callable(target):
-        train_baseline_continually(cfg, benchmark)
-    else:
-        raise ValueError(f"Unknown target: {target}.")
-
-
 def train_ours_continually(cfg, benchmark, trainer):
     """Train our model in a continual learning setting."""
     model = instantiate(cfg.model)
