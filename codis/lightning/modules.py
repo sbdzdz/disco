@@ -87,6 +87,7 @@ class ContrastiveClassifier(ContinualModule):
 
     def __init__(
         self,
+        train_iters_per_epoch,
         backbone: str = "resnet18",
         warmup_epochs=10,
         lr=1e-4,
@@ -103,6 +104,7 @@ class ContrastiveClassifier(ContinualModule):
             loss_temperature: The temperature for the InfoNCE loss.
         """
         super().__init__(**kwargs)
+        self.train_iters_per_epoch = train_iters_per_epoch
         if backbone in list_models(module=torchvision.models):
             self.backbone = get_model(backbone, weights=None)
         else:
