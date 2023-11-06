@@ -62,7 +62,7 @@ def get_task_transitions(run):
     task_id_steps, task_id_values = zip(
         *[
             (row["_step"], row["task_id"])
-            for row in run.scan_history(keys=["_step", "task_id"])
+            for row in run.history(keys=["_step", "task_id"], pandas=False)
         ]
     )
     return [
