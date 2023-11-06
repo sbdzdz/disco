@@ -45,7 +45,10 @@ def visualize_metric(args):
         metrics[name] = (steps, values)
 
     # truncate steps and values to match the smallest step number
-    max_steps = min(max(steps) for steps, _ in metrics.values())
+    if args.max_steps is None:
+        max_steps = min(max(steps) for steps, _ in metrics.values())
+    else:
+        max_steps = args.max_steps
     metrics = {
         name: (
             [step for step in steps if step <= max_steps],
@@ -195,6 +198,7 @@ def _main():
     parser.add_argument(
         "--metric_name", type=str, help="Metric name", default="accuracy"
     )
+    parser.add_argument("--max_steps", type=int, help="Max number of steps to plot.")
     parser.add_argument(
         "--out_path", type=Path, default=repo_root / "img/joint_training.png"
     )
