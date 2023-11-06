@@ -157,11 +157,12 @@ class ContrastiveClassifier(ContinualModule):
     def configure_optimizers(self):
         # TRICK 1 (Use lars + filter weights)
         # exclude certain parameters
-        parameters = self.exclude_from_weight_decay(
+        params = self.exclude_from_weight_decay(
             self.named_parameters(), weight_decay=self.hparams.opt_weight_decay
         )
 
-        optimizer = LARS(torch.optim.Adam(parameters, lr=self.hparams.lr))
+        # optimizer = torch.optim.Adam(parameters, lr=self.hparams.lr)
+        optimizer = LARS(params, lr=self.hparams.lr)
 
         # Trick 2 (after each step)
         self.hparams.warmup_epochs = (
