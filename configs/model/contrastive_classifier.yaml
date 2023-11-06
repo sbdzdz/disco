@@ -1,5 +1,4 @@
-_target_: codis.lightning.modules.SupervisedClassifier
+_target_: codis.lightning.modules.ContrastiveClassifier
 backbone: resnet18
 lr: ${training.lr}
 shapes_per_task: ${dataset.shapes_per_task}
-num_classes: ${eval:'${dataset.tasks} * ${dataset.shapes_per_task}'}
