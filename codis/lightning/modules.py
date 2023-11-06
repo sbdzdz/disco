@@ -127,6 +127,7 @@ class ContrastiveClassifier(ContinualModule):
             labels: A batch of shape labels.
         """
         features, labels = self.balance_batch(features, labels)
+        print(torch.bincount(labels))
 
         labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
         labels = labels.to(self.device)
