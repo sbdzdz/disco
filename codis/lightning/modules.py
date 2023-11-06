@@ -236,7 +236,7 @@ class ContrastiveClassifier(ContinualModule):
     @torch.no_grad()
     def classify(self, x):
         """Classify via nearest neighbor in the backbone representation space."""
-        x_hat, _ = self.forward(x)
+        x_hat = self.forward(x)
         buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
             self.device
         )
