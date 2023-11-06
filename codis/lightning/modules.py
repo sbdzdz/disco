@@ -149,7 +149,7 @@ class ContrastiveClassifier(ContinualModule):
         logits = torch.cat(
             [positives, negatives], dim=1
         )  # first column are the positives
-        labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.args.device)
+        labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.device)
         logits = logits / self.hparams.loss_temperature
 
         return F.cross_entropy(
