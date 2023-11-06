@@ -231,7 +231,7 @@ class ContrastiveClassifier(ContinualModule):
         y = y.shape_id
 
         x = self.backbone(x)
-        return self.info_nce_loss(x, y)
+        return {"loss": self.info_nce_loss(x, y)}
 
     @torch.no_grad()
     def classify(self, x):
