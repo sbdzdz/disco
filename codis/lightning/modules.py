@@ -88,8 +88,20 @@ class ContrastiveClassifier(ContinualModule):
     def __init__(
         self,
         backbone: str = "resnet18",
+        warmup_epochs=10,
+        lr=1e-4,
+        opt_weight_decay=1e-6,
+        loss_temperature=0.5,
         **kwargs,
     ):
+        """
+        Args:
+            backbone: The backbone model.
+            warmup_epochs: The number of warmup epochs.
+            lr: The learning rate.
+            opt_weight_decay: The weight decay for the optimizer.
+            loss_temperature: The temperature for the InfoNCE loss.
+        """
         super().__init__(**kwargs)
         if backbone in list_models(module=torchvision.models):
             self.backbone = get_model(backbone, weights=None)
@@ -136,7 +148,7 @@ class ContrastiveClassifier(ContinualModule):
             [positives, negatives], dim=1
         )  # first column are the positives
         labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.args.device)
-        logits = logits / self.args.temperature
+        logits = logits / self.hparams.loss_temperature
 
         return F.cross_entropy(
             logits, labels
