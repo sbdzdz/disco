@@ -14,7 +14,7 @@ def _main(args):
             ncols=1,
             fg_color="whitesmoke",
             img_size=512,
-            bg_color="darkgray",
+            background_color="darkgray",
             canonical=False,
             seed=i,
         )
@@ -24,7 +24,7 @@ def _main(args):
             ncols=1,
             fg_color="whitesmoke",
             img_size=512,
-            bg_color="darkgray",
+            background_color="darkgray",
             canonical=True,
             seed=i,
         )
