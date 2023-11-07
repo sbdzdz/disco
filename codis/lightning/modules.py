@@ -179,7 +179,7 @@ class ContrastiveClassifier(ContinualModule):
         # TRICK 1 (Use lars + filter weights)
         # exclude certain parameters
         params = self.exclude_from_weight_decay(
-            self.named_parameters(), weight_decay=self.hparams.opt_weight_decay
+            self.backbone.named_parameters(), weight_decay=self.hparams.opt_weight_decay
         )
 
         # optimizer = torch.optim.Adam(parameters, lr=self.hparams.lr)
