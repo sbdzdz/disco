@@ -1,6 +1,6 @@
 name: idsprites
 batch_size: 256
-factor_resolution: 8
+factor_resolution: 9
 img_size: 224
 num_channels: 3
 num_workers: 8
