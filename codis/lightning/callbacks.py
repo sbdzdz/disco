@@ -104,9 +104,9 @@ class VisualizationCallback(Callback):
 class LoggingCallback(Callback):
     """Callback for additional logging."""
 
-    def __init__(self, **kwargs):
-        super().__init__(self, **kwargs)
-        self._start_time = None
+    def __init__(self):
+        super().__init__()
+        self.start_time = None
 
     def on_train_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
