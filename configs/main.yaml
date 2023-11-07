@@ -18,6 +18,7 @@ training:
   test_once: false
   test_every_n_tasks: 1
   epochs_per_task: 1
+  validate: true
 
 trainer:
   _target_: lightning.pytorch.Trainer

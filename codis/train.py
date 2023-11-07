@@ -86,7 +86,10 @@ def train_ours_continually(cfg, benchmark, trainer):
         for exemplar in task_exemplars:
             model.add_exemplar(exemplar)
 
-        trainer.fit(model, train_loader, val_loader)
+        if cfg.training.validate:
+            trainer.fit(model, train_loader, val_loader)
+        else:
+            trainer.fit(model, train_loader)
         if (
             not cfg.training.test_once
             and task_id % cfg.training.test_every_n_tasks == 0
