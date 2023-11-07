@@ -10,7 +10,6 @@ import numpy as np
 import PIL
 from matplotlib import pyplot as plt
 from tqdm import tqdm
-from matplotlib import colors
 
 from codis.data import (
     InfiniteDSprites,
@@ -22,13 +21,13 @@ repo_root = Path(__file__).parent.parent.parent
 
 COLORS = [
     "white",
-    "whitesmoke",
-    "purple",
-    "maroon",
-    "darkblue",
-    "teal",
-    "peachpuff",
-    "darkgreen",
+    # "whitesmoke",
+    # "purple",
+    # "maroon",
+    # "darkblue",
+    # "teal",
+    # "peachpuff",
+    # "darkgreen",
 ]
 
 
@@ -172,8 +171,9 @@ def draw_shapes(
     ncols: int = 12,
     fig_height: float = 10,
     img_size: int = 128,
-    fg_color: str = "whitesmoke",
-    bg_color: str = "black",
+    frame_color: str = "darkgray",
+    background_color: str = "lightgray",
+    orientation_marker_color: str = "black",
     seed: int = 0,
     fill_shape: bool = True,
     debug: bool = False,
@@ -186,6 +186,7 @@ def draw_shapes(
         ncols: The number of columns in the grid
         fig_height: The height of the figure in inches
         img_size: The size of the image in pixels
+        frame_color: The color of the frame
         fg_color: The color of the shape
         bg_color: The color of the background plot area
         seed: The random seed to use
@@ -202,10 +203,15 @@ def draw_shapes(
         figsize=(ncols / nrows * fig_height, fig_height),
         layout="tight",
         subplot_kw={"aspect": 1.0},
-        facecolor=bg_color,
+        facecolor=frame_color,
     )
     fig.tight_layout()
-    dataset = InfiniteDSprites(img_size=img_size)
+    dataset = InfiniteDSprites(
+        img_size=img_size,
+        color_range=COLORS,
+        background_color=background_color,
+        orientation_marker_color=orientation_marker_color,
+    )
     if not isinstance(axes, np.ndarray):
         axes = np.array([axes])
     for ax in axes.flat:
@@ -214,7 +220,7 @@ def draw_shapes(
         if fill_shape:
             if canonical:
                 latents = Latents(
-                    color=colors.to_rgb(fg_color),
+                    color=dataset.sample_latents().color,
                     shape=shape,
                     shape_id=None,
                     scale=1.0,
@@ -227,7 +233,7 @@ def draw_shapes(
             img = dataset.draw(latents, channels_first=False, debug=debug)
             ax.imshow(img, cmap="Greys_r", aspect="equal")
         else:
-            ax.plot(shape[0], shape[1], color=fg_color)
+            ax.plot(shape[0], shape[1], color=dataset.sample_latents().color)
 
     path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(path)
@@ -255,7 +261,8 @@ def draw_shapes_animated(
         ncols: The number of columns in the grid.
         fig_height: The height of the figure in inches.
         img_size: The size of the image in pixels.
-        bg_color: The color of the background plot area.
+        frame_color: The color of the background plot area.
+        background_color: The color of the canvas area.
         duration: The duration of the animation in seconds.
         fps: The number of frames per second.
         factor: The factor to vary. If None, all factors are varied.
