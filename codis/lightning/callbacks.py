@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from lightning.pytorch.callbacks import Callback, EarlyStopping
 from lightning.pytorch.utilities.types import STEP_OUTPUT
+import time
 from torch.utils.data import Subset
 
 from codis.visualization import draw_batch, draw_batch_and_reconstructions
@@ -103,10 +104,9 @@ class VisualizationCallback(Callback):
 class LoggingCallback(Callback):
     """Callback for additional logging."""
 
-    def on_train_epoch_start(
-        self, trainer: pl.Trainer, pl_module: pl.LightningModule
-    ) -> None:
-        pl_module.log("task_id", float(pl_module.task_id))
+    def __init__(self, **kwargs):
+        super().__init__(self, **kwargs)
+        self._start_time = None
 
     def on_train_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
@@ -122,6 +122,12 @@ class LoggingCallback(Callback):
             f"{len(trainer.train_dataloader.dataset)} samples."
         )
         print(f"Shape distribution: {np.unique(shape_ids, return_counts=True)}")
+        self.start_time = time.time()
+
+    def on_train_epoch_start(
+        self, trainer: pl.Trainer, pl_module: pl.LightningModule
+    ) -> None:
+        pl_module.log("task_id", float(pl_module.task_id))
 
     def on_validation_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
@@ -140,6 +146,9 @@ class LoggingCallback(Callback):
             f"{len(trainer.test_dataloaders)} batches, "
             f"{len(trainer.test_dataloaders.dataset)} samples."
         )
+
+    def on_train_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+        print(f"Training time per task: {(time.time() - self.start_time)/60:.2f}m")
 
 
 class MetricsCallback(Callback):
