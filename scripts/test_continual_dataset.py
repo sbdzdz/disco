@@ -21,13 +21,13 @@ def sample_and_draw(args):
     )
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
     x, _ = next(iter(dataloader))
-    draw_batch(x, show=True, num_images=args.batch_size)
+    draw_batch(x, show=True, save=True, num_images=args.batch_size)
 
 
 def _main():
     parser = ArgumentParser()
-    parser.add_argument("--batch_size", type=int, default=32)
-    parser.add_argument("--num_shapes", type=int, default=2)
+    parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--num_shapes", type=int, default=4)
     parser.add_argument("--resolution", type=int, default=2)
     args = parser.parse_args()
     sample_and_draw(args)
