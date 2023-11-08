@@ -160,7 +160,6 @@ class ContrastiveClassifier(ContinualModule):
             logits, labels
         )  # maximise the probability of the positive (class 0)
 
-    @torch.no_grad()
     def balance_batch(self, features, labels):
         """Balance the batch by undersampling the majority classes."""
 
