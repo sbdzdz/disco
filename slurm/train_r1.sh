@@ -23,6 +23,7 @@ python -m pip install -r $HOME/codis/requirements.txt
 python -m pip install -e $HOME/codis
 
 export PYTHONPATH=$PYTHONPATH:$HOME/codis
+export WANDB__SERVICE_WAIT=300
 export HYDRA_FULL_ERROR=1
 pip install torch==2.0.1+cu117 torchvision==0.15.2+cu117 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu117
 
