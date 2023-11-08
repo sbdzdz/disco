@@ -204,8 +204,7 @@ class ContrastiveClassifier(ContinualModule):
             "interval": "step",
             "frequency": 1,
         }
-
-        return [optimizer], [scheduler]
+        return optimizer
 
     def exclude_from_weight_decay(self, named_params, weight_decay, skip_list=None):
         if skip_list is None:
