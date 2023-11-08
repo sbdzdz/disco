@@ -160,10 +160,11 @@ class ContrastiveClassifier(ContinualModule):
             logits, labels
         )  # maximise the probability of the positive (class 0)
 
+    @torch.no_grad()
     def balance_batch(self, features, labels):
         """Balance the batch by undersampling the majority classes."""
 
-        min_examples_per_class = torch.min(torch.bincount(labels)).item()
+        min_examples_per_class = min(torch.unique(labels, return_counts=True)[1])
 
         indices_per_class = [
             (labels == label).nonzero(as_tuple=False).squeeze()
