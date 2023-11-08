@@ -176,7 +176,6 @@ class ContrastiveClassifier(ContinualModule):
         return features[balanced_subset_indices], labels[balanced_subset_indices]
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.backbone.parameters(), lr=self.lr)
         # TRICK 1 (Use lars + filter weights)
         # exclude certain parameters
         params = self.exclude_from_weight_decay(
