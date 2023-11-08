@@ -130,12 +130,12 @@ class ContrastiveClassifier(ContinualModule):
         print(torch.bincount(labels))
 
         labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
-        labels = labels.to(self.device)
         features = F.normalize(features, dim=1)
         similarity_matrix = torch.matmul(features, features.T)
 
         # discard the main diagonal from both: labels and similarities matrix
-        mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.device)
+        mask = torch.eye(labels.shape[0], dtype=torch.bool)
+        mask = mask.type_as(labels, device=self.device)
         labels = labels[~mask].view(labels.shape[0], -1)
         similarity_matrix = similarity_matrix[~mask].view(
             similarity_matrix.shape[0], -1
@@ -152,7 +152,7 @@ class ContrastiveClassifier(ContinualModule):
         logits = torch.cat(
             [positives, negatives], dim=1
         )  # first column are the positives
-        labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.device)
+        labels = torch.zeros(logits.shape[0], dtype=torch.long).type_as(logits, device=self.device)
         logits = logits / self.hparams.loss_temperature
 
         return F.cross_entropy(
@@ -333,9 +333,8 @@ class SpatialTransformer(ContinualModule):
         """Perform a training or validation step."""
         x, y = batch
         x_hat, theta_hat = self.forward(x)
-        exemplars = torch.stack(
-            [torch.from_numpy(self._buffer[i]) for i in y.shape_id]
-        ).to(self.device)
+        exemplars = torch.stack([torch.from_numpy(self._buffer[i]) for i in y.shape_id])
+        exemplars = exemplars.type_as(x, device=self.device)
         theta = self.convert_parameters_to_matrix(y)
         regression_loss = F.mse_loss(theta, theta_hat)
         reconstruction_loss = F.mse_loss(exemplars, x_hat)
@@ -351,9 +350,8 @@ class SpatialTransformer(ContinualModule):
         """Classify the input."""
         x_hat, *_ = self(x)
         x_hat = x_hat.unsqueeze(1).detach()
-        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
-            self.device
-        )
+        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer])
+        buffer = buffer.type_as(x, device=self.device)
         buffer = buffer.unsqueeze(0).detach()
 
         losses = []  # classify in chunks to avoid OOM
