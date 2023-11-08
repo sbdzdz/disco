@@ -129,7 +129,6 @@ class ContrastiveClassifier(ContinualModule):
         print(f"Labels before rebalancing: {labels}")
         features, labels = self.balance_batch(features, labels)
         print(f"Labels after rebalancing: {labels}")
-        print(torch.bincount(labels))
 
         labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
         features = F.normalize(features, dim=1)
@@ -177,6 +176,7 @@ class ContrastiveClassifier(ContinualModule):
         return features[balanced_subset_indices], labels[balanced_subset_indices]
 
     def configure_optimizers(self):
+        return torch.optim.Adam(self.backbone.parameters(), lr=self.lr)
         # TRICK 1 (Use lars + filter weights)
         # exclude certain parameters
         params = self.exclude_from_weight_decay(
