@@ -128,9 +128,7 @@ class ContrastiveClassifier(ContinualModule):
             features: A batch of features.
             labels: A batch of shape labels.
         """
-        print(f"Labels before rebalancing: {labels}")
         features, labels = self.balance_batch(features, labels)
-        print(f"Labels after rebalancing: {labels}")
 
         labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
         features = F.normalize(features, dim=1)
