@@ -90,6 +90,7 @@ class ContrastiveClassifier(ContinualModule):
         self,
         train_iters_per_epoch,
         backbone: str = "resnet18",
+        out_dim: int = 128,
         warmup_epochs=10,
         lr=1e-4,
         opt_weight_decay=1e-6,
@@ -107,7 +108,7 @@ class ContrastiveClassifier(ContinualModule):
         super().__init__(**kwargs)
         self.train_iters_per_epoch = train_iters_per_epoch
         if backbone in list_models(module=torchvision.models):
-            self.backbone = get_model(backbone, weights=None)
+            self.backbone = get_model(backbone, weights=None, num_classes=out_dim)
         else:
             raise ValueError(f"Unknown backbone: {backbone}")
 
@@ -121,98 +122,98 @@ class ContrastiveClassifier(ContinualModule):
     def forward(self, x):
         return self.backbone(x)
 
-    # def info_nce_loss(self, features, labels):
-    #    """Compute the InfoNCE loss.
-    #    Args:
-    #        features: A batch of features.
-    #        labels: A batch of shape labels.
-    #    """
-    #    print(f"Labels before rebalancing: {labels}")
-    #    features, labels = self.balance_batch(features, labels)
-    #    print(f"Labels after rebalancing: {labels}")
-
-    #    labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
-    #    features = F.normalize(features, dim=1)
-    #    similarity_matrix = torch.matmul(features, features.T)
-
-    #    # discard the main diagonal from both: labels and similarities matrix
-    #    mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.device)
-    #    labels = labels[~mask].view(labels.shape[0], -1)
-    #    similarity_matrix = similarity_matrix[~mask].view(
-    #        similarity_matrix.shape[0], -1
-    #    )
-
-    #    # select and combine multiple positives
-    #    positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)
-
-    #    # select only the negatives
-    #    negatives = similarity_matrix[~labels.bool()].view(
-    #        similarity_matrix.shape[0], -1
-    #    )
-
-    #    logits = torch.cat(
-    #        [positives, negatives], dim=1
-    #    )  # first column are the positives
-    #    labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.device)
-    #    logits = logits / self.hparams.loss_temperature
-
-    #    return F.cross_entropy(
-    #        logits, labels
-    #    )  # maximise the probability of the positive (class 0)
-
     def info_nce_loss(self, features, labels):
         """Compute the InfoNCE loss.
         Args:
             features: A batch of features.
             labels: A batch of shape labels.
         """
+        print(f"Labels before rebalancing: {labels}")
+        features, labels = self.balance_batch(features, labels)
+        print(f"Labels after rebalancing: {labels}")
+
         labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
-        labels = labels.to(self.device)
         features = F.normalize(features, dim=1)
         similarity_matrix = torch.matmul(features, features.T)
 
         # discard the main diagonal from both: labels and similarities matrix
-        # mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.args.device)
         mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.device)
-        labels = labels[~mask].view(labels.shape[0], -1).bool()
+        labels = labels[~mask].view(labels.shape[0], -1)
         similarity_matrix = similarity_matrix[~mask].view(
             similarity_matrix.shape[0], -1
         )
 
-        # pick a random positive and 128 random negatives
-        positives, negatives = [], []
-        for i in range(labels.shape[0]):
-            pos_indices = torch.where(labels[i])[0]  # positives
-            neg_indices = torch.where(~labels[i])[0]  # negatives
-            positives.append(
-                torch.stack(
-                    [
-                        similarity_matrix[i, np.random.choice(pos_indices.cpu())]
-                        for _ in range(1)
-                    ]
-                )
-            )
-            negatives.append(
-                torch.stack(
-                    [
-                        similarity_matrix[i, np.random.choice(neg_indices.cpu())]
-                        for _ in range(128)
-                    ]
-                )
-            )
-        positives, negatives = torch.stack(positives), torch.stack(
-            negatives
-        )  # N,1 & N,63
+        # select and combine multiple positives
+        positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)
+
+        # select only the negatives
+        negatives = similarity_matrix[~labels.bool()].view(
+            similarity_matrix.shape[0], -1
+        )
 
         logits = torch.cat(
             [positives, negatives], dim=1
         )  # first column are the positives
         labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.device)
-        logits = logits / 1.0  # tau=1.0
+        logits = logits / self.hparams.loss_temperature
 
         return F.cross_entropy(
             logits, labels
         )  # maximise the probability of the positive (class 0)
+
+    # def info_nce_loss(self, features, labels):
+    #    """Compute the InfoNCE loss.
+    #    Args:
+    #        features: A batch of features.
+    #        labels: A batch of shape labels.
+    #    """
+    #    labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
+    #    labels = labels.to(self.device)
+    #    features = F.normalize(features, dim=1)
+    #    similarity_matrix = torch.matmul(features, features.T)
+
+    #    # discard the main diagonal from both: labels and similarities matrix
+    #    # mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.args.device)
+    #    mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.device)
+    #    labels = labels[~mask].view(labels.shape[0], -1).bool()
+    #    similarity_matrix = similarity_matrix[~mask].view(
+    #        similarity_matrix.shape[0], -1
+    #    )
+
+    #    # pick a random positive and 128 random negatives
+    #    positives, negatives = [], []
+    #    for i in range(labels.shape[0]):
+    #        pos_indices = torch.where(labels[i])[0]  # positives
+    #        neg_indices = torch.where(~labels[i])[0]  # negatives
+    #        positives.append(
+    #            torch.stack(
+    #                [
+    #                    similarity_matrix[i, np.random.choice(pos_indices.cpu())]
+    #                    for _ in range(1)
+    #                ]
+    #            )
+    #        )
+    #        negatives.append(
+    #            torch.stack(
+    #                [
+    #                    similarity_matrix[i, np.random.choice(neg_indices.cpu())]
+    #                    for _ in range(128)
+    #                ]
+    #            )
+    #        )
+    #    positives, negatives = torch.stack(positives), torch.stack(
+    #        negatives
+    #    )  # N,1 & N,63
+
+    #    logits = torch.cat(
+    #        [positives, negatives], dim=1
+    #    )  # first column are the positives
+    #    labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.device)
+    #    logits = logits / 1.0  # tau=1.0
+
+    #    return F.cross_entropy(
+    #        logits, labels
+    #    )  # maximise the probability of the positive (class 0)
 
     def balance_batch(self, features, labels):
         """Balance the batch by undersampling the majority classes."""
