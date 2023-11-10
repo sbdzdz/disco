@@ -95,7 +95,7 @@ class ContrastiveClassifier(ContinualModule):
         schedule_lr: bool = True,
         warmup_epochs=10,
         lr=1e-4,
-        opt_weight_decay=1e-6,
+        weight_decay=1e-6,
         loss_temperature=0.5,
         **kwargs,
     ):
@@ -104,7 +104,7 @@ class ContrastiveClassifier(ContinualModule):
             backbone: The backbone model.
             warmup_epochs: The number of warmup epochs.
             lr: The learning rate.
-            opt_weight_decay: The weight decay for the optimizer.
+            weight_decay: The weight decay for the optimizer.
             loss_temperature: The temperature for the InfoNCE loss.
         """
         super().__init__(**kwargs)
@@ -180,7 +180,7 @@ class ContrastiveClassifier(ContinualModule):
     def configure_optimizers(self):
         # exclude certain parameters from weight decay
         params = self.exclude_from_weight_decay(
-            self.backbone.named_parameters(), weight_decay=self.hparams.opt_weight_decay
+            self.backbone.named_parameters(), weight_decay=self.hparams.weight_decay
         )
 
         if self.hparams.optimizer == "adam":
