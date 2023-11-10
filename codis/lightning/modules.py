@@ -90,6 +90,7 @@ class ContrastiveClassifier(ContinualModule):
         self,
         train_iters_per_epoch,
         backbone: str = "resnet18",
+        optimizer: str = "adam",
         out_dim: int = 128,
         warmup_epochs=10,
         lr=1e-4,
@@ -181,18 +182,17 @@ class ContrastiveClassifier(ContinualModule):
             self.backbone.named_parameters(), weight_decay=self.hparams.opt_weight_decay
         )
 
-        optimizer = torch.optim.Adam(params, lr=self.hparams.lr)
-        # optimizer = LARS(params, lr=self.hparams.lr)
+        if self.hparams.optimizer == "adam":
+            optimizer = torch.optim.Adam(params, lr=self.hparams.lr)
+        elif self.hparams.optimizer == "lars":
+            optimizer = LARS(params, lr=self.hparams.lr)
 
         # warmup for the first 10 epochs
-        self.hparams.warmup_epochs = (
-            self.hparams.warmup_epochs * self.train_iters_per_epoch
-        )
-        max_epochs = self.trainer.max_epochs * self.train_iters_per_epoch
-
+        warmup_epochs = self.hparams.warmup_epochs  # * self.train_iters_per_epoch
+        max_epochs = self.trainer.max_epochs  # * self.train_iters_per_epoch
         linear_warmup_cosine_decay = LinearWarmupCosineAnnealingLR(
             optimizer,
-            warmup_epochs=self.hparams.warmup_epochs,
+            warmup_epochs=warmup_epochs,
             max_epochs=max_epochs,
             warmup_start_lr=0,
             eta_min=0,
