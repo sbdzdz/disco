@@ -203,7 +203,7 @@ class MetricsCallback(Callback):
         dataloader_idx: int = 0,
     ):
         """Log the test loss."""
-        if self.log_test_accuracy
+        if self.log_test_accuracy:
             self._log_accuracy(batch, pl_module, "test")
         pl_module.log_dict(
             {f"test/{k}": v.item() for k, v in outputs.items()},
