@@ -90,8 +90,9 @@ class ContrastiveClassifier(ContinualModule):
         self,
         train_iters_per_epoch,
         backbone: str = "resnet18",
-        optimizer: str = "adam",
         out_dim: int = 128,
+        optimizer: str = "adam",
+        schedule_lr: bool = True,
         warmup_epochs=10,
         lr=1e-4,
         opt_weight_decay=1e-6,
@@ -187,7 +188,15 @@ class ContrastiveClassifier(ContinualModule):
         elif self.hparams.optimizer == "lars":
             optimizer = LARS(params, lr=self.hparams.lr)
 
-        # warmup for the first 10 epochs
+        if self.hparams.schedule_lr:
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": self.configure_scheduler(optimizer),
+            }
+        else:
+            return optimizer
+
+    def configure_scheduler(self, optimizer):
         warmup_steps = self.hparams.warmup_epochs * self.train_iters_per_epoch
         max_steps = self.trainer.max_epochs * self.train_iters_per_epoch
         linear_warmup_cosine_decay = LinearWarmupCosineAnnealingLR(
@@ -197,14 +206,10 @@ class ContrastiveClassifier(ContinualModule):
             warmup_start_lr=0,
             eta_min=0,
         )
-
         return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": linear_warmup_cosine_decay,
-                "interval": "step",
-                "frequency": 1,
-            },
+            "scheduler": linear_warmup_cosine_decay,
+            "interval": "step",
+            "frequency": 1,
         }
 
     def exclude_from_weight_decay(self, named_params, weight_decay, skip_list=None):

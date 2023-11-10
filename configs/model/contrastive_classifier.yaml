@@ -3,6 +3,7 @@ train_iters_per_epoch: ${eval:'${dataset.shapes_per_task} * ${dataset.factor_res
 backbone: resnet18
 optimizer: adam
 out_dim: 128
+schedule_lr: true
 warmup_epochs: 10
 lr: ${training.lr}
 opt_weight_decay: 1e-6
