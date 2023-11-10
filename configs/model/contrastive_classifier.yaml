@@ -1,6 +1,7 @@
 _target_: codis.lightning.modules.ContrastiveClassifier
 train_iters_per_epoch: ${eval:'${dataset.shapes_per_task} * ${dataset.factor_resolution}**4 / ${dataset.batch_size}'}
 backbone: resnet18
+optimizer: adam
 out_dim: 128
 warmup_epochs: 10
 lr: ${training.lr}
