@@ -11,6 +11,7 @@ import wandb
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator
 from tqdm import tqdm
+from itertools import zip_longest
 
 
 def visualize_metric(args):
@@ -37,19 +38,30 @@ def visualize_metric(args):
     metrics = {}
     for name, runs in run_dict.items():
         values = [load_run(run, args) for run in runs]
-        min_len = min(map(len, values))
+        max_len = max(map(len, values))
         if name.startswith("test"):
-            steps = [i * get_testing_frequency(runs) for i in range(min_len)]
+            steps = [i * get_testing_frequency(runs) for i in range(max_len)]
         else:
-            steps = list(range(min_len))
+            steps = list(range(max_len))
         metrics[name] = (steps, values)
 
-    # truncate steps and values to match the smallest step number
-    if args.max_steps is None:
-        max_steps = min(max(steps) for steps, _ in metrics.values())
-    else:
-        max_steps = args.max_steps
-    metrics = {
+    if args.max_steps is not None:
+        metrics = truncate(metrics, args.max_steps)
+
+    plot(args, metrics)
+
+
+def truncate(metrics: dict, max_steps: int):
+    """Truncate the metrics to a maximum number of steps.
+    Args:
+        metrics: A dictionary mapping a metric name to a tuple of (steps, values).
+        max_steps: The maximum number of steps to keep.
+    Returns:
+        A new dictionary mapping a metric name to a tuple of (steps, values) with the
+        steps truncated to the maximum number of steps and the values truncated
+        accordingly.
+    """
+    return {
         name: (
             [step for step in steps if step <= max_steps],
             [[v for s, v in zip(steps, value) if s <= max_steps] for value in values],
@@ -57,26 +69,13 @@ def visualize_metric(args):
         for name, (steps, values) in metrics.items()
     }
 
-    plot(args, metrics)
-
-
-def get_task_transitions(run):
-    """Get task transitions from a wandb run."""
-    task_id_steps, task_id_values = zip(
-        *[
-            (row["_step"], row["task_id"])
-            for row in run.history(keys=["_step", "task_id"], pandas=False)
-        ]
-    )
-    return [
-        task_id_steps[i]
-        for i in range(len(task_id_steps) - 1)
-        if task_id_values[i] != task_id_values[i + 1]
-    ]
-
 
 def get_testing_frequency(runs):
-    """Get the frequency at which the model is tested."""
+    """Get the frequency at which the model is tested.
+    Args:
+        runs: A list of wandb run objects.
+    Returns:
+        The frequency at which the model is tested."""
     try:
         test_every_n_tasks = [
             run.config["training"]["test_every_n_tasks"] for run in runs
@@ -145,9 +144,9 @@ def take_last(scan):
 
 def plot(args, metrics):
     plt.style.use("ggplot")
-    _, ax = plt.subplots(figsize=(20, 9), layout="tight")
+    _, ax = plt.subplots(figsize=(20, 18), layout="tight")
     for name, (steps, values) in metrics.items():
-        values_mean = np.mean(values, axis=0)
+        values_mean = length_agnostic_mean(values)
         ax.plot(steps, values_mean, label=name)
         if args.show_std:
             values_std = np.std(values, axis=0)
@@ -172,10 +171,19 @@ def plot(args, metrics):
 
     if args.plot_title is None:
         args.plot_title = f"{metric_name.capitalize()} (test)"
-    ax.set_title(args.plot_title, y=1.05, fontsize=args.fontsize)
+    # ax.set_title(args.plot_title, y=1.05, fontsize=args.fontsize)
     ax.legend(loc="best", fontsize=args.fontsize)
 
     plt.savefig(args.out_path, bbox_inches="tight")
+
+
+def length_agnostic_mean(arrays):
+    """Compute the mean of arrays of different lengths."""
+    result = []
+    for values in zip_longest(*arrays):
+        values = [v for v in values if v is not None]
+        result.append(np.mean(values))
+    return result
 
 
 def _main():
