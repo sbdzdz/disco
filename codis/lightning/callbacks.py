@@ -155,11 +155,15 @@ class MetricsCallback(Callback):
     """Callback for logging metrics."""
 
     def __init__(
-        self, log_train_accuracy: bool = False, log_val_accuracy: bool = False
+        self,
+        log_train_accuracy: bool = False,
+        log_val_accuracy: bool = False,
+        log_test_accuracy: bool = False,
     ):
         super().__init__()
         self.log_train_accuracy = log_train_accuracy
         self.log_val_accuracy = log_val_accuracy
+        self.log_test_accuracy = log_test_accuracy
 
     def on_train_batch_end(
         self,
@@ -199,7 +203,8 @@ class MetricsCallback(Callback):
         dataloader_idx: int = 0,
     ):
         """Log the test loss."""
-        self._log_accuracy(batch, pl_module, "test")
+        if self.log_test_accuracy
+            self._log_accuracy(batch, pl_module, "test")
         pl_module.log_dict(
             {f"test/{k}": v.item() for k, v in outputs.items()},
         )
