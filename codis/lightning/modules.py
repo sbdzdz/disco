@@ -176,8 +176,7 @@ class ContrastiveClassifier(ContinualModule):
         return features[balanced_subset_indices], labels[balanced_subset_indices]
 
     def configure_optimizers(self):
-        # TRICK 1 (Use lars + filter weights)
-        # exclude certain parameters
+        # exclude certain parameters from weight decay
         params = self.exclude_from_weight_decay(
             self.backbone.named_parameters(), weight_decay=self.hparams.opt_weight_decay
         )
@@ -185,7 +184,7 @@ class ContrastiveClassifier(ContinualModule):
         # optimizer = torch.optim.Adam(parameters, lr=self.hparams.lr)
         optimizer = LARS(params, lr=self.hparams.lr)
 
-        # Trick 2 (after each step)
+        # warmup for the first 10 epochs
         self.hparams.warmup_epochs = (
             self.hparams.warmup_epochs * self.train_iters_per_epoch
         )
@@ -199,12 +198,14 @@ class ContrastiveClassifier(ContinualModule):
             eta_min=0,
         )
 
-        scheduler = {
-            "scheduler": linear_warmup_cosine_decay,
-            "interval": "step",
-            "frequency": 1,
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": linear_warmup_cosine_decay,
+                "interval": "step",
+                "frequency": 1,
+            },
         }
-        return [optimizer], [scheduler]
 
     def exclude_from_weight_decay(self, named_params, weight_decay, skip_list=None):
         if skip_list is None:
