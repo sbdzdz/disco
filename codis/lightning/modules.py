@@ -181,8 +181,8 @@ class ContrastiveClassifier(ContinualModule):
             self.backbone.named_parameters(), weight_decay=self.hparams.opt_weight_decay
         )
 
-        # optimizer = torch.optim.Adam(parameters, lr=self.hparams.lr)
-        optimizer = LARS(params, lr=self.hparams.lr)
+        optimizer = torch.optim.Adam(params, lr=self.hparams.lr)
+        # optimizer = LARS(params, lr=self.hparams.lr)
 
         # warmup for the first 10 epochs
         self.hparams.warmup_epochs = (
