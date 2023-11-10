@@ -6,6 +6,6 @@ out_dim: 128
 schedule_lr: true
 warmup_epochs: 10
 lr: ${training.lr}
-opt_weight_decay: 1e-6
+weight_decay: 1e-6
 loss_temperature: 0.5
 shapes_per_task: ${dataset.shapes_per_task}
