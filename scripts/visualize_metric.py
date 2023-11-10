@@ -19,7 +19,7 @@ def visualize_metric(args):
     names = args.wandb_groups if args.names is None else args.names
     assert len(names) == len(
         args.wandb_groups
-    ), "Please provide a name for each run group."
+    ), "Please provide exactly one name for each run group."
     run_dict = {
         name: api.runs(args.wandb_entity, filters={"group": group})
         for name, group in zip(names, args.wandb_groups)
