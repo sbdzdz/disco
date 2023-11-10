@@ -19,6 +19,9 @@ training:
   test_every_n_tasks: 1
   epochs_per_task: 5
   validate: true
+  log_train_accuracy: false
+  log_val_accuracy: false
+  log_test_accuracy: true
 
 trainer:
   _target_: lightning.pytorch.Trainer

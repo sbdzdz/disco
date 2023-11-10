@@ -246,7 +246,13 @@ def build_callbacks(cfg: DictConfig, canonical_images: list, random_images: list
     if "logging" in callback_names:
         callbacks.append(LoggingCallback())
     if "metrics" in callback_names:
-        callbacks.append(MetricsCallback())
+        callbacks.append(
+            MetricsCallback(
+                log_train_accuracy=cfg.training.log_train_accuracy,
+                log_val_accuracy=cfg.training.log_val_accuracy,
+                log_test_accuracy=cfg.training.log_test_accuracy,
+            )
+        )
     if "visualization" in callback_names:
         callbacks.append(VisualizationCallback(canonical_images, random_images))
     if "checkpointing" in callback_names:
