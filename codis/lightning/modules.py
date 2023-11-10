@@ -188,12 +188,12 @@ class ContrastiveClassifier(ContinualModule):
             optimizer = LARS(params, lr=self.hparams.lr)
 
         # warmup for the first 10 epochs
-        warmup_epochs = self.hparams.warmup_epochs  # * self.train_iters_per_epoch
-        max_epochs = self.trainer.max_epochs  # * self.train_iters_per_epoch
+        warmup_steps = self.hparams.warmup_epochs * self.train_iters_per_epoch
+        max_steps = self.trainer.max_epochs * self.train_iters_per_epoch
         linear_warmup_cosine_decay = LinearWarmupCosineAnnealingLR(
             optimizer,
-            warmup_epochs=warmup_epochs,
-            max_epochs=max_epochs,
+            warmup_epochs=warmup_steps,
+            max_epochs=max_steps,
             warmup_start_lr=0,
             eta_min=0,
         )
