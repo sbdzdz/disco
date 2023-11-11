@@ -178,10 +178,12 @@ class ContrastiveClassifier(ContinualModule):
         return features[balanced_subset_indices], labels[balanced_subset_indices]
 
     def configure_optimizers(self):
-        # exclude certain parameters from weight decay
-        params = self.exclude_from_weight_decay(
-            self.backbone.named_parameters(), weight_decay=self.hparams.weight_decay
-        )
+        if self.hparams.weight_decay is not None:
+            params = self.exclude_from_weight_decay(
+                self.backbone.named_parameters(), weight_decay=self.hparams.weight_decay
+            )
+        else:
+            params = self.backbone.parameters()
 
         if self.hparams.optimizer == "adam":
             optimizer = torch.optim.Adam(params, lr=self.hparams.lr)
