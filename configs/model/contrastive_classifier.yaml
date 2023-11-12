@@ -5,6 +5,8 @@ optimizer: adam
 out_dim: 128
 schedule_lr: true
 warmup_epochs: 10
+scheduler_frequency: 1
+max_epochs: ${training.epochs_per_task}
 lr: ${training.lr}
 weight_decay: 1e-6
 loss_temperature: 0.5

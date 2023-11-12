@@ -94,6 +94,8 @@ class ContrastiveClassifier(ContinualModule):
         optimizer: str = "adam",
         schedule_lr: bool = True,
         warmup_epochs=10,
+        scheduler_frequency: int = 1,
+        max_epochs: int = 100,
         lr=1e-4,
         weight_decay=1e-6,
         loss_temperature=0.5,
@@ -108,7 +110,6 @@ class ContrastiveClassifier(ContinualModule):
             loss_temperature: The temperature for the InfoNCE loss.
         """
         super().__init__(**kwargs)
-        self.train_iters_per_epoch = train_iters_per_epoch
         if backbone in list_models(module=torchvision.models):
             self.backbone = get_model(backbone, weights=None, num_classes=out_dim)
         else:
@@ -199,8 +200,8 @@ class ContrastiveClassifier(ContinualModule):
             return optimizer
 
     def configure_scheduler(self, optimizer):
-        warmup_steps = self.hparams.warmup_epochs * self.train_iters_per_epoch
-        max_steps = self.trainer.max_epochs * self.train_iters_per_epoch
+        warmup_steps = self.hparams.warmup_epochs * self.hparams.train_iters_per_epoch
+        max_steps = self.hparams.max_epochs * self.hparams.train_iters_per_epoch
         linear_warmup_cosine_decay = LinearWarmupCosineAnnealingLR(
             optimizer,
             warmup_epochs=warmup_steps,
@@ -211,7 +212,7 @@ class ContrastiveClassifier(ContinualModule):
         return {
             "scheduler": linear_warmup_cosine_decay,
             "interval": "step",
-            "frequency": 1,
+            "frequency": self.hparams.scheduler_frequency,
         }
 
     def exclude_from_weight_decay(self, named_params, weight_decay, skip_list=None):
