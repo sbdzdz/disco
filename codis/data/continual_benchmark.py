@@ -10,32 +10,38 @@ from codis.data import ContinualDSpritesMap
 
 
 class ContinualBenchmark:
-    def __init__(self, cfg: DictConfig, shapes: list, exemplars: list):
+    def __init__(
+        self, cfg: DictConfig, shapes: list, exemplars: list, accumulate_test=True
+    ):
         self.shapes = shapes
         self.shape_ids = range(len(shapes))
         self.exemplars = exemplars
+        self.accumulate_test = accumulate_test
 
         self.factor_resolution = cfg.dataset.factor_resolution
         self.img_size = cfg.dataset.img_size
         self.shapes_per_task = cfg.dataset.shapes_per_task
         self.tasks = cfg.dataset.tasks
-        self.train_dataset_size = cfg.dataset.train_dataset_size
-        self.val_dataset_size = cfg.dataset.val_dataset_size
-        self.test_dataset_size = cfg.dataset.test_dataset_size
-        self.test_split = cfg.dataset.test_split
         self.train_split = cfg.dataset.train_split
         self.val_split = cfg.dataset.val_split
+        self.test_split = cfg.dataset.test_split
 
     def __iter__(self):
-        test = BalancedDataset(self.test_dataset_size, self.img_size, self.shapes)
+        if self.accumulate_test:
+            cumulative_test = BalancedDataset(
+                self.test_dataset_size, self.img_size, self.shapes
+            )
         for task_shapes, task_shape_ids, task_exemplars in zip(
             self.grouper(self.shapes, self.shapes_per_task),
             self.grouper(self.shape_ids, self.shapes_per_task),
             self.grouper(self.exemplars, self.shapes_per_task),
         ):
-            train, val, test_task = self.build_datasets(task_shapes, task_shape_ids)
-            test.update(test_task)
-            yield (train, val, test.dataset), task_exemplars
+            train, val, test = self.build_datasets(task_shapes, task_shape_ids)
+            if self.accumulate_test:
+                cumulative_test.update(test)
+                yield (train, val, cumulative_test.dataset), task_exemplars
+            else:
+                yield (train, val, test), task_exemplars
 
     @staticmethod
     def grouper(iterable, n):
@@ -82,6 +88,9 @@ class ContinualBenchmarkRehearsal(ContinualBenchmark):
 
     def __init__(self, cfg: DictConfig, shapes: list, exemplars: list):
         super().__init__(cfg, shapes, exemplars)
+        self.train_dataset_size = cfg.dataset.train_dataset_size
+        self.val_dataset_size = cfg.dataset.val_dataset_size
+        self.test_dataset_size = cfg.dataset.test_dataset_size
 
     def __iter__(self):
         train = BalancedDataset(self.train_dataset_size, self.img_size, self.shapes)
