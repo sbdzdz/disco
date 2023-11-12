@@ -11,7 +11,11 @@ from codis.data import ContinualDSpritesMap
 
 class ContinualBenchmark:
     def __init__(
-        self, cfg: DictConfig, shapes: list, exemplars: list, accumulate_test=True
+        self,
+        cfg: DictConfig,
+        shapes: list,
+        exemplars: list,
+        accumulate_test: bool = True,
     ):
         self.shapes = shapes
         self.shape_ids = range(len(shapes))
