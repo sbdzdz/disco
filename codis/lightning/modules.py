@@ -124,24 +124,29 @@ class ContrastiveClassifier(ContinualModule):
     def forward(self, x):
         return self.backbone(x)
 
-    def info_nce_loss(self, features, labels):
+    def info_nce_loss(self, features1, features2, labels1, labels2):
         """Compute the InfoNCE loss.
         Args:
-            features: A batch of features.
+            features1: A batch of features.
+            features2: A batch of features.
+            labels1: A batch of shape labels.
+            labels2: A batch of shape labels.
             labels: A batch of shape labels.
         """
-        features, labels = self.balance_batch(features, labels)
+        features1, labels1 = self.balance_batch(features1, labels1)
+        features2, labels2 = self.balance_batch(features2, labels2)
 
-        labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
-        features = F.normalize(features, dim=1)
-        similarity_matrix = torch.matmul(features, features.T)
+        labels = (labels1.unsqueeze(0) == labels2.unsqueeze(1)).float()
+        features1 = F.normalize(features1, dim=1)
+        features2 = F.normalize(features2, dim=1)
+        similarity_matrix = torch.matmul(features1, features2.T)
 
         # discard the main diagonal from both: labels and similarities matrix
-        mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.device)
-        labels = labels[~mask].view(labels.shape[0], -1)
-        similarity_matrix = similarity_matrix[~mask].view(
-            similarity_matrix.shape[0], -1
-        )
+        # mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.device)
+        # labels = labels[~mask].view(labels.shape[0], -1)
+        # similarity_matrix = similarity_matrix[~mask].view(
+        #    similarity_matrix.shape[0], -1
+        # )
 
         # select and combine multiple positives
         positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)
@@ -160,6 +165,43 @@ class ContrastiveClassifier(ContinualModule):
         return F.cross_entropy(
             logits, labels
         )  # maximise the probability of the positive (class 0)
+
+    # def info_nce_loss(self, features, labels):
+    #    """Compute the InfoNCE loss.
+    #    Args:
+    #        features: A batch of features.
+    #        labels: A batch of shape labels.
+    #    """
+    #    features, labels = self.balance_batch(features, labels)
+
+    #    labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
+    #    features = F.normalize(features, dim=1)
+    #    similarity_matrix = torch.matmul(features, features.T)
+
+    #    # discard the main diagonal from both: labels and similarities matrix
+    #    mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.device)
+    #    labels = labels[~mask].view(labels.shape[0], -1)
+    #    similarity_matrix = similarity_matrix[~mask].view(
+    #        similarity_matrix.shape[0], -1
+    #    )
+
+    #    # select and combine multiple positives
+    #    positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)
+
+    #    # select only the negatives
+    #    negatives = similarity_matrix[~labels.bool()].view(
+    #        similarity_matrix.shape[0], -1
+    #    )
+
+    #    logits = torch.cat(
+    #        [positives, negatives], dim=1
+    #    )  # first column are the positives
+    #    labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.device)
+    #    logits = logits / self.hparams.loss_temperature
+
+    #    return F.cross_entropy(
+    #        logits, labels
+    #    )  # maximise the probability of the positive (class 0)
 
     def balance_batch(self, features, labels):
         """Balance the batch by undersampling the majority classes."""
@@ -237,7 +279,13 @@ class ContrastiveClassifier(ContinualModule):
         x, y = batch
         x = self.backbone(x)
         y = y.shape_id
-        return {"loss": self.info_nce_loss(x, y)}
+        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
+            self.device
+        )
+        loss1 = self.info_nce_loss(x, x, y, y)
+        loss2 = self.info_nce_loss(x, buffer, y, torch.arange(len(self._buffer)))
+        return {"loss": loss1 + loss2}
+        # return {"loss": self.info_nce_loss(x, y)}
 
     @torch.no_grad()
     def classify(self, x):
