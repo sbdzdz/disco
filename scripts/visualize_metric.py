@@ -22,7 +22,9 @@ def visualize_metric(args):
         args.wandb_groups
     ), "Please provide exactly one name for each run group."
     run_dict = {
-        name: api.runs(args.wandb_entity, filters={"group": group})
+        name: api.runs(
+            args.wandb_entity, filters={"group": group if group != "null" else None}
+        )
         for name, group in zip(names, args.wandb_groups)
     }
 
@@ -144,7 +146,7 @@ def take_last(scan):
 
 def plot(args, metrics):
     plt.style.use("ggplot")
-    _, ax = plt.subplots(figsize=(20, 18), layout="tight")
+    _, ax = plt.subplots(figsize=(20, 15), layout="tight")
     for name, (steps, values) in metrics.items():
         values_mean = length_agnostic_mean(values)
         ax.plot(steps, values_mean, label=name)
@@ -227,8 +229,8 @@ def _main():
     parser.add_argument(
         "--xticks_every", type=int, default=10, help="Granularity of the x axis."
     )
-    parser.add_argument("--ymin", type=float, help="Y-axis min limit.")
-    parser.add_argument("--ymax", type=float, help="Y-axis max limit.")
+    parser.add_argument("--ymin", type=float, default=-0.05, help="Y-axis min limit.")
+    parser.add_argument("--ymax", type=float, default=1.05, help="Y-axis max limit.")
     parser.add_argument("--fontsize", type=int, default=20)
     args = parser.parse_args()
     visualize_metric(args)
