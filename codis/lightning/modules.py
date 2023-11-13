@@ -279,11 +279,15 @@ class ContrastiveClassifier(ContinualModule):
         x, y = batch
         x = self.backbone(x)
         y = y.shape_id
-        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
-            self.device
-        )
         loss1 = self.info_nce_loss(x, x, y, y)
-        loss2 = self.info_nce_loss(x, buffer, y, torch.arange(len(self._buffer)))
+
+        buffer = torch.stack(self.get_current_task_exemplars()).to(self.device)
+        buffer_labels = torch.arange(
+            self._shapes_per_task * self.task_id,
+            self._shapes_per_task * (self.task_id + 1),
+        ).to(self.device)
+        loss2 = self.info_nce_loss(x, buffer, y, buffer_labels)
+
         return {"loss": loss1 + loss2}
         # return {"loss": self.info_nce_loss(x, y)}
 
