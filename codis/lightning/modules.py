@@ -247,7 +247,7 @@ class ContrastiveClassifier(ContinualModule):
             self.device
         )
         buffer = self.forward(buffer)
-        return torch.argmin(torch.matmul(x_hat, buffer.T), dim=1)
+        return torch.argmax(torch.matmul(x_hat, buffer.T), dim=1)
 
 
 class SupervisedClassifier(ContinualModule):
