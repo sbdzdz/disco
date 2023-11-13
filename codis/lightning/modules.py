@@ -2,7 +2,6 @@
 from typing import List, Optional
 
 import lightning.pytorch as pl
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -248,8 +247,7 @@ class ContrastiveClassifier(ContinualModule):
             self.device
         )
         buffer = self.forward(buffer)
-        distances = F.pairwise_distance(x_hat.unsqueeze(1), buffer.unsqueeze(0))
-        return distances.argmin(dim=1)
+        return torch.argmin(torch.matmul(x_hat, buffer.T), dim=1)
 
 
 class SupervisedClassifier(ContinualModule):
