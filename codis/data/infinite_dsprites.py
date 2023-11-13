@@ -21,16 +21,16 @@ class Latents(BaseLatents):
     def __getitem__(self, key):
         return getattr(self, key)
 
-    def to(self, **kwargs):
+    def to(self, device, **kwargs):
         """Move the latents to a device."""
         return Latents(
-            color=self.color.to(**kwargs),
-            shape=self.shape.to(**kwargs),
-            shape_id=self.shape_id.to(**kwargs),
-            scale=self.scale.to(**kwargs),
-            orientation=self.orientation.to(**kwargs),
-            position_x=self.position_x.to(**kwargs),
-            position_y=self.position_y.to(**kwargs),
+            color=self.color.to(device, **kwargs),
+            shape=self.shape.to(device, **kwargs),
+            shape_id=self.shape_id.to(device, **kwargs),
+            scale=self.scale.to(device, **kwargs),
+            orientation=self.orientation.to(device, **kwargs),
+            position_x=self.position_x.to(device, **kwargs),
+            position_y=self.position_y.to(device, **kwargs),
         )
 
     def replace(self, **kwargs):
