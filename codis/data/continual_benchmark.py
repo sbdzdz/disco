@@ -30,6 +30,9 @@ class ContinualBenchmark:
         self.val_split = cfg.dataset.val_split
         self.test_split = cfg.dataset.test_split
 
+        if self.accumulate_test:
+            self.test_dataset_size = cfg.dataset.test_dataset_size
+
     def __iter__(self):
         if self.accumulate_test:
             cumulative_test = BalancedDataset(
@@ -94,7 +97,6 @@ class ContinualBenchmarkRehearsal(ContinualBenchmark):
         super().__init__(cfg, shapes, exemplars)
         self.train_dataset_size = cfg.dataset.train_dataset_size
         self.val_dataset_size = cfg.dataset.val_dataset_size
-        self.test_dataset_size = cfg.dataset.test_dataset_size
 
     def __iter__(self):
         train = BalancedDataset(self.train_dataset_size, self.img_size, self.shapes)
