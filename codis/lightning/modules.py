@@ -207,15 +207,18 @@ class ContrastiveClassifier(ContinualModule):
         """Balance the batch by undersampling the majority classes."""
 
         min_examples_per_class = min(torch.unique(labels, return_counts=True)[1])
+        print(f"min_examples_per_class: {min_examples_per_class}")
 
         indices_per_class = [
             (labels == label).nonzero(as_tuple=False).squeeze()
             for label in labels.unique()
         ]
+        print(f"indices_per_class: {indices_per_class}")
 
         balanced_subset_indices = torch.cat(
             [indices[:min_examples_per_class] for indices in indices_per_class]
         )
+        print(f"balanced_subset_indices: {balanced_subset_indices}")
 
         return features[balanced_subset_indices], labels[balanced_subset_indices]
 
