@@ -27,4 +27,4 @@ export WANDB__SERVICE_WAIT=300
 export HYDRA_FULL_ERROR=1
 pip install torch==2.0.1+cu117 torchvision==0.15.2+cu117 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cu117
 
-srun --gres=gpu:1 python $HOME/codis/codis/train.py $additional_args
+srun python $HOME/codis/codis/train.py $additional_args
