@@ -243,7 +243,8 @@ def build_callbacks(cfg: DictConfig, canonical_images: list, random_images: list
     if "checkpointing" in callback_names:
         callbacks.append(
             ModelCheckpoint(
-                dirpath=Path(cfg.trainer.default_root_dir) / wandb.run.name,
+                dirpath=Path(cfg.trainer.default_root_dir)
+                / os.environ.get("SLURM_JOB_ID"),
                 every_n_epochs=cfg.training.checkpoint_every_n_tasks
                 * cfg.training.epochs_per_task,
                 save_top_k=-1,
