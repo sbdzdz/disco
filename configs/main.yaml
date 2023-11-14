@@ -34,6 +34,7 @@ trainer:
   logger: ${wandb}
   strategy: auto
   accumulate_grad_batches: 1
+  gpus: -1
 
 wandb:
   _target_: lightning.pytorch.loggers.WandbLogger
