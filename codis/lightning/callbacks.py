@@ -106,7 +106,7 @@ class LoggingCallback(Callback):
 
     def __init__(self):
         super().__init__()
-        self.start_time = None
+        self.train_start_time = None
 
     def on_train_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
@@ -122,7 +122,10 @@ class LoggingCallback(Callback):
             f"{len(trainer.train_dataloader.dataset)} samples."
         )
         print(f"Shape distribution: {np.unique(shape_ids, return_counts=True)}")
-        self.start_time = time.time()
+        self.train_start_time = time.time()
+
+    def on_test_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+        self.test_start_time = time.time()
 
     def on_train_epoch_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
@@ -148,7 +151,13 @@ class LoggingCallback(Callback):
         )
 
     def on_train_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
-        print(f"Training time per task: {(time.time() - self.start_time)/60:.2f}m")
+        print(
+            f"Training time per task: {(time.time() - self.train_start_time)/60:.2f}m"
+        )
+
+    def on_test_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+        print(f"Testing time per task: {(time.time() - self.test_start_time)/60:.2f}m")
+        print(f"Total time per task: {(time.time() - self.train_start_time)/60:.2f}m")
 
 
 class MetricsCallback(Callback):
