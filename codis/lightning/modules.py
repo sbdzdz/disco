@@ -210,8 +210,7 @@ class ContrastiveClassifier(ContinualModule):
         print(f"min_examples_per_class: {min_examples_per_class}")
 
         indices_per_class = [
-            (labels == label).nonzero(as_tuple=False).squeeze()
-            for label in labels.unique()
+            (labels == label).nonzero(as_tuple=False)[0] for label in labels.unique()
         ]
         print(f"indices_per_class: {indices_per_class}")
 
