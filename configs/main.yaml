@@ -17,6 +17,7 @@ training:
   lr: 0.001
   test_once: false
   test_every_n_tasks: 1
+  checkpoint_every_n_tasks: 10
   epochs_per_task: 5
   validate: true
   log_train_accuracy: false

@@ -1,24 +1,22 @@
 """Training script."""
 import inspect
 import os
+from pathlib import Path
 
 import hydra
 import numpy as np
 import torch
+import wandb
 from avalanche.benchmarks.scenarios.generic_benchmark_creation import (
     LazyStreamDefinition,
     create_lazy_generic_benchmark,
 )
 from avalanche.benchmarks.utils import make_classification_dataset
-from avalanche.evaluation.metrics import (
-    accuracy_metrics,
-    loss_metrics,
-)
-import wandb
+from avalanche.evaluation.metrics import accuracy_metrics, loss_metrics
 from avalanche.logging import WandBLogger
 from avalanche.training.plugins import EvaluationPlugin
 from hydra.utils import call, get_object, instantiate
-from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor, Timer
+from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, Timer
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 
@@ -29,8 +27,8 @@ from codis.data import (
     Latents,
 )
 from codis.lightning.callbacks import (
-    MetricsCallback,
     LoggingCallback,
+    MetricsCallback,
     VisualizationCallback,
 )
 
@@ -245,8 +243,11 @@ def build_callbacks(cfg: DictConfig, canonical_images: list, random_images: list
     if "checkpointing" in callback_names:
         callbacks.append(
             ModelCheckpoint(
-                dirpath=cfg.trainer.default_root_dir,
-                every_n_epochs=cfg.training.test_every_n_tasks * cfg.trainer.max_epochs,
+                dirpath=Path(cfg.trainer.default_root_dir) / wandb.run.name,
+                every_n_epochs=cfg.training.checkpoint_every_n_tasks
+                * cfg.training.epochs_per_task,
+                save_top_k=-1,
+                save_weights_only=True,
             )
         )
     if "learning_rate_monitor" in callback_names:
