@@ -281,7 +281,12 @@ class ContrastiveClassifier(ContinualModule):
         y = y.shape_id
         loss1 = self.info_nce_loss(x, x, y, y)
 
-        buffer = torch.stack(self.get_current_task_exemplars()).to(self.device)
+        buffer = torch.stack(
+            [
+                torch.from_numpy(exemplar)
+                for exemplar in self.get_current_task_exemplars()
+            ]
+        ).to(self.device)
         buffer_labels = torch.arange(
             self._shapes_per_task * self.task_id,
             self._shapes_per_task * (self.task_id + 1),
