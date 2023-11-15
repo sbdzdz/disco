@@ -16,7 +16,18 @@ class ContinualBenchmark:
         shapes: list,
         exemplars: list,
         accumulate_test: bool = True,
+        only_labels: bool = False,
     ):
+        """Initialize the continual learning benchmark.
+        Args:
+            cfg: The configuration object.
+            shapes: The list of shapes.
+            exemplars: The list of exemplars.
+            accumulate_test: Whether to accumulate the test dataset.
+            only_labels: Whether to only return shape labels.
+        Returns:
+            The continual learning benchmark.
+        """
         self.shapes = shapes
         self.shape_ids = range(len(shapes))
         self.exemplars = exemplars
@@ -78,6 +89,7 @@ class ContinualBenchmark:
             orientation_range=orientation_range,
             position_x_range=position_x_range,
             position_y_range=position_y_range,
+            y_transform=lambda y: y.shape_id,
         )
         train_dataset, val_dataset, test_dataset = random_split(
             dataset,
