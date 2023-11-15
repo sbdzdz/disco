@@ -55,6 +55,7 @@ class InfiniteDSprites(IterableDataset):
         orientation_marker_color="black",
         background_color="darkgray",
         grayscale: bool = False,
+        **kwargs,
     ):
         """Create a dataset of images of random shapes.
         Args:
