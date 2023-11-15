@@ -454,6 +454,8 @@ class ContinualDSpritesMap(Dataset):
             self.dataset.dataset_size is not None or self.dataset.shapes is not None
         ), "Dataset size must be finite. Please set dataset_size or pass a list of shapes."
         self.data = list(self.dataset)
+        self.y_transform = kwargs.get("y_transform", lambda y: y)
+        self.x_transform = kwargs.get("x_transform", lambda x: x)
 
     @property
     def targets(self):
@@ -468,7 +470,9 @@ class ContinualDSpritesMap(Dataset):
             shape_index = self.dataset.shape_ids.index(shape_index)
         shape = self.dataset.shapes[shape_index]
         factors = self.data[index]._replace(shape=shape)
-        return self.dataset.draw(factors), factors
+        img = self.x_transform(self.dataset.draw(factors))
+        factors = self.y_transform(factors)
+        return img, factors
 
 
 class RandomDSprites(InfiniteDSprites):
