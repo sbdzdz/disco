@@ -89,7 +89,6 @@ class ContinualBenchmark:
             orientation_range=orientation_range,
             position_x_range=position_x_range,
             position_y_range=position_y_range,
-            y_transform=lambda y: y.shape_id,
         )
         train_dataset, val_dataset, test_dataset = random_split(
             dataset,
