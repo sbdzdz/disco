@@ -345,7 +345,7 @@ class SpatialTransformer(ContinualModule):
         return torch.optim.Adam(
             [
                 {"params": self.encoder.parameters(), "lr": self.lr},
-                {"params": self.regressor.parameters(), "lr": self.lr},
+                # {"params": self.regressor.parameters(), "lr": self.lr},
             ]
         )
 
