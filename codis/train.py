@@ -171,13 +171,22 @@ def train_baseline_continually(cfg, benchmark):
         loggers=loggers,
     )
 
-    strategy = instantiate(
-        cfg.strategy,
-        model=model,
-        device=device,
-        evaluator=eval_plugin,
-        optimizer={"params": model.parameters()},
-    )
+    if cfg.strategy == "icarl":
+        strategy = instantiate(
+            cfg.strategy,
+            device=device,
+            evaluator=eval_plugin,
+            optimizer={"params": model.parameters()},
+            herding=True,
+        )
+    else:
+        strategy = instantiate(
+            cfg.strategy,
+            model=model,
+            device=device,
+            evaluator=eval_plugin,
+            optimizer={"params": model.parameters()},
+        )
     for train_experience, test_experience in zip(
         benchmark.train_stream, benchmark.test_stream
     ):
