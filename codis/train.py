@@ -77,6 +77,8 @@ def train_ours_continually(cfg, benchmark, trainer):
     """Train our model in a continual learning setting."""
     model = instantiate(cfg.model)
     for task_id, (datasets, task_exemplars) in enumerate(benchmark):
+        if cfg.training.reset_model:
+            model = instantiate(cfg.model)
         model.task_id = task_id
         train_loader, val_loader, test_loader = create_loaders(cfg, datasets)
 

@@ -13,6 +13,7 @@ hydra:
 
 training:
   strategy: naive
+  reset_model: false
   callbacks: [checkpointing, learning_rate_monitor, logging, metrics, timer, visualization]
   lr: 0.001
   test_once: false
