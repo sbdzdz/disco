@@ -166,43 +166,6 @@ class ContrastiveClassifier(ContinualModule):
             logits, labels
         )  # maximise the probability of the positive (class 0)
 
-    # def info_nce_loss(self, features, labels):
-    #    """Compute the InfoNCE loss.
-    #    Args:
-    #        features: A batch of features.
-    #        labels: A batch of shape labels.
-    #    """
-    #    features, labels = self.balance_batch(features, labels)
-
-    #    labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
-    #    features = F.normalize(features, dim=1)
-    #    similarity_matrix = torch.matmul(features, features.T)
-
-    #    # discard the main diagonal from both: labels and similarities matrix
-    #    mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.device)
-    #    labels = labels[~mask].view(labels.shape[0], -1)
-    #    similarity_matrix = similarity_matrix[~mask].view(
-    #        similarity_matrix.shape[0], -1
-    #    )
-
-    #    # select and combine multiple positives
-    #    positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)
-
-    #    # select only the negatives
-    #    negatives = similarity_matrix[~labels.bool()].view(
-    #        similarity_matrix.shape[0], -1
-    #    )
-
-    #    logits = torch.cat(
-    #        [positives, negatives], dim=1
-    #    )  # first column are the positives
-    #    labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.device)
-    #    logits = logits / self.hparams.loss_temperature
-
-    #    return F.cross_entropy(
-    #        logits, labels
-    #    )  # maximise the probability of the positive (class 0)
-
     def balance_batch(self, features, labels):
         """Balance the batch by undersampling the majority classes."""
 
@@ -365,13 +328,16 @@ class SpatialTransformer(ContinualModule):
             raise ValueError(f"Unknown backbone: {backbone}")
 
         self.encoder = get_model(backbone, weights=None, num_classes=self.enc_out_size)
+        self.encoder.fc = nn.Linear(self.encoder.fc.in_features, 6)
 
         # initialize the regressor to the identity transform
-        self.regressor = MLP(dims=[self.enc_out_size, 64, 32, 6])
-        self.regressor.model[-1].weight.data.zero_()
-        self.regressor.model[-1].bias.data.copy_(
-            torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float)
-        )
+        # self.regressor = torch.nn.Linear(self.enc_out_size, 6)
+
+        # self.regressor = MLP(dims=[self.enc_out_size, 64, 32, 6])
+        # self.regressor.model[-1].weight.data.zero_()
+        # self.regressor.model[-1].bias.data.copy_(
+        #    torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float)
+        # )
         self.gamma = gamma
 
     def configure_optimizers(self):
@@ -385,8 +351,9 @@ class SpatialTransformer(ContinualModule):
 
     def forward(self, x):
         """Perform the forward pass."""
-        xs = self.encoder(x).view(-1, self.enc_out_size)
-        theta = self.regressor(xs).view(-1, 2, 3)
+        # xs = self.encoder(x).view(-1, self.enc_out_size)
+        # theta = self.regressor(xs).view(-1, 2, 3)
+        theta = self.encoder(x).view(-1, 2, 3)
 
         grid = F.affine_grid(theta, x.size(), align_corners=False)
         x_hat = F.grid_sample(x, grid, padding_mode="border", align_corners=False)
