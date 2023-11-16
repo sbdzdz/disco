@@ -199,10 +199,8 @@ class MetricsCallback(Callback):
     ):
         """Log the validation loss."""
         if self.log_val_accuracy:
-            self._log_accuracy(batch, pl_module, "val", sync_dist=True)
-        pl_module.log_dict(
-            {f"val/{k}": v.item() for k, v in outputs.items()}, sync_dist=True
-        )
+            self._log_accuracy(batch, pl_module, "val")
+        pl_module.log_dict({f"val/{k}": v.item() for k, v in outputs.items()})
 
     def on_test_batch_end(
         self,
@@ -215,10 +213,8 @@ class MetricsCallback(Callback):
     ):
         """Log the test loss."""
         if self.log_test_accuracy:
-            self._log_accuracy(batch, pl_module, "test", sync_dist=True)
-        pl_module.log_dict(
-            {f"test/{k}": v.item() for k, v in outputs.items()}, sync_dist=True
-        )
+            self._log_accuracy(batch, pl_module, "test")
+        pl_module.log_dict({f"test/{k}": v.item() for k, v in outputs.items()})
 
     def _log_accuracy(self, batch, pl_module, stage):
         x, y = batch
