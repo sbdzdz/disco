@@ -1,5 +1,7 @@
 _target_: codis.lightning.modules.SpatialTransformer
 backbone: resnet18
+pretrained: false
+out_dim: 512
 gamma: 1.0
 buffer_chunk_size: 48
 lr: ${training.lr}
