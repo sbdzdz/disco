@@ -315,45 +315,37 @@ class SpatialTransformer(ContinualModule):
     def __init__(
         self,
         backbone: str = "resnet18",
-        enc_out_size: int = 64,
+        pretrained: bool = False,
+        out_dim: int = 512,
         gamma: float = 0.5,
         buffer_chunk_size: int = 64,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.enc_out_size = enc_out_size
+        self.out_dim = out_dim
         self.buffer_chunk_size = buffer_chunk_size
 
         if backbone not in list_models(module=torchvision.models):
             raise ValueError(f"Unknown backbone: {backbone}")
 
-        self.encoder = get_model(backbone, weights=None, num_classes=self.enc_out_size)
-        self.encoder.fc = nn.Linear(self.encoder.fc.in_features, 6)
-
-        # initialize the regressor to the identity transform
-        # self.regressor = torch.nn.Linear(self.enc_out_size, 6)
-
-        # self.regressor = MLP(dims=[self.enc_out_size, 64, 32, 6])
-        # self.regressor.model[-1].weight.data.zero_()
-        # self.regressor.model[-1].bias.data.copy_(
-        #    torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float)
-        # )
+        if pretrained:
+            self.backbone = get_model(backbone, weights="imagenet", num_classes=out_dim)
+        else:
+            self.backbone = get_model(backbone, weights=None, num_classes=self.out_dim)
+        self.backbone.fc = nn.Linear(self.backbone.fc.in_features, 6)
         self.gamma = gamma
 
     def configure_optimizers(self):
         """Configure the optimizers."""
         return torch.optim.Adam(
             [
-                {"params": self.encoder.parameters(), "lr": self.lr},
-                # {"params": self.regressor.parameters(), "lr": self.lr},
+                {"params": self.backbone.parameters(), "lr": self.lr},
             ]
         )
 
     def forward(self, x):
         """Perform the forward pass."""
-        # xs = self.encoder(x).view(-1, self.enc_out_size)
-        # theta = self.regressor(xs).view(-1, 2, 3)
-        theta = self.encoder(x).view(-1, 2, 3)
+        theta = self.backbone(x).view(-1, 2, 3)
 
         grid = F.affine_grid(theta, x.size(), align_corners=False)
         x_hat = F.grid_sample(x, grid, padding_mode="border", align_corners=False)
