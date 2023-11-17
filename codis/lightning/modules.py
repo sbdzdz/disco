@@ -329,7 +329,7 @@ class SpatialTransformer(ContinualModule):
             raise ValueError(f"Unknown backbone: {backbone}")
 
         if pretrained:
-            self.backbone = get_model(backbone, weights="DEFAULT", num_classes=out_dim)
+            self.backbone = get_model(backbone, weights="DEFAULT")
         else:
             self.backbone = get_model(backbone, weights=None, num_classes=self.out_dim)
         self.backbone.fc = nn.Linear(self.backbone.fc.in_features, 6)
