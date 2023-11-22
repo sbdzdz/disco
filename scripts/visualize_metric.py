@@ -2,16 +2,17 @@
 Example:
     python scripts/visualize_loss.py --wandb_groups resnet
 """
+import json
 from argparse import ArgumentParser
+from itertools import zip_longest
 from pathlib import Path
 
-import json
 import numpy as np
 import wandb
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator
 from tqdm import tqdm
-from itertools import zip_longest
+import scienceplots
 
 
 def visualize_metric(args):
@@ -39,7 +40,7 @@ def visualize_metric(args):
 
     metrics = {}
     for name, runs in run_dict.items():
-        values = [load_run(run, args) for run in runs]
+        values = [load_run(run, args, name) for run in runs]
         max_len = max(map(len, values))
         if name.startswith("test"):
             steps = [i * get_testing_frequency(runs) for i in range(max_len)]
@@ -90,14 +91,14 @@ def get_testing_frequency(runs):
         return 1
 
 
-def load_run(run, args):
+def load_run(run, args, name):
     """Load the metric values for a single run."""
     path = Path(__file__).parent.parent / f"img/media/{run.name}/metrics.json"
     if path.exists() and not args.force_download:
         print(f"Found saved run data for {run.name}.")
         with open(path, "r") as f:
             values = json.load(f)
-    elif run.config["model"] == "baseline":  # TODO: fix this
+    elif is_baseline(name):
         values = download_baseline_results(run, args.metric_name)
     else:
         values = download_our_results(run, args.metric_name)
@@ -106,6 +107,11 @@ def load_run(run, args):
         with open(path, "w") as f:
             json.dump(values, f)
     return values
+
+
+def is_baseline(name):
+    """Check if the run is a baseline run."""
+    return "Learning" in name or "Synaptic" in name  # TODO: fix this
 
 
 def download_baseline_results(run, metric_name):
@@ -145,8 +151,8 @@ def take_last(scan):
 
 
 def plot(args, metrics):
-    plt.style.use("ggplot")
-    _, ax = plt.subplots(figsize=(20, 15), layout="tight")
+    plt.style.use(["science", "bright"])
+    _, ax = plt.subplots(layout="tight")
     for name, (steps, values) in metrics.items():
         values_mean = length_agnostic_mean(values)
         ax.plot(steps, values_mean, label=name)
@@ -159,24 +165,47 @@ def plot(args, metrics):
                 alpha=0.3,
             )
 
-    ax.set_xlabel("Tasks", fontsize=args.fontsize)
+    if args.include_contrastive:
+        name = "Contrastive baseline"
+        path = Path("sebastian/hostname_4570651.out")
+        values = get_test_acc(path, end_task=args.max_steps)
+        steps = list(range(len(values)))
+        ax.plot(steps, values, label=name)
+
+    ax.set_xlabel("Tasks")
     ax.set_xlim([args.xmin, args.xmax])
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
-    ax.xaxis.labelpad = 20
-    ax.yaxis.labelpad = 20
-
     ax.yaxis.set_major_formatter("{x:.1f}")
     metric_name = args.metric_name.split("/")[-1].replace("_", " ").capitalize()
-    ax.set_ylabel(metric_name, fontsize=args.fontsize)
+    ax.set_ylabel(metric_name)
     ax.set_ylim([args.ymin, args.ymax])
 
     if args.plot_title is None:
         args.plot_title = f"{metric_name.capitalize()} (test)"
-    # ax.set_title(args.plot_title, y=1.05, fontsize=args.fontsize)
-    ax.legend(loc="best", fontsize=args.fontsize)
+    ax.legend(loc="best")
 
     plt.savefig(args.out_path, bbox_inches="tight")
+
+
+def get_test_acc(path, end_task=-1):
+    with open(path, "r") as f:
+        lines = f.readlines()
+        texts = ""
+        for line in lines:
+            texts += line[:-1] if line[-1] == "\n" else line
+
+    texts = texts.split("task_id")[1:]
+    corrects = [text.split("[")[1].split("]")[0].split(", ") for text in texts]
+    counts = [text.split("[")[2].split("]")[0].split(", ") for text in texts]
+    corrects = [
+        np.array([float(x) for x in corrects_]) for corrects_ in corrects[:end_task]
+    ]
+    counts = [np.array([float(x) for x in count]) for count in counts[:end_task]]
+    corrects = [corrects_.sum() for corrects_ in corrects]
+    counts = [counts_.sum() for counts_ in counts]
+    accs = [corrects[i] / counts[i] for i in range(len(corrects))]
+    return accs
 
 
 def length_agnostic_mean(arrays):
@@ -217,6 +246,11 @@ def _main():
     )
     parser.add_argument(
         "--show_std", action="store_true", help="Visualize standard deviation."
+    )
+    parser.add_argument(
+        "--include_contrastive",
+        action="store_true",
+        help="Include contrastive baseline.",
     )
     parser.add_argument(
         "--plot_title", type=str, default=None, help="Title of the plot."
