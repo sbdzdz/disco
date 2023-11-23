@@ -130,7 +130,7 @@ class LoggingCallback(Callback):
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
         if trainer.current_epoch == trainer.max_epochs - 1:
-            elapsed_min = time.time() - self.train_start_time / 60
+            elapsed_min = (time.time() - self.train_start_time) / 60
             pl_module.log("train/time_per_task", elapsed_min)
             pl_module.log("task_id", float(pl_module.task_id))
             print(f"Training time per task: {elapsed_min:.2f}m")
@@ -149,7 +149,7 @@ class LoggingCallback(Callback):
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
         if trainer.current_epoch == trainer.max_epochs - 1:
-            elapsed_min = time.time() - self.train_val_time / 60
+            elapsed_min = (time.time() - self.train_val_time) / 60
             pl_module.log("val/time_per_task", elapsed_min)
             print(f"Validation time per task: {elapsed_min:.2f}m")
 
@@ -164,8 +164,8 @@ class LoggingCallback(Callback):
     def on_test_epoch_end(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
-        elapsed_min = time.time() - self.test_start_time / 60
-        elapsed_min_total = time.time() - self.train_start_time / 60
+        elapsed_min = (time.time() - self.test_start_time) / 60
+        elapsed_min_total = (time.time() - self.train_start_time) / 60
         pl_module.log("test/time_per_task", elapsed_min)
         pl_module.log("time_per_task", elapsed_min_total)
         print(f"Testing time per task: {elapsed_min:.2f}m")
