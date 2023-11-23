@@ -107,6 +107,8 @@ class LoggingCallback(Callback):
     def __init__(self):
         super().__init__()
         self.train_start_time = None
+        self.train_val_time = None
+        self.test_start_time = None
 
     def on_train_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
@@ -135,11 +137,19 @@ class LoggingCallback(Callback):
     def on_validation_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
+        self.train_val_time = time.time()
         print(
             f"Task {pl_module.task_id} validation: "
             f"{len(trainer.val_dataloaders)} batches, "
             f"{len(trainer.val_dataloaders.dataset)} samples."
         )
+
+    def on_validation_end(
+        self, trainer: pl.Trainer, pl_module: pl.LightningModule
+    ) -> None:
+        elapsed_min = time.time() - self.train_val_time / 60
+        pl_module.log("val/time_per_task", elapsed_min)
+        print(f"Validation time per task: {elapsed_min:.2f}m")
 
     def on_test_epoch_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
@@ -151,13 +161,17 @@ class LoggingCallback(Callback):
         )
 
     def on_train_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
-        print(
-            f"Training time per task: {(time.time() - self.train_start_time)/60:.2f}m"
-        )
+        elapsed_min = time.time() - self.train_start_time / 60
+        pl_module.log("train/time_per_task", elapsed_min)
+        print(f"Training time per task: {elapsed_min:.2f}m")
 
     def on_test_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
-        print(f"Testing time per task: {(time.time() - self.test_start_time)/60:.2f}m")
-        print(f"Total time per task: {(time.time() - self.train_start_time)/60:.2f}m")
+        elapsed_min = time.time() - self.test_start_time / 60
+        elapsed_min_total = time.time() - self.train_start_time / 60
+        pl_module.log("test/time_per_task", elapsed_min)
+        pl_module.log("time_per_task", elapsed_min_total)
+        print(f"Testing time per task: {elapsed_min:.2f}m")
+        print(f"Total time per task: {elapsed_min_total:.2f}m")
 
 
 class MetricsCallback(Callback):
