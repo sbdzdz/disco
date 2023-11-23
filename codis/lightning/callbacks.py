@@ -123,16 +123,17 @@ class LoggingCallback(Callback):
             f"{len(trainer.train_dataloader)} batches, "
             f"{len(trainer.train_dataloader.dataset)} samples."
         )
-        print(f"Shape distribution: {np.unique(shape_ids, return_counts=True)}")
+        print(f"Shape range: {np.min(shape_ids)}-{np.max(shape_ids)}")
         self.train_start_time = time.time()
 
-    def on_test_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
-        self.test_start_time = time.time()
-
-    def on_train_epoch_start(
+    def on_train_epoch_end(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
-        pl_module.log("task_id", float(pl_module.task_id))
+        if self.current_epoch == self.trainer.max_epochs - 1:
+            elapsed_min = time.time() - self.train_start_time / 60
+            pl_module.log("train/time_per_task", elapsed_min)
+            pl_module.log("task_id", float(pl_module.task_id))
+            print(f"Training time per task: {elapsed_min:.2f}m")
 
     def on_validation_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
@@ -144,28 +145,25 @@ class LoggingCallback(Callback):
             f"{len(trainer.val_dataloaders.dataset)} samples."
         )
 
-    def on_validation_end(
+    def on_validation_epoch_end(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
-        elapsed_min = time.time() - self.train_val_time / 60
-        pl_module.log("val/time_per_task", elapsed_min)
-        print(f"Validation time per task: {elapsed_min:.2f}m")
+        if self.current_epoch == self.trainer.max_epochs - 1:
+            elapsed_min = time.time() - self.train_val_time / 60
+            pl_module.log("val/time_per_task", elapsed_min)
+            print(f"Validation time per task: {elapsed_min:.2f}m")
 
-    def on_test_epoch_start(
-        self, trainer: pl.Trainer, pl_module: pl.LightningModule
-    ) -> None:
+    def on_test_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
         print(
             f"Task {pl_module.task_id} testing: "
             f"{len(trainer.test_dataloaders)} batches, "
             f"{len(trainer.test_dataloaders.dataset)} samples."
         )
+        self.test_start_time = time.time()
 
-    def on_train_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
-        elapsed_min = time.time() - self.train_start_time / 60
-        pl_module.log("train/time_per_task", elapsed_min)
-        print(f"Training time per task: {elapsed_min:.2f}m")
-
-    def on_test_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+    def on_test_epoch_end(
+        self, trainer: pl.Trainer, pl_module: pl.LightningModule
+    ) -> None:
         elapsed_min = time.time() - self.test_start_time / 60
         elapsed_min_total = time.time() - self.train_start_time / 60
         pl_module.log("test/time_per_task", elapsed_min)
