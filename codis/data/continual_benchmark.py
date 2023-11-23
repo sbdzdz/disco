@@ -16,7 +16,6 @@ class ContinualBenchmark:
         shapes: list,
         exemplars: list,
         accumulate_test: bool = True,
-        only_labels: bool = False,
     ):
         """Initialize the continual learning benchmark.
         Args:
@@ -104,10 +103,17 @@ class ContinualBenchmark:
 class ContinualBenchmarkRehearsal(ContinualBenchmark):
     """Class-incremental continual learning dataset with rehearsal."""
 
-    def __init__(self, cfg: DictConfig, shapes: list, exemplars: list):
+    def __init__(
+        self,
+        cfg: DictConfig,
+        shapes: list,
+        exemplars: list,
+        include_current: bool = True,
+    ):
         super().__init__(cfg, shapes, exemplars)
         self.train_dataset_size = cfg.dataset.train_dataset_size
         self.val_dataset_size = cfg.dataset.val_dataset_size
+        self.include_current = include_current
 
     def __iter__(self):
         train = BalancedDataset(self.train_dataset_size, self.img_size, self.shapes)
@@ -122,9 +128,26 @@ class ContinualBenchmarkRehearsal(ContinualBenchmark):
                 task_shapes, task_shape_ids
             )
             train.update(train_task)
+            if self.include_current:
+                train_task_size = len(train_task.dataset)
+                samples = np.random.choice(
+                    len(train.dataset), train_task_size, replace=False
+                )
+                buffer_data = [train.dataset.data[idx] for idx in samples]
+                task_data = [train_task.dataset.data[idx] for idx in train_task.indices]
+                train_dataset = ContinualDSpritesMap(
+                    img_size=self.img_size,
+                    dataset_size=1,
+                    shapes=self.shapes,
+                )
+                train_dataset.data = buffer_data + task_data
+
+            else:
+                train_dataset = train.dataset
+
             val.update(val_task)
             test.update(test_task)
-            yield (train.dataset, val.dataset, test.dataset), task_exemplars
+            yield (train_dataset, val.dataset, test.dataset), task_exemplars
 
 
 class BalancedDataset:
