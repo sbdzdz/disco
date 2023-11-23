@@ -131,7 +131,7 @@ class ContinualBenchmarkRehearsal(ContinualBenchmark):
             if self.include_current:
                 train_task_size = len(train_task.dataset)
                 samples = np.random.choice(
-                    len(train.dataset), train_task_size, replace=False
+                    len(train.dataset), train_task_size, replace=True
                 )
                 buffer_data = [train.dataset.data[idx] for idx in samples]
                 task_data = [train_task.dataset.data[idx] for idx in train_task.indices]
