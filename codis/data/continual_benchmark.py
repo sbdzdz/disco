@@ -129,18 +129,24 @@ class ContinualBenchmarkRehearsal(ContinualBenchmark):
             )
             train.update(train_task)
             if self.include_current:
-                train_task_size = len(train_task.dataset)
-                samples = np.random.choice(
-                    len(train.dataset), train_task_size, replace=True
+                num_buffer_samples = len(train_task.dataset) // 2
+                buffer_indices = np.random.choice(
+                    len(train.dataset), num_buffer_samples, replace=True
                 )
-                buffer_data = [train.dataset.data[idx] for idx in samples]
-                task_data = [train_task.dataset.data[idx] for idx in train_task.indices]
+                buffer_samples = [train.dataset.data[idx] for idx in buffer_indices]
+
+                num_task_samples = len(train_task.dataset) - num_buffer_samples
+                task_indices = np.random.choice(
+                    train_task.indices, num_task_samples, replace=False
+                )
+                task_samples = [train_task.dataset.data[idx] for idx in task_indices]
+
                 train_dataset = ContinualDSpritesMap(
                     img_size=self.img_size,
                     dataset_size=1,
                     shapes=self.shapes,
                 )
-                train_dataset.data = buffer_data + task_data
+                train_dataset.data = buffer_samples + task_samples
 
             else:
                 train_dataset = train.dataset
