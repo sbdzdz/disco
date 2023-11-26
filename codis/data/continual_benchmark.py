@@ -108,12 +108,12 @@ class ContinualBenchmarkRehearsal(ContinualBenchmark):
         cfg: DictConfig,
         shapes: list,
         exemplars: list,
-        include_current: bool = True,
+        only_buffer: bool = False,
     ):
         super().__init__(cfg, shapes, exemplars)
         self.train_dataset_size = cfg.dataset.train_dataset_size
         self.val_dataset_size = cfg.dataset.val_dataset_size
-        self.include_current = include_current
+        self.only_buffer = only_buffer
 
     def __iter__(self):
         train = BalancedDataset(self.train_dataset_size, self.img_size, self.shapes)
@@ -128,32 +128,44 @@ class ContinualBenchmarkRehearsal(ContinualBenchmark):
                 task_shapes, task_shape_ids
             )
             train.update(train_task)
-            if self.include_current:
-                num_buffer_samples = len(train_task.dataset) // 2
-                buffer_indices = np.random.choice(
-                    len(train.dataset), num_buffer_samples, replace=True
-                )
-                buffer_samples = [train.dataset.data[idx] for idx in buffer_indices]
-
-                num_task_samples = len(train_task.dataset) - num_buffer_samples
-                task_indices = np.random.choice(
-                    train_task.indices, num_task_samples, replace=False
-                )
-                task_samples = [train_task.dataset.data[idx] for idx in task_indices]
-
-                train_dataset = ContinualDSpritesMap(
-                    img_size=self.img_size,
-                    dataset_size=1,
-                    shapes=self.shapes,
-                )
-                train_dataset.data = buffer_samples + task_samples
-
-            else:
-                train_dataset = train.dataset
-
             val.update(val_task)
             test.update(test_task)
+
+            if self.only_buffer:
+                train_dataset = train.dataset
+            else:
+                train_dataset = self.mix_in_current_data(train, train_task)
+
             yield (train_dataset, val.dataset, test.dataset), task_exemplars
+
+    def mix_in_current_data(self, train, train_task):
+        """Mix in current data with the buffer.
+        Randomly sample half of the data from the buffer and half from the current task.
+        Args:
+            train: The current buffer.
+            train_task: The current task.
+        Returns:
+            The mixed-in dataset.
+        """
+        num_buffer_samples = len(train_task.dataset) // 2
+        buffer_indices = np.random.choice(
+            len(train.dataset), num_buffer_samples, replace=True
+        )
+        buffer_samples = [train.dataset.data[idx] for idx in buffer_indices]
+
+        num_task_samples = len(train_task.dataset) - num_buffer_samples
+        task_indices = np.random.choice(
+            train_task.indices, num_task_samples, replace=False
+        )
+        task_samples = [train_task.dataset.data[idx] for idx in task_indices]
+
+        train_dataset = ContinualDSpritesMap(
+            img_size=self.img_size,
+            dataset_size=1,
+            shapes=self.shapes,
+        )
+        train_dataset.data = buffer_samples + task_samples
+        return train_dataset
 
 
 class BalancedDataset:
