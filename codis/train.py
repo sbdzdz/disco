@@ -61,6 +61,10 @@ def train(cfg: DictConfig) -> None:
         benchmark = ContinualBenchmark(cfg, shapes=shapes, exemplars=exemplars)
     elif strategy == "rehearsal":
         benchmark = ContinualBenchmarkRehearsal(cfg, shapes=shapes, exemplars=exemplars)
+    elif strategy == "rehearsal_only_buffer":
+        benchmark = ContinualBenchmarkRehearsal(
+            cfg, shapes=shapes, exemplars=exemplars, only_buffer=True
+        )
     else:
         raise ValueError(f"Unknown strategy: {strategy}.")
 
