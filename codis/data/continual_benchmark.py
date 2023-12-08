@@ -147,7 +147,7 @@ class ContinualBenchmarkRehearsal(ContinualBenchmark):
         Returns:
             The mixed-in dataset.
         """
-        num_buffer_samples = len(train_task.dataset) // 2
+        num_buffer_samples = len(train_task.indices) // 2
         buffer_indices = np.random.choice(
             len(train.dataset), num_buffer_samples, replace=True
         )
