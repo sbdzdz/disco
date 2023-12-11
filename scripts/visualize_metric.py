@@ -176,13 +176,7 @@ def plot(args, metrics):
 
     if args.plot_title is None:
         args.plot_title = f"{metric_name.capitalize()} (test)"
-    ax.legend(
-        loc="upper left",
-        bbox_to_anchor=(0.0, -0.2),
-        fancybox=True,
-        shadow=True,
-        ncol=2,
-    )
+    ax.legend(loc="best")
 
     plt.savefig(args.out_path, bbox_inches="tight")
 
