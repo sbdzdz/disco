@@ -412,17 +412,30 @@ class InfiniteDSprites(IterableDataset):
             position_y=np.random.choice(self.ranges["position_y"]),
         )
 
-    def sample_controlled(self, shape, latent:str=None):
+    def sample_controlled_from_default(self, shape, latent:str=None):
         """Sample a random value only for latent :param latent.
             latent can be one of: "color", "scale", "orientation", "position_x", "position_y".
             latent=None also works, then we return a "default" shape.
         """
         param_dict = {k:v for k, v in self.range_means.items()}
         param_dict["shape"] = shape
+        param_dict["shape_id"] = -1
         if latent == "color":
             param_dict[latent] = np.array(colors.to_rgb(np.random.choice(self.ranges["color"])))
         elif latent is not None:
             param_dict[latent] = np.random.choice(self.ranges[latent])
+        return Latents(**param_dict )
+
+    def sample_controlled(self, latents, randomize_latent:str=None):
+        """Sample a random value only for latent :param latent.
+            latent can be one of: "color", "scale", "orientation", "position_x", "position_y".
+            latent=None also works, then we return a "default" shape.
+        """
+        param_dict = latents
+        if randomize_latent == "color":
+            param_dict[randomize_latent] = np.array(colors.to_rgb(np.random.choice(self.ranges["color"])))
+        elif randomize_latent is not None:
+            param_dict[randomize_latent] = np.random.choice(self.ranges[latent])
         return Latents(**param_dict )
 
 
@@ -534,7 +547,10 @@ class RandomDSpritesMapCustomized(Dataset):
 
     def __init__(self, sample_random_latents=False, *args, **kwargs) -> None:
         ''':param sample_random_latents: If True, sample randomly.
-                                         If False, sample a prototype, with fixed default latents. '''
+                                         If False, sample a prototype, with fixed default latents.
+                                         Todo: Can drop that parameter? Can achieve same result by defining the
+                                                randomness ranges to one element.
+                                         '''
         self.dataset = RandomDSpritesShapes(*args, **kwargs)
         assert (
             self.dataset.dataset_size is not None
@@ -555,15 +571,18 @@ class RandomDSpritesMapCustomized(Dataset):
         if self.sample_random_latents:
             latents = self.dataset.sample_latents()
         else:
-            latents = self.dataset.sample_controlled(shape)
+            latents = self.dataset.sample_controlled_from_default(shape)
         image = self.dataset.draw(latents)
         return image, latents
 
-    def sample_controlled(self, latents, randomize_latent):
-        assert randomize_latent in self.allowed_latents, f"Can only vary one of latents {self.allowed_latents}, " \
-                                                         f"but found {randomize_latent}"
-        shape = latents["shape"]
-        latents = self.dataset.sample_controlled(shape, randomize_latent)
+    def sample_controlled(self, latents, randomize_latent=None):
+        '''For drawing a predefined sample (given by latents; if :param randomize_latent==None),
+            or randomly sampling only a single attribute but keeping the others fixed.
+            '''
+        if randomize_latent is not None:
+            assert randomize_latent in self.allowed_latents, f"Can only vary one of latents {self.allowed_latents}, " \
+                                                             f"but found {randomize_latent}"
+            latents = self.dataset.sample_controlled(latents, randomize_latent)
         image = self.dataset.draw(latents)
         return image, latents
 
