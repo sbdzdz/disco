@@ -12,7 +12,7 @@ import wandb
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator
 from tqdm import tqdm
-import scienceplots
+import scienceplots  # noqa: F401
 
 
 def visualize_metric(args):
