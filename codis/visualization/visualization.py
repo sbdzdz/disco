@@ -21,13 +21,13 @@ repo_root = Path(__file__).parent.parent.parent
 
 COLORS = [
     "white",
-    # "whitesmoke",
-    # "purple",
-    # "maroon",
-    # "darkblue",
-    # "teal",
-    # "peachpuff",
-    # "darkgreen",
+    "whitesmoke",
+    "purple",
+    "maroon",
+    "darkblue",
+    "teal",
+    "peachpuff",
+    "darkgreen",
 ]
 
 
