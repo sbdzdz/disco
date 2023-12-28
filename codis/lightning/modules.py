@@ -142,11 +142,11 @@ class ContrastiveClassifier(ContinualModule):
         similarity_matrix = torch.matmul(features1, features2.T)
 
         # discard the main diagonal from both: labels and similarities matrix
-        # mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.device)
-        # labels = labels[~mask].view(labels.shape[0], -1)
-        # similarity_matrix = similarity_matrix[~mask].view(
-        #    similarity_matrix.shape[0], -1
-        # )
+        mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.device)
+        labels = labels[~mask].view(labels.shape[0], -1)
+        similarity_matrix = similarity_matrix[~mask].view(
+            similarity_matrix.shape[0], -1
+        )
 
         # select and combine multiple positives
         positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)
@@ -156,15 +156,13 @@ class ContrastiveClassifier(ContinualModule):
             similarity_matrix.shape[0], -1
         )
 
-        logits = torch.cat(
-            [positives, negatives], dim=1
-        )  # first column are the positives
+        # put the positives in the first column and create labels
+        logits = torch.cat([positives, negatives], dim=1)
         labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.device)
-        logits = logits / self.hparams.loss_temperature
 
-        return F.cross_entropy(
-            logits, labels
-        )  # maximise the probability of the positive (class 0)
+        # scale the logits and compute loss (maximize similarity between positives)
+        logits = logits / self.hparams.loss_temperature
+        return F.cross_entropy(logits, labels)
 
     def balance_batch(self, features, labels):
         """Balance the batch by undersampling the majority classes."""
