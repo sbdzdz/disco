@@ -6,6 +6,8 @@ import numpy as np
 import torch
 from lightning.pytorch.callbacks import Callback, EarlyStopping
 from lightning.pytorch.utilities.types import STEP_OUTPUT
+import time
+from torch.utils.data import Subset
 
 from codis.visualization import draw_batch, draw_batch_and_reconstructions
 
@@ -102,52 +104,87 @@ class VisualizationCallback(Callback):
 class LoggingCallback(Callback):
     """Callback for additional logging."""
 
-    def on_train_epoch_start(
-        self, trainer: pl.Trainer, pl_module: pl.LightningModule
-    ) -> None:
-        pl_module.log("task_id", float(pl_module.task_id))
+    def __init__(self):
+        super().__init__()
+        self.train_start_time = None
+        self.train_val_time = None
+        self.test_start_time = None
 
     def on_train_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
-        shape_ids = [
-            factors.shape_id for factors in trainer.train_dataloader.dataset.data
-        ]
+        dataset = trainer.train_dataloader.dataset
+        if isinstance(dataset, Subset):
+            shape_ids = [dataset.dataset.data[idx].shape_id for idx in dataset.indices]
+        else:
+            shape_ids = [factors.shape_id for factors in dataset.data]
         print(
             f"Task {pl_module.task_id} training: "
             f"{len(trainer.train_dataloader)} batches, "
             f"{len(trainer.train_dataloader.dataset)} samples."
         )
-        print(f"Shape distribution: {np.unique(shape_ids, return_counts=True)}")
+        print(f"Shape range: {np.min(shape_ids)}-{np.max(shape_ids)}")
+        self.train_start_time = time.time()
+
+    def on_train_epoch_end(
+        self, trainer: pl.Trainer, pl_module: pl.LightningModule
+    ) -> None:
+        if trainer.current_epoch == trainer.max_epochs - 1:
+            elapsed_min = (time.time() - self.train_start_time) / 60
+            pl_module.log("train/time_per_task", elapsed_min)
+            pl_module.log("task_id", float(pl_module.task_id))
+            print(f"Training time per task: {elapsed_min:.2f}m")
 
     def on_validation_start(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
+        self.train_val_time = time.time()
         print(
             f"Task {pl_module.task_id} validation: "
             f"{len(trainer.val_dataloaders)} batches, "
             f"{len(trainer.val_dataloaders.dataset)} samples."
         )
 
-    def on_test_epoch_start(
+    def on_validation_epoch_end(
         self, trainer: pl.Trainer, pl_module: pl.LightningModule
     ) -> None:
+        if trainer.current_epoch == trainer.max_epochs - 1:
+            elapsed_min = (time.time() - self.train_val_time) / 60
+            pl_module.log("val/time_per_task", elapsed_min)
+            print(f"Validation time per task: {elapsed_min:.2f}m")
+
+    def on_test_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
         print(
             f"Task {pl_module.task_id} testing: "
             f"{len(trainer.test_dataloaders)} batches, "
             f"{len(trainer.test_dataloaders.dataset)} samples."
         )
+        self.test_start_time = time.time()
+
+    def on_test_epoch_end(
+        self, trainer: pl.Trainer, pl_module: pl.LightningModule
+    ) -> None:
+        elapsed_min = (time.time() - self.test_start_time) / 60
+        elapsed_min_total = (time.time() - self.train_start_time) / 60
+        pl_module.log("test/time_per_task", elapsed_min)
+        pl_module.log("time_per_task", elapsed_min_total)
+        print(f"Testing time per task: {elapsed_min:.2f}m")
+        print(f"Total time per task: {elapsed_min_total:.2f}m")
 
 
 class MetricsCallback(Callback):
     """Callback for logging metrics."""
 
     def __init__(
-        self, log_train_accuracy: bool = False, log_val_accuracy: bool = False
+        self,
+        log_train_accuracy: bool = False,
+        log_val_accuracy: bool = False,
+        log_test_accuracy: bool = False,
     ):
         super().__init__()
         self.log_train_accuracy = log_train_accuracy
         self.log_val_accuracy = log_val_accuracy
+        self.log_test_accuracy = log_test_accuracy
 
     def on_train_batch_end(
         self,
@@ -187,10 +224,9 @@ class MetricsCallback(Callback):
         dataloader_idx: int = 0,
     ):
         """Log the test loss."""
-        self._log_accuracy(batch, pl_module, "test")
-        pl_module.log_dict(
-            {f"test/{k}": v.item() for k, v in outputs.items()},
-        )
+        if self.log_test_accuracy:
+            self._log_accuracy(batch, pl_module, "test")
+        pl_module.log_dict({f"test/{k}": v.item() for k, v in outputs.items()})
 
     def _log_accuracy(self, batch, pl_module, stage):
         x, y = batch

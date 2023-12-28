@@ -1,24 +1,22 @@
 """Training script."""
 import inspect
 import os
+from pathlib import Path
 
 import hydra
 import numpy as np
 import torch
+import wandb
 from avalanche.benchmarks.scenarios.generic_benchmark_creation import (
     LazyStreamDefinition,
     create_lazy_generic_benchmark,
 )
 from avalanche.benchmarks.utils import make_classification_dataset
-from avalanche.evaluation.metrics import (
-    accuracy_metrics,
-    loss_metrics,
-)
-import wandb
+from avalanche.evaluation.metrics import accuracy_metrics, loss_metrics
 from avalanche.logging import WandBLogger
 from avalanche.training.plugins import EvaluationPlugin
 from hydra.utils import call, get_object, instantiate
-from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, Timer
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 
@@ -29,10 +27,9 @@ from codis.data import (
     Latents,
 )
 from codis.lightning.callbacks import (
-    MetricsCallback,
     LoggingCallback,
+    MetricsCallback,
     VisualizationCallback,
-    EarlyStoppingCallback,
 )
 
 torch.set_float32_matmul_precision("high")
@@ -64,21 +61,13 @@ def train(cfg: DictConfig) -> None:
         benchmark = ContinualBenchmark(cfg, shapes=shapes, exemplars=exemplars)
     elif strategy == "rehearsal":
         benchmark = ContinualBenchmarkRehearsal(cfg, shapes=shapes, exemplars=exemplars)
+    elif strategy == "rehearsal_only_buffer":
+        benchmark = ContinualBenchmarkRehearsal(
+            cfg, shapes=shapes, exemplars=exemplars, only_buffer=True
+        )
     else:
         raise ValueError(f"Unknown strategy: {strategy}.")
 
-    target = get_object(cfg.model._target_)
-    if inspect.isclass(target):
-        train_ours_continually(cfg, benchmark, trainer)
-    elif callable(target):
-        train_baseline_continually(cfg, benchmark)
-    else:
-        raise ValueError(f"Unknown target: {target}.")
-
-
-def train_continually(cfg: DictConfig, trainer, shapes, exemplars):
-    """Train continually with n shapes per tasks."""
-    benchmark = ContinualBenchmark(cfg, shapes=shapes, exemplars=exemplars)
     target = get_object(cfg.model._target_)
     if inspect.isclass(target):
         train_ours_continually(cfg, benchmark, trainer)
@@ -92,30 +81,18 @@ def train_ours_continually(cfg, benchmark, trainer):
     """Train our model in a continual learning setting."""
     model = instantiate(cfg.model)
     for task_id, (datasets, task_exemplars) in enumerate(benchmark):
+        if cfg.training.reset_model:
+            model = instantiate(cfg.model)
         model.task_id = task_id
-        train_dataset, val_dataset, test_dataset = datasets
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=cfg.dataset.batch_size,
-            num_workers=cfg.dataset.num_workers,
-            shuffle=True,
-        )
-        val_loader = DataLoader(
-            val_dataset,
-            batch_size=cfg.dataset.batch_size,
-            num_workers=cfg.dataset.num_workers,
-        )
-        test_loader = DataLoader(
-            test_dataset,
-            batch_size=cfg.dataset.batch_size,
-            num_workers=cfg.dataset.num_workers,
-            shuffle=True,  # shuffle for vis
-        )
+        train_loader, val_loader, test_loader = create_loaders(cfg, datasets)
 
         for exemplar in task_exemplars:
             model.add_exemplar(exemplar)
 
-        trainer.fit(model, train_loader, val_loader)
+        if cfg.training.validate:
+            trainer.fit(model, train_loader, val_loader)
+        else:
+            trainer.fit(model, train_loader)
         if (
             not cfg.training.test_once
             and task_id % cfg.training.test_every_n_tasks == 0
@@ -123,6 +100,32 @@ def train_ours_continually(cfg, benchmark, trainer):
             trainer.test(model, test_loader)
         trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
     trainer.test(model, test_loader)
+
+
+def create_loaders(cfg, datasets):
+    """Create the data loaders."""
+    train_dataset, val_dataset, test_dataset = datasets
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=cfg.dataset.batch_size,
+        num_workers=cfg.dataset.num_workers,
+        shuffle=True,
+        drop_last=True,
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=cfg.dataset.batch_size,
+        num_workers=cfg.dataset.num_workers,
+        drop_last=True,
+    )
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=cfg.dataset.batch_size,
+        num_workers=cfg.dataset.num_workers,
+        shuffle=True,  # shuffle for vis
+        drop_last=True,
+    )
+    return train_loader, val_loader, test_loader
 
 
 def train_baseline_continually(cfg, benchmark):
@@ -172,13 +175,22 @@ def train_baseline_continually(cfg, benchmark):
         loggers=loggers,
     )
 
-    strategy = instantiate(
-        cfg.strategy,
-        model=model,
-        device=device,
-        evaluator=eval_plugin,
-        optimizer={"params": model.parameters()},
-    )
+    if cfg.strategy == "icarl":
+        strategy = instantiate(
+            cfg.strategy,
+            device=device,
+            evaluator=eval_plugin,
+            optimizer={"params": model.parameters()},
+            herding=True,
+        )
+    else:
+        strategy = instantiate(
+            cfg.strategy,
+            model=model,
+            device=device,
+            evaluator=eval_plugin,
+            optimizer={"params": model.parameters()},
+        )
     for train_experience, test_experience in zip(
         benchmark.train_stream, benchmark.test_stream
     ):
@@ -243,29 +255,33 @@ def build_callbacks(cfg: DictConfig, canonical_images: list, random_images: list
     """Prepare the appropriate callbacks."""
     callbacks = []
     callback_names = cfg.training.callbacks
-    if "logging" in callback_names:
-        callbacks.append(LoggingCallback())
-    if "metrics" in callback_names:
-        callbacks.append(MetricsCallback())
-    if "visualization" in callback_names:
-        callbacks.append(VisualizationCallback(canonical_images, random_images))
     if "checkpointing" in callback_names:
         callbacks.append(
             ModelCheckpoint(
-                dirpath=cfg.trainer.default_root_dir,
-                every_n_epochs=cfg.training.test_every_n_tasks * cfg.trainer.max_epochs,
+                dirpath=Path(cfg.trainer.default_root_dir)
+                / os.environ.get("SLURM_JOB_ID"),
+                every_n_epochs=cfg.training.checkpoint_every_n_tasks
+                * cfg.training.epochs_per_task,
+                save_top_k=-1,
+                save_weights_only=True,
             )
         )
-    if "early_stopping" in callback_names:
+    if "learning_rate_monitor" in callback_names:
+        callbacks.append(LearningRateMonitor(logging_interval="step"))
+    if "logging" in callback_names:
+        callbacks.append(LoggingCallback())
+    if "metrics" in callback_names:
         callbacks.append(
-            EarlyStoppingCallback(
-                monitor="train/accuracy",
-                min_delta=0.00,
-                patience=5,
-                verbose=False,
-                mode="max",
+            MetricsCallback(
+                log_train_accuracy=cfg.training.log_train_accuracy,
+                log_val_accuracy=cfg.training.log_val_accuracy,
+                log_test_accuracy=cfg.training.log_test_accuracy,
             )
         )
+    if "timer" in callback_names:
+        callbacks.append(Timer())
+    if "visualization" in callback_names:
+        callbacks.append(VisualizationCallback(canonical_images, random_images))
     return callbacks
 
 

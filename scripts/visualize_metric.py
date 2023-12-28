@@ -2,15 +2,17 @@
 Example:
     python scripts/visualize_loss.py --wandb_groups resnet
 """
+import json
 from argparse import ArgumentParser
+from itertools import zip_longest
 from pathlib import Path
 
-import json
 import numpy as np
 import wandb
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator
 from tqdm import tqdm
+import scienceplots  # noqa: F401
 
 
 def visualize_metric(args):
@@ -19,9 +21,11 @@ def visualize_metric(args):
     names = args.wandb_groups if args.names is None else args.names
     assert len(names) == len(
         args.wandb_groups
-    ), "Please provide a name for each run group."
+    ), "Please provide exactly one name for each run group."
     run_dict = {
-        name: api.runs(args.wandb_entity, filters={"group": group})
+        name: api.runs(
+            args.wandb_entity, filters={"group": group if group != "null" else None}
+        )
         for name, group in zip(names, args.wandb_groups)
     }
 
@@ -32,21 +36,35 @@ def visualize_metric(args):
         }
 
     for name, runs in run_dict.items():
-        print(f"Found {len(runs)} {'runs' if len(runs) > 1 else 'run'} for {name}.")
+        print(f"Found {len(runs)} {'run' if len(runs) == 1 else 'runs'} for {name}.")
 
     metrics = {}
     for name, runs in run_dict.items():
-        values = [load_run(run, args) for run in runs]
-        min_len = min(map(len, values))
+        values = [load_run(run, args, name) for run in runs]
+        max_len = max(map(len, values))
         if name.startswith("test"):
-            steps = [i * get_testing_frequency(runs) for i in range(min_len)]
+            steps = [i * get_testing_frequency(runs) for i in range(max_len)]
         else:
-            steps = list(range(min_len))
+            steps = list(range(max_len))
         metrics[name] = (steps, values)
 
-    # truncate steps and values to match the smallest step number
-    max_steps = min(max(steps) for steps, _ in metrics.values())
-    metrics = {
+    if args.max_steps is not None:
+        metrics = truncate(metrics, args.max_steps)
+
+    plot(args, metrics)
+
+
+def truncate(metrics: dict, max_steps: int):
+    """Truncate the metrics to a maximum number of steps.
+    Args:
+        metrics: A dictionary mapping a metric name to a tuple of (steps, values).
+        max_steps: The maximum number of steps to keep.
+    Returns:
+        A new dictionary mapping a metric name to a tuple of (steps, values) with the
+        steps truncated to the maximum number of steps and the values truncated
+        accordingly.
+    """
+    return {
         name: (
             [step for step in steps if step <= max_steps],
             [[v for s, v in zip(steps, value) if s <= max_steps] for value in values],
@@ -54,26 +72,13 @@ def visualize_metric(args):
         for name, (steps, values) in metrics.items()
     }
 
-    plot(args, metrics)
-
-
-def get_task_transitions(run):
-    """Get task transitions from a wandb run."""
-    task_id_steps, task_id_values = zip(
-        *[
-            (row["_step"], row["task_id"])
-            for row in run.scan_history(keys=["_step", "task_id"])
-        ]
-    )
-    return [
-        task_id_steps[i]
-        for i in range(len(task_id_steps) - 1)
-        if task_id_values[i] != task_id_values[i + 1]
-    ]
-
 
 def get_testing_frequency(runs):
-    """Get the frequency at which the model is tested."""
+    """Get the frequency at which the model is tested.
+    Args:
+        runs: A list of wandb run objects.
+    Returns:
+        The frequency at which the model is tested."""
     try:
         test_every_n_tasks = [
             run.config["training"]["test_every_n_tasks"] for run in runs
@@ -86,14 +91,14 @@ def get_testing_frequency(runs):
         return 1
 
 
-def load_run(run, args):
+def load_run(run, args, name):
     """Load the metric values for a single run."""
     path = Path(__file__).parent.parent / f"img/media/{run.name}/metrics.json"
     if path.exists() and not args.force_download:
         print(f"Found saved run data for {run.name}.")
         with open(path, "r") as f:
             values = json.load(f)
-    elif run.config["model"].get("name") == "baseline":  # TODO: fix this
+    elif is_baseline(name):
         values = download_baseline_results(run, args.metric_name)
     else:
         values = download_our_results(run, args.metric_name)
@@ -102,6 +107,11 @@ def load_run(run, args):
         with open(path, "w") as f:
             json.dump(values, f)
     return values
+
+
+def is_baseline(name):
+    """Check if the run is a baseline run."""
+    return "Learning" in name or "Synaptic" in name  # TODO: fix this
 
 
 def download_baseline_results(run, metric_name):
@@ -141,10 +151,10 @@ def take_last(scan):
 
 
 def plot(args, metrics):
-    plt.style.use("ggplot")
-    _, ax = plt.subplots(figsize=(20, 9), layout="tight")
+    plt.style.use(["science", "bright"])
+    _, ax = plt.subplots(layout="tight")
     for name, (steps, values) in metrics.items():
-        values_mean = np.mean(values, axis=0)
+        values_mean = length_agnostic_mean(values)
         ax.plot(steps, values_mean, label=name)
         if args.show_std:
             values_std = np.std(values, axis=0)
@@ -155,24 +165,29 @@ def plot(args, metrics):
                 alpha=0.3,
             )
 
-    ax.set_xlabel("Tasks", fontsize=args.fontsize)
+    ax.set_xlabel("Tasks")
     ax.set_xlim([args.xmin, args.xmax])
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
-    ax.xaxis.labelpad = 20
-    ax.yaxis.labelpad = 20
-
     ax.yaxis.set_major_formatter("{x:.1f}")
     metric_name = args.metric_name.split("/")[-1].replace("_", " ").capitalize()
-    ax.set_ylabel(metric_name, fontsize=args.fontsize)
+    ax.set_ylabel(metric_name)
     ax.set_ylim([args.ymin, args.ymax])
 
     if args.plot_title is None:
         args.plot_title = f"{metric_name.capitalize()} (test)"
-    ax.set_title(args.plot_title, y=1.05, fontsize=args.fontsize)
-    ax.legend(loc="best", fontsize=args.fontsize)
+    ax.legend(loc="best")
 
     plt.savefig(args.out_path, bbox_inches="tight")
+
+
+def length_agnostic_mean(arrays):
+    """Compute the mean of arrays of different lengths."""
+    result = []
+    for values in zip_longest(*arrays):
+        values = [v for v in values if v is not None]
+        result.append(np.mean(values))
+    return result
 
 
 def _main():
@@ -195,6 +210,7 @@ def _main():
     parser.add_argument(
         "--metric_name", type=str, help="Metric name", default="accuracy"
     )
+    parser.add_argument("--max_steps", type=int, help="Max number of steps to plot.")
     parser.add_argument(
         "--out_path", type=Path, default=repo_root / "img/joint_training.png"
     )
@@ -215,8 +231,8 @@ def _main():
     parser.add_argument(
         "--xticks_every", type=int, default=10, help="Granularity of the x axis."
     )
-    parser.add_argument("--ymin", type=float, help="Y-axis min limit.")
-    parser.add_argument("--ymax", type=float, help="Y-axis max limit.")
+    parser.add_argument("--ymin", type=float, default=-0.05, help="Y-axis min limit.")
+    parser.add_argument("--ymax", type=float, default=1.05, help="Y-axis max limit.")
     parser.add_argument("--fontsize", type=int, default=20)
     args = parser.parse_args()
     visualize_metric(args)

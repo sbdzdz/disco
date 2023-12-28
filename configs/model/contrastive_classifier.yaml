@@ -1,5 +1,13 @@
-_target_: codis.lightning.modules.SupervisedClassifier
+_target_: codis.lightning.modules.ContrastiveClassifier
+train_iters_per_epoch: ${eval:'${dataset.shapes_per_task} * ${dataset.factor_resolution}**4 / (${dataset.batch_size}*${trainer.accumulate_grad_batches})'}
 backbone: resnet18
+optimizer: adam
+out_dim: 128
+schedule_lr: true
+warmup_epochs: 10
+scheduler_frequency: 1
+max_epochs: ${training.epochs_per_task}
 lr: ${training.lr}
+weight_decay: 1e-6
+loss_temperature: 0.5
 shapes_per_task: ${dataset.shapes_per_task}
-num_classes: ${eval:'${dataset.tasks} * ${dataset.shapes_per_task}'}

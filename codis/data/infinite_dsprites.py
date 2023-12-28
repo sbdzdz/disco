@@ -21,16 +21,16 @@ class Latents(BaseLatents):
     def __getitem__(self, key):
         return getattr(self, key)
 
-    def to(self, device):
+    def to(self, device, **kwargs):
         """Move the latents to a device."""
         return Latents(
-            color=self.color.to(device),
-            shape=self.shape.to(device),
-            shape_id=self.shape_id.to(device),
-            scale=self.scale.to(device),
-            orientation=self.orientation.to(device),
-            position_x=self.position_x.to(device),
-            position_y=self.position_y.to(device),
+            color=self.color.to(device, **kwargs),
+            shape=self.shape.to(device, **kwargs),
+            shape_id=self.shape_id.to(device, **kwargs),
+            scale=self.scale.to(device, **kwargs),
+            orientation=self.orientation.to(device, **kwargs),
+            position_x=self.position_x.to(device, **kwargs),
+            position_y=self.position_y.to(device, **kwargs),
         )
 
     def replace(self, **kwargs):
@@ -55,6 +55,7 @@ class InfiniteDSprites(IterableDataset):
         orientation_marker_color="black",
         background_color="darkgray",
         grayscale: bool = False,
+        **kwargs,
     ):
         """Create a dataset of images of random shapes.
         Args:
@@ -223,8 +224,8 @@ class InfiniteDSprites(IterableDataset):
         self,
         min_verts: int = 5,
         max_verts: int = 8,
-        radius_std: float = 0.6,
-        angle_std: float = 0.6,
+        radius_std: float = 0.4,
+        angle_std: float = 0.5,
     ):
         """Sample the positions of the vertices of a polygon.
         Args:
@@ -454,6 +455,8 @@ class ContinualDSpritesMap(Dataset):
             self.dataset.dataset_size is not None or self.dataset.shapes is not None
         ), "Dataset size must be finite. Please set dataset_size or pass a list of shapes."
         self.data = list(self.dataset)
+        self.y_transform = kwargs.get("y_transform", lambda y: y)
+        self.x_transform = kwargs.get("x_transform", lambda x: x)
 
     @property
     def targets(self):
@@ -468,7 +471,9 @@ class ContinualDSpritesMap(Dataset):
             shape_index = self.dataset.shape_ids.index(shape_index)
         shape = self.dataset.shapes[shape_index]
         factors = self.data[index]._replace(shape=shape)
-        return self.dataset.draw(factors), factors
+        img = self.x_transform(self.dataset.draw(factors))
+        factors = self.y_transform(factors)
+        return img, factors
 
 
 class RandomDSprites(InfiniteDSprites):

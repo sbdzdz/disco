@@ -3,8 +3,11 @@ from typing import List, Optional
 
 import lightning.pytorch as pl
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
+from pl_bolts.optimizers.lars import LARS
+from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from torchvision.models import get_model, list_models
 
 from codis.data import Latents
@@ -79,6 +82,194 @@ class ContinualModule(pl.LightningModule):
         )
 
 
+class ContrastiveClassifier(ContinualModule):
+    """A contrastive classifier based on SimCLR."""
+
+    def __init__(
+        self,
+        train_iters_per_epoch,
+        backbone: str = "resnet18",
+        out_dim: int = 128,
+        optimizer: str = "adam",
+        schedule_lr: bool = True,
+        warmup_epochs=10,
+        scheduler_frequency: int = 1,
+        max_epochs: int = 100,
+        lr=1e-4,
+        weight_decay=1e-6,
+        loss_temperature=0.5,
+        **kwargs,
+    ):
+        """
+        Args:
+            backbone: The backbone model.
+            warmup_epochs: The number of warmup epochs.
+            lr: The learning rate.
+            weight_decay: The weight decay for the optimizer.
+            loss_temperature: The temperature for the InfoNCE loss.
+        """
+        super().__init__(**kwargs)
+        if backbone in list_models(module=torchvision.models):
+            self.backbone = get_model(backbone, weights=None, num_classes=out_dim)
+        else:
+            raise ValueError(f"Unknown backbone: {backbone}")
+
+        # add a projection
+        mlp_dimension = self.backbone.fc.in_features
+        self.backbone.fc = nn.Sequential(
+            nn.Linear(mlp_dimension, mlp_dimension), nn.ReLU(), self.backbone.fc
+        )
+        self.save_hyperparameters()
+
+    def forward(self, x):
+        return self.backbone(x)
+
+    def info_nce_loss(self, features1, features2, labels1, labels2):
+        """Compute the InfoNCE loss.
+        Args:
+            features1: A batch of features.
+            features2: A batch of features.
+            labels1: A batch of shape labels.
+            labels2: A batch of shape labels.
+            labels: A batch of shape labels.
+        """
+        features1, labels1 = self.balance_batch(features1, labels1)
+        features2, labels2 = self.balance_batch(features2, labels2)
+
+        labels = (labels1.unsqueeze(0) == labels2.unsqueeze(1)).float()
+        features1 = F.normalize(features1, dim=1)
+        features2 = F.normalize(features2, dim=1)
+        similarity_matrix = torch.matmul(features1, features2.T)
+
+        # discard the main diagonal from both: labels and similarities matrix
+        mask = torch.eye(labels.shape[0], dtype=torch.bool).to(self.device)
+        labels = labels[~mask].view(labels.shape[0], -1)
+        similarity_matrix = similarity_matrix[~mask].view(
+            similarity_matrix.shape[0], -1
+        )
+
+        # select and combine multiple positives
+        positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)
+
+        # select only the negatives
+        negatives = similarity_matrix[~labels.bool()].view(
+            similarity_matrix.shape[0], -1
+        )
+
+        # put the positives in the first column and create labels
+        logits = torch.cat([positives, negatives], dim=1)
+        labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.device)
+
+        # scale the logits and compute loss (maximize similarity between positives)
+        logits = logits / self.hparams.loss_temperature
+        return F.cross_entropy(logits, labels)
+
+    def balance_batch(self, features, labels):
+        """Balance the batch by undersampling the majority classes."""
+
+        min_examples_per_class = min(torch.unique(labels, return_counts=True)[1])
+        print(f"min_examples_per_class: {min_examples_per_class}")
+
+        indices_per_class = [
+            (labels == label).nonzero(as_tuple=False)[0] for label in labels.unique()
+        ]
+        print(f"indices_per_class: {indices_per_class}")
+
+        balanced_subset_indices = torch.cat(
+            [indices[:min_examples_per_class] for indices in indices_per_class]
+        )
+        print(f"balanced_subset_indices: {balanced_subset_indices}")
+
+        return features[balanced_subset_indices], labels[balanced_subset_indices]
+
+    def configure_optimizers(self):
+        if self.hparams.weight_decay is not None:
+            params = self.exclude_from_weight_decay(
+                self.backbone.named_parameters(), weight_decay=self.hparams.weight_decay
+            )
+        else:
+            params = self.backbone.parameters()
+
+        if self.hparams.optimizer == "adam":
+            optimizer = torch.optim.Adam(params, lr=self.hparams.lr)
+        elif self.hparams.optimizer == "lars":
+            optimizer = LARS(params, lr=self.hparams.lr)
+
+        if self.hparams.schedule_lr:
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": self.configure_scheduler(optimizer),
+            }
+        else:
+            return optimizer
+
+    def configure_scheduler(self, optimizer):
+        warmup_steps = self.hparams.warmup_epochs * self.hparams.train_iters_per_epoch
+        max_steps = self.hparams.max_epochs * self.hparams.train_iters_per_epoch
+        linear_warmup_cosine_decay = LinearWarmupCosineAnnealingLR(
+            optimizer,
+            warmup_epochs=warmup_steps,
+            max_epochs=max_steps,
+            warmup_start_lr=0,
+            eta_min=0,
+        )
+        return {
+            "scheduler": linear_warmup_cosine_decay,
+            "interval": "step",
+            "frequency": self.hparams.scheduler_frequency,
+        }
+
+    def exclude_from_weight_decay(self, named_params, weight_decay, skip_list=None):
+        if skip_list is None:
+            skip_list = ["bias", "bn"]
+
+        params = []
+        excluded_params = []
+        for name, param in named_params:
+            if not param.requires_grad:
+                continue
+            elif any(layer_name in name for layer_name in skip_list):
+                excluded_params.append(param)
+            else:
+                params.append(param)
+
+        return [
+            {"params": params, "weight_decay": weight_decay},
+            {"params": excluded_params, "weight_decay": 0.0},
+        ]
+
+    def _step(self, batch):
+        x, y = batch
+        x = self.backbone(x)
+        y = y.shape_id
+        loss1 = self.info_nce_loss(x, x, y, y)
+
+        buffer = torch.stack(
+            [
+                torch.from_numpy(exemplar)
+                for exemplar in self.get_current_task_exemplars()
+            ]
+        ).to(self.device)
+        buffer_labels = torch.arange(
+            self._shapes_per_task * self.task_id,
+            self._shapes_per_task * (self.task_id + 1),
+        ).to(self.device)
+        loss2 = self.info_nce_loss(x, buffer, y, buffer_labels)
+
+        return {"loss": loss1 + loss2}
+        # return {"loss": self.info_nce_loss(x, y)}
+
+    @torch.no_grad()
+    def classify(self, x):
+        """Classify via nearest neighbor in the backbone representation space."""
+        x_hat = self.forward(x)
+        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
+            self.device
+        )
+        buffer = self.forward(buffer)
+        return torch.argmax(torch.matmul(x_hat, buffer.T), dim=1)
+
+
 class SupervisedClassifier(ContinualModule):
     """A supervised classification model."""
 
@@ -122,41 +313,37 @@ class SpatialTransformer(ContinualModule):
     def __init__(
         self,
         backbone: str = "resnet18",
-        enc_out_size: int = 64,
+        pretrained: bool = False,
+        out_dim: int = 512,
         gamma: float = 0.5,
         buffer_chunk_size: int = 64,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.enc_out_size = enc_out_size
+        self.out_dim = out_dim
         self.buffer_chunk_size = buffer_chunk_size
 
         if backbone not in list_models(module=torchvision.models):
             raise ValueError(f"Unknown backbone: {backbone}")
 
-        self.encoder = get_model(backbone, weights=None, num_classes=self.enc_out_size)
-
-        # initialize the regressor to the identity transform
-        self.regressor = MLP(dims=[self.enc_out_size, 64, 32, 6])
-        self.regressor.model[-1].weight.data.zero_()
-        self.regressor.model[-1].bias.data.copy_(
-            torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float)
-        )
+        if pretrained:
+            self.backbone = get_model(backbone, weights="DEFAULT")
+        else:
+            self.backbone = get_model(backbone, weights=None, num_classes=self.out_dim)
+        self.backbone.fc = nn.Linear(self.backbone.fc.in_features, 6)
         self.gamma = gamma
 
     def configure_optimizers(self):
         """Configure the optimizers."""
         return torch.optim.Adam(
             [
-                {"params": self.encoder.parameters(), "lr": self.lr},
-                {"params": self.regressor.parameters(), "lr": self.lr},
+                {"params": self.backbone.parameters(), "lr": self.lr},
             ]
         )
 
     def forward(self, x):
         """Perform the forward pass."""
-        xs = self.encoder(x).view(-1, self.enc_out_size)
-        theta = self.regressor(xs).view(-1, 2, 3)
+        theta = self.backbone(x).view(-1, 2, 3)
 
         grid = F.affine_grid(theta, x.size(), align_corners=False)
         x_hat = F.grid_sample(x, grid, padding_mode="border", align_corners=False)

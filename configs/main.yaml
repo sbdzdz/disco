@@ -13,11 +13,17 @@ hydra:
 
 training:
   strategy: naive
-  callbacks: [metrics, logging, visualization, checkpointing]
+  reset_model: false
+  callbacks: [checkpointing, learning_rate_monitor, logging, metrics, timer, visualization]
   lr: 0.001
   test_once: false
   test_every_n_tasks: 1
-  epochs_per_task: 1
+  checkpoint_every_n_tasks: 10
+  epochs_per_task: 5
+  validate: true
+  log_train_accuracy: false
+  log_val_accuracy: false
+  log_test_accuracy: true
 
 trainer:
   _target_: lightning.pytorch.Trainer
@@ -28,6 +34,8 @@ trainer:
   log_every_n_steps: 1
   logger: ${wandb}
   strategy: auto
+  accumulate_grad_batches: 1
+  devices: -1
 
 wandb:
   _target_: lightning.pytorch.loggers.WandbLogger

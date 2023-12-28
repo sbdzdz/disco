@@ -31,3 +31,6 @@ outputs
 
 # results
 img/media
+
+# figures
+*.pdf

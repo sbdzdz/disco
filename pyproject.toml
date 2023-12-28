@@ -16,6 +16,8 @@ dependencies = [
     "lightning",
     "matplotlib",
     "opencv-python",
+    "scipy",
+    "scikit-learn",
     "torch",
     "torchvision",
 ]
