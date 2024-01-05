@@ -1,6 +1,7 @@
 """Class definitions for the infinite dSprites dataset."""
 from collections import namedtuple
 from itertools import product
+from copy import copy, deepcopy
 
 import cv2
 import numpy as np
@@ -8,6 +9,7 @@ import numpy.typing as npt
 from matplotlib import colors
 from scipy.interpolate import splev, splprep
 from sklearn.decomposition import PCA
+import torch
 from torch.utils.data import Dataset, IterableDataset
 
 BaseLatents = namedtuple(
@@ -292,6 +294,7 @@ class InfiniteDSprites(IterableDataset):
         canvas = canvas.astype(np.float32) / 255.0
         return canvas
 
+
     def apply_scale(self, shape: npt.NDArray, scale: float):
         """Apply a scale to a shape."""
         height = self.canvas_size
@@ -412,6 +415,19 @@ class InfiniteDSprites(IterableDataset):
             position_y=np.random.choice(self.ranges["position_y"]),
         )
 
+    # def sample_latents_only(self):
+    #     """Sample a random set of latents, _excluding_ the shape.
+    #         Does not return Latents objects, but a dict of numpy arrays."""
+    #     return Latents(
+    #         color=np.array(colors.to_rgb(np.random.choice(self.ranges["color"]))),
+    #         shape=None,
+    #         shape_id=None,
+    #         scale=np.random.choice(self.ranges["scale"]),
+    #         orientation=np.random.choice(self.ranges["orientation"]),
+    #         position_x=np.random.choice(self.ranges["position_x"]),
+    #         position_y=np.random.choice(self.ranges["position_y"]),
+    #     )
+
     def sample_controlled_from_default(self, shape, latent:str=None):
         """Sample a random value only for latent :param latent.
             latent can be one of: "color", "scale", "orientation", "position_x", "position_y".
@@ -426,17 +442,136 @@ class InfiniteDSprites(IterableDataset):
             param_dict[latent] = np.random.choice(self.ranges[latent])
         return Latents(**param_dict )
 
-    def sample_controlled(self, latents, randomize_latent:str=None):
-        """Sample a random value only for latent :param latent.
-            latent can be one of: "color", "scale", "orientation", "position_x", "position_y".
-            latent=None also works, then we return a "default" shape.
-        """
-        param_dict = latents
-        if randomize_latent == "color":
-            param_dict[randomize_latent] = np.array(colors.to_rgb(np.random.choice(self.ranges["color"])))
-        elif randomize_latent is not None:
-            param_dict[randomize_latent] = np.random.choice(self.ranges[latent])
-        return Latents(**param_dict )
+    # Todo: Remove the following. It's incomplete and has been moved out into group_orbit_cl.
+    # ### Next: Functions that operate on batches/numpy arrays of latents, treating shapes and other latents separately.
+    # def transform_controlled(self, shapes,
+    #                          latents:dict[str, torch.Tensor],
+    #                          latent_indicators:torch.Tensor,
+    #                          latent_variable_differences:torch.Tensor|None=None,
+    #                          from_valid_range=True,
+    #                          latent_variables_in_order:list[str]|None=None):
+    #     """
+    #      TODO. We want to randomly apply different groups and different coefficients to passed latents, and
+    #            return the corresponding images + latents (+ coefficients).
+    #     Vectorized. latents should be: tensor/array of shape: (batch_size, num_latents).
+    #     If from_valid_range=True, except allows multiple latents to vary.
+    #     If from_valid_range=False, add/subtract a random value from the valid range - in that way we'll end
+    #      up outside of the valid range not too rarely.
+    #
+    #      Sample a random value only for latents :param latents_to_vary (list of strings).
+    #         latents_to_vary can each be one of: "color", "scale", "orientation", "position_x", "position_y".
+    #
+    #     Parameters:
+    #     ----------
+    #         :param latent_indicators: tensor of shape (batch_size, k), where k is the number of transforms to apply.
+    #                                     Should contain integers in range(0, [5 or len(latent_variables_in_order)]).
+    #         :param latent_variable_differences: None or tensor of shape (batch_size, k)
+    #         :param from_valid_range: If True, sample from the valid range of each latent variable and return
+    #                                 the difference to the previous latent variable value.
+    #                                 If False, add or subtract a random value from the valid range, leading to
+    #                                 potentially out-of-range values.
+    #                                 ! For "scale" variable, need to apply an exponential to the parameter before
+    #                                     transforming. (so that 0 corresponds to no transformation).
+    #         :param latent_variables_in_order: list of strings, to select in what order the indices refer
+    #                                             to the latent variables.
+    #
+    #     :return
+    #         images (optional?); images of the transformed shapes.
+    #         latents (lat_dict): the new latents after transformation. Again a dict, with each key mapping to a batch of
+    #                  the respective latent variable values.
+    #         latent_variable_differences: The "group transform parameters". Should be equal to the input variable
+    #                                     of same name if it was not None.
+    #
+    #     """
+    #     b = len(shapes)
+    #     for k, v in latents.items():
+    #         assert b == len(v), f"Batch size {b} does not match batch size of latents {k} {len(v)}"
+    #     if latent_variables_in_order is None:
+    #         latent_variables_in_order = ["position_x", "orientation", "position_y", "scale", "color"]
+    #     assert torch.max(latent_indicators) < len(latent_variables_in_order), \
+    #         f"Latent indicator {torch.max(latent_indicators)} exceeds the number of latent variables {len(latent_variables_in_order)}"
+    #
+    #     # Want to: for each "group"/indicator of a latent variable, randomly sample how much to transform
+    #     #           (if latent_variable_differences is None). Then, modify the parameter by that value.
+    #     # If latent_variable_differences is None, and from_valid_range=True, just resample randomly.
+    #     # If a group was passed twice, allocate the total random value to the first transform.
+    #
+    #     if latent_variable_differences is None:
+    #         color = np.array(colors.to_rgb(np.random.choice(self.ranges["color"], size=len(latents))))
+    #         scale = np.random.choice(self.ranges["scale"], size=len(latents))
+    #         orientation = np.random.choice(self.ranges["orientation"], size=len(latents))
+    #         position_x = np.random.choice(self.ranges["position_x"], size=len(latents))
+    #         position_y = np.random.choice(self.ranges["position_y"], size=len(latents))
+    #         lat_dict = {"color": color, "scale": scale, "orientation": orientation,
+    #                     "position_x": position_x, "position_y": position_y}
+    #         lat_diffs_dict = {"color": torch.zeros_like(color), "scale": torch.zeros_like(scale),
+    #                             "orientation": torch.zeros_like(orientation),
+    #                             "position_x": torch.zeros_like(position_x), "position_y": torch.zeros_like(position_y)}
+    #         # To return the coefficients in order:
+    #         lat_diffs_tensor = torch.zeros_like(latent_indicators, dtype=torch.float32)
+    #         # if from_valid_range:
+    #         # lat_dict_diffs = deepcopy(lat_dict)
+    #         # We can use indexing. Transform all latent variables, but only keep the change where the indicator for that group was present.
+    #         for i, key in enumerate(latent_variables_in_order):
+    #             mask = (latent_indicators == i)
+    #             # Where this cumsum is >= 2 AND mask is 1, we have a duplicate that is not the first in that row
+    #             cumsum = torch.cumsum(mask, dim=1)
+    #             duplicate_ids = (cumsum > 1) and (mask)
+    #             ids = torch.any(latent_indicators == i, dim=1)
+    #             # preserve original latents (replace the new ones) where group should not be applied:
+    #             lat_dict[key][~ids] = latents[key][~ids]
+    #
+    #             if from_valid_range:
+    #                 # otherwise keep new latents and insert the differences into lat_dict_diffs
+    #                 lat_diffs_dict[key][ids] = lat_dict[key][ids] - latents[key][ids]
+    #                 lat_diffs_dict[key][duplicate_ids] = 0 # we only apply the transform once, they are commutative anyway
+    #                 lat_diffs_tensor[latent_indicators == i] = lat_diffs_dict[key][ids]
+    #                 assert torch.all(lat_diffs_dict[key][~ids] == 0)
+    #             else:
+    #                 lat_diffs_dict[key][ids] = lat_dict[key][ids]
+    #                 lat_diffs_tensor[latent_indicators == i] = lat_dict[key][ids]
+    #                 lat_diffs_tensor[duplicate_ids] = 0
+    #
+    #                 lat_dict[key][ids] += latents[key][ids]
+    #                 # otherwise keep new latents and insert the differences into lat_dict_diffs
+    #
+    #                 assert torch.all(lat_diffs_dict[key][~ids] == 0)
+    #
+    #
+    #
+    #
+    #         # postprocess: drop duplicate transforms, if any latent_indicator occurs twice, set the second
+    #         #               diff to 0:
+    #         for i, key in enumerate(latent_variables_in_order):
+    #             ids = torch.any(latent_indicators == i, dim=1)
+    #             if torch.sum(ids) > 1:
+    #                 pass
+    #             return imgs,
+    #
+    #
+    #
+    #
+    #
+    #     if from_valid_range:
+    #         # return the difference between original and new latents.
+    #
+    #         return Latents(
+    #             color=np.array(colors.to_rgb(np.random.choice(self.ranges["color"]))),
+    #             shape=shape,
+    #             shape_id=None,
+    #             scale=np.random.choice(self.ranges["scale"]),
+    #             orientation=np.random.choice(self.ranges["orientation"]),
+    #             position_x=np.random.choice(self.ranges["position_x"]),
+    #             position_y=np.random.choice(self.ranges["position_y"]),
+    #         )
+    #
+    #
+    #     param_dict = latents
+    #     if randomize_latent == "color":
+    #         param_dict[randomize_latent] = np.array(colors.to_rgb(np.random.choice(self.ranges["color"])))
+    #     elif randomize_latent is not None:
+    #         param_dict[randomize_latent] = np.random.choice(self.ranges[latent])
+    #     return Latents(**param_dict )
 
 
 class ContinualDSpritesMap(Dataset):
@@ -545,46 +680,100 @@ class RandomDSpritesMapCustomized(Dataset):
        on each iteration. Restrict the latents to vary only in one dimension, and be fixed otherwise.
        """
 
-    def __init__(self, sample_random_latents=False, *args, **kwargs) -> None:
+    def __init__(self, sample_random_latents=False,  *args, **kwargs) -> None:
         ''':param sample_random_latents: If True, sample randomly.
                                          If False, sample a prototype, with fixed default latents.
                                          Todo: Can drop that parameter? Can achieve same result by defining the
                                                 randomness ranges to one element.
                                          '''
+        # This class itself is not an iterable dataset; we use the iterable dataset RandomDSpritesShapes and
+        #   "iterate" over it once to generate all shapes.
         self.dataset = RandomDSpritesShapes(*args, **kwargs)
+        self.ranges = deepcopy(self.dataset.ranges)
+        self.range_means = deepcopy(self.dataset.range_means)
         assert (
             self.dataset.dataset_size is not None
         ), "Dataset size must be finite. Please set dataset_size."
+        self.dataset_size = self.dataset.dataset_size
 
         self.shapes = list(self.dataset)
         self.allowed_latents = ["color", "scale", "orientation", "position_x", "position_y"] # for reference
         self.sample_random_latents = sample_random_latents
+        # del self.dataset # Try this, see if it works.
+        #  \\ no won't work. InfiniteDSprites contains most of the logic of the dataset.
 
     def __len__(self):
-        if self.dataset.dataset_size is not None:
-            return self.dataset.dataset_size
-        return len(self.shapes)
+        return self.dataset.dataset_size
+        # return len(self.shapes)
 
     def __getitem__(self, index):
         # return a random transform of the shape at :param index .
         shape = self.shapes[index]
         if self.sample_random_latents:
-            latents = self.dataset.sample_latents()
+            latents = self.sample_latents_only()
+            latents = latents._replace(shape=shape)
         else:
             latents = self.dataset.sample_controlled_from_default(shape)
         image = self.dataset.draw(latents)
+        # if self.return_numpy:
+        #     # Todo
+        #     return image, latents, shape
+        # else:
         return image, latents
 
-    def sample_controlled(self, latents, randomize_latent=None):
-        '''For drawing a predefined sample (given by latents; if :param randomize_latent==None),
-            or randomly sampling only a single attribute but keeping the others fixed.
-            '''
-        if randomize_latent is not None:
-            assert randomize_latent in self.allowed_latents, f"Can only vary one of latents {self.allowed_latents}, " \
-                                                             f"but found {randomize_latent}"
-            latents = self.dataset.sample_controlled(latents, randomize_latent)
-        image = self.dataset.draw(latents)
-        return image, latents
+    def transform_sample(self, latents:Latents, ):
+        ''''''
+
+    # def __getitems__(self, indices):
+    #   todo/can-do, for further optimization.
+    #     pass
+
+    def sample_latents_only(self):
+        """Sample a random set of latents, _excluding_ the shape.
+            Does not return Latents objects, but a dict of numpy arrays."""
+        return Latents(
+            color=np.array(colors.to_rgb(np.random.choice(self.ranges["color"]))),
+            shape=None,
+            shape_id=-1,
+            scale=np.random.choice(self.ranges["scale"]),
+            orientation=np.random.choice(self.ranges["orientation"]),
+            position_x=np.random.choice(self.ranges["position_x"]),
+            position_y=np.random.choice(self.ranges["position_y"]),
+        )
+
+    def sample_controlled_from_default(self, shape, latent:str=None):
+        """For compatibility with earlier settings. Probably not used any more.
+            Sample a random value only for latent :param latent.
+            latent can be one of: "color", "scale", "orientation", "position_x", "position_y".
+            latent=None also works, then we return a "default" shape.
+        """
+        param_dict = {k:v for k, v in self.range_means.items()}
+        param_dict["shape"] = shape
+        param_dict["shape_id"] = -1
+        if latent == "color":
+            param_dict[latent] = np.array(colors.to_rgb(np.random.choice(self.ranges["color"])))
+        elif latent is not None:
+            param_dict[latent] = np.random.choice(self.ranges[latent])
+        return Latents(**param_dict )
+
+    # def _getitem_numpy(self, index):
+    #     '''Todo: Maybe replace __getitem__ by this function, or add a paramter to switch between the two.'''
+    #     shape = self.shapes[index]
+    #     assert self.sample_random_latents, "Not using this doesnt perform well, phasing it out"
+    #     latents = self.dataset.sample_latents_only
+
+    # def sample_controlled(self, latents, randomize_latent=None):
+    #     '''
+    #         Todo: This is not used; remove it.
+    #     For drawing a predefined sample (given by latents; if :param randomize_latent==None),
+    #         or randomly sampling only a single attribute but keeping the others fixed.
+    #         '''
+    #     if randomize_latent is not None:
+    #         assert randomize_latent in self.allowed_latents, f"Can only vary one of latents {self.allowed_latents}, " \
+    #                                                          f"but found {randomize_latent}"
+    #         latents = self.dataset.sample_controlled(latents, randomize_latent)
+    #     image = self.dataset.draw(latents)
+    #     return image, latents
 
 
 
