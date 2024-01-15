@@ -93,7 +93,9 @@ def get_testing_frequency(runs):
 
 def load_run(run, args, name):
     """Load the metric values for a single run."""
-    path = Path(__file__).parent.parent / f"img/media/{run.name}/metrics.json"
+    path = (
+        Path(__file__).parent.parent / f"img/media/{run.name}/{args.metric_name}.json"
+    )
     if path.exists() and not args.force_download:
         print(f"Found saved run data for {run.name}.")
         with open(path, "r") as f:
