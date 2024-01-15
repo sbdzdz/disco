@@ -3,7 +3,7 @@ from typing import Optional
 
 from torch import nn
 
-from codis.models.blocks import Encoder, Decoder
+from disco.models.blocks import Encoder, Decoder
 
 
 class AutoEncoder(nn.Module):

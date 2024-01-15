@@ -1,4 +1,4 @@
-_target_: codis.lightning.modules.SpatialTransformer
+_target_: disco.lightning.modules.SpatialTransformer
 backbone: resnet18
 pretrained: false
 out_dim: 512

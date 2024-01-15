@@ -5,8 +5,8 @@ import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
 
-from codis.models.base_vae import BaseVAE
-from codis.models.blocks import Decoder, Encoder
+from disco.models.base_vae import BaseVAE
+from disco.models.blocks import Decoder, Encoder
 
 
 class BetaVAE(BaseVAE):

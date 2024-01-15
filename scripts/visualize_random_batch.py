@@ -3,8 +3,8 @@ from pathlib import Path
 
 from torch.utils.data import DataLoader
 
-from codis.data import RandomDSprites
-from codis.visualization import draw_batch
+from disco.data import RandomDSprites
+from disco.visualization import draw_batch
 import argparse
 
 

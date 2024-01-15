@@ -3,7 +3,7 @@ requires=["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "codis"
+name = "disco"
 version = "0.1.0"
 authors = [
     {name = "Sebastian Dziadzio", email = "dziadzio@hey.com"},
@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [tool.hatch.build]
-include = ["codis"]
+include = ["disco"]
 
 [tool.ruff]
 select = ["E", "F", "B"]

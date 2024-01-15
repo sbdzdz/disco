@@ -6,8 +6,8 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 
-from codis.data import InfiniteDSprites
-from codis.visualization import draw_batch_and_reconstructions
+from disco.data import InfiniteDSprites
+from disco.visualization import draw_batch_and_reconstructions
 
 
 def compare(args):

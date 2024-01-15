@@ -2,7 +2,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from codis.data import InfiniteDSprites, RandomDSprites
+from disco.data import InfiniteDSprites, RandomDSprites
 
 
 def _main():

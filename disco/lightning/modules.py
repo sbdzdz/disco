@@ -10,8 +10,8 @@ from pl_bolts.optimizers.lars import LARS
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from torchvision.models import get_model, list_models
 
-from codis.data import Latents
-from codis.models import MLP, BetaVAE
+from disco.data import Latents
+from disco.models import MLP, BetaVAE
 
 
 class ContinualModule(pl.LightningModule):

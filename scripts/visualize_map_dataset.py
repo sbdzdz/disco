@@ -4,8 +4,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from codis.data import ContinualDSpritesMap, InfiniteDSprites
-from codis.visualization import draw_batch
+from disco.data import ContinualDSpritesMap, InfiniteDSprites
+from disco.visualization import draw_batch
 
 
 def main():

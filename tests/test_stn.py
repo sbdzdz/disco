@@ -5,8 +5,8 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from codis.data import Latents, RandomDSprites
-from codis.lightning.modules import SpatialTransformer
+from disco.data import Latents, RandomDSprites
+from disco.lightning.modules import SpatialTransformer
 
 
 @pytest.mark.parametrize("seed", [0, 1, 2])

@@ -1,4 +1,4 @@
-_target_: codis.lightning.modules.SupervisedClassifier
+_target_: disco.lightning.modules.SupervisedClassifier
 backbone: resnet18
 lr: ${training.lr}
 shapes_per_task: ${dataset.shapes_per_task}

@@ -1,6 +1,6 @@
 """Visualization utilities for the dSprites and InfiniteDSprites datasets.
 Example:
-    python -c "from codis.data.visualization import draw_shapes; draw_shapes()"
+    python -c "from disco.data.visualization import draw_shapes; draw_shapes()"
 """
 import io
 from pathlib import Path
@@ -11,7 +11,7 @@ import PIL
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
-from codis.data import (
+from disco.data import (
     InfiniteDSprites,
     InfiniteDSpritesAnalogies,
     Latents,

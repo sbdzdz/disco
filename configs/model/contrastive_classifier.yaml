@@ -1,4 +1,4 @@
-_target_: codis.lightning.modules.ContrastiveClassifier
+_target_: disco.lightning.modules.ContrastiveClassifier
 train_iters_per_epoch: ${eval:'${dataset.shapes_per_task} * ${dataset.factor_resolution}**4 / (${dataset.batch_size}*${trainer.accumulate_grad_batches})'}
 backbone: resnet18
 optimizer: adam

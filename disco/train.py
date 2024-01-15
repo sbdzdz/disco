@@ -20,13 +20,13 @@ from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, Ti
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 
-from codis.data import (
+from disco.data import (
     ContinualBenchmark,
     ContinualBenchmarkRehearsal,
     InfiniteDSprites,
     Latents,
 )
-from codis.lightning.callbacks import (
+from disco.lightning.callbacks import (
     LoggingCallback,
     MetricsCallback,
     VisualizationCallback,
