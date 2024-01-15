@@ -12,8 +12,8 @@ import wandb
 def _main(args):
     api = wandb.Api()
 
-    classification_run = api.run("codis/codis/z9wmsw3d")
-    regression_run = api.run("codis/codis/licb0eis")
+    classification_run = api.run("disco/disco/z9wmsw3d")
+    regression_run = api.run("disco/disco/licb0eis")
 
     losses = {
         "classification": get_train_loss(args, classification_run),

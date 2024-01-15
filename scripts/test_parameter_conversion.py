@@ -4,9 +4,9 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from codis.data.infinite_dsprites import RandomDSprites, Latents
-from codis.lightning.modules import SpatialTransformer
-from codis.visualization import draw_batch_and_reconstructions
+from disco.data.infinite_dsprites import RandomDSprites, Latents
+from disco.lightning.modules import SpatialTransformer
+from disco.visualization import draw_batch_and_reconstructions
 
 
 def main():

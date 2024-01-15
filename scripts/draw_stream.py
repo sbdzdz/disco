@@ -1,4 +1,4 @@
-from codis.visualization import draw_shapes
+from disco.visualization import draw_shapes
 from argparse import ArgumentParser
 from pathlib import Path
 from tqdm import tqdm

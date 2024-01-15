@@ -19,7 +19,7 @@ Here's how to use the dataset:
 
 ```python
 from torch.utils.data import DataLoader
-from codis.data import InfiniteDSprites
+from disco.data import InfiniteDSprites
 
 dataset = InfiniteDSprites()
 dataloader = DataLoader(dataset, batch_size=4)

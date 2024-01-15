@@ -9,7 +9,7 @@ from lightning.pytorch.utilities.types import STEP_OUTPUT
 import time
 from torch.utils.data import Subset
 
-from codis.visualization import draw_batch, draw_batch_and_reconstructions
+from disco.visualization import draw_batch, draw_batch_and_reconstructions
 
 
 class VisualizationCallback(Callback):

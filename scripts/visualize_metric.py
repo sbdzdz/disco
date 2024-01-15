@@ -201,8 +201,8 @@ def _main():
     parser.add_argument(
         "--wandb_entity",
         type=str,
-        help="Wandb entity and project name, e.g. codis/codis",
-        default="codis/codis",
+        help="Wandb entity and project name, e.g. disco/disco",
+        default="disco/disco",
     )
     parser.add_argument("--wandb_groups", type=str, nargs="+", help="Wandb group name")
     parser.add_argument(

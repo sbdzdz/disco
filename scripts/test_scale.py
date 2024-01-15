@@ -6,7 +6,7 @@ import imageio
 import matplotlib.pyplot as plt
 import numpy as np
 
-from codis.data.infinite_dsprites import InfiniteDSprites
+from disco.data.infinite_dsprites import InfiniteDSprites
 
 
 def main():

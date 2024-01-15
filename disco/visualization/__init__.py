@@ -1,5 +1,5 @@
 """Visualization tools."""
-from codis.visualization.visualization import (
+from disco.visualization.visualization import (
     draw_batch,
     draw_batch_density,
     draw_batch_and_reconstructions,

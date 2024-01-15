@@ -4,8 +4,8 @@ from argparse import ArgumentParser
 import numpy as np
 from torch.utils.data import DataLoader
 
-from codis.data import ContinualDSpritesMap, InfiniteDSprites
-from codis.visualization import draw_batch
+from disco.data import ContinualDSpritesMap, InfiniteDSprites
+from disco.visualization import draw_batch
 
 
 def sample_and_draw(args):

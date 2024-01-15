@@ -5,7 +5,7 @@ defaults:
  - strategy: naive
 
 project:
-  name: codis
+  name: disco
 
 hydra:
   run:
