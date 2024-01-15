@@ -93,7 +93,9 @@ def get_testing_frequency(runs):
 
 def load_run(run, args, name):
     """Load the metric values for a single run."""
-    path = Path(__file__).parent.parent / f"img/media/{run.name}/metrics.json"
+    path = (
+        Path(__file__).parent.parent / f"img/media/{run.name}/{args.metric_name}.json"
+    )
     if path.exists() and not args.force_download:
         print(f"Found saved run data for {run.name}.")
         with open(path, "r") as f:
@@ -152,7 +154,10 @@ def take_last(scan):
 
 def plot(args, metrics):
     plt.style.use(["science", "bright"])
-    _, ax = plt.subplots(layout="tight")
+    if args.fig_height is None and args.fig_width is None:
+        _, ax = plt.subplots(layout="tight")
+    else:
+        _, ax = plt.subplots(layout="tight", figsize=(args.fig_width, args.fig_height))
     for name, (steps, values) in metrics.items():
         values_mean = length_agnostic_mean(values)
         ax.plot(steps, values_mean, label=name)
@@ -176,7 +181,7 @@ def plot(args, metrics):
 
     if args.plot_title is None:
         args.plot_title = f"{metric_name.capitalize()} (test)"
-    ax.legend(loc="best")
+    ax.legend(loc=args.legend_loc)
 
     plt.savefig(args.out_path, bbox_inches="tight")
 
@@ -234,6 +239,14 @@ def _main():
     parser.add_argument("--ymin", type=float, default=-0.05, help="Y-axis min limit.")
     parser.add_argument("--ymax", type=float, default=1.05, help="Y-axis max limit.")
     parser.add_argument("--fontsize", type=int, default=20)
+    parser.add_argument("--fig_width", type=float)
+    parser.add_argument("--fig_height", type=float)
+    parser.add_argument(
+        "--legend_loc",
+        type=str,
+        default="best",
+        help="Location of the legend.",
+    )
     args = parser.parse_args()
     visualize_metric(args)
 
