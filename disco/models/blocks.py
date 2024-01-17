@@ -5,17 +5,17 @@ from torch import nn
 class Encoder(nn.Module):
     """A simple encoder model."""
 
-    def __init__(self, hidden_dims: list[int], in_channels: int = 1) -> None:
+    def __init__(self, channels: list[int], in_channels: int = 1) -> None:
         """Initialize the encoder.
         Args:
             in_channels: The number of input channels.
-            hidden_dims: The number of channels in each hidden layer.
+            channels: The number of channels in each hidden layer.
         Returns:
             None
         """
         super().__init__()
-        self.channels = hidden_dims
-        hidden_dims = [in_channels] + hidden_dims
+        self.channels = channels
+        channels = [in_channels] + channels
         module = [
             nn.Sequential(
                 nn.Conv2d(
@@ -28,7 +28,7 @@ class Encoder(nn.Module):
                 nn.BatchNorm2d(out_channels),
                 nn.LeakyReLU(),
             )
-            for in_channels, out_channels in zip(hidden_dims[:-1], hidden_dims[1:])
+            for in_channels, out_channels in zip(channels[:-1], channels[1:])
         ]
         self.encoder = nn.Sequential(*module)
 
@@ -46,11 +46,11 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     """A simple decoder model."""
 
-    def __init__(self, hidden_dims: list[int], out_channels: int = 1) -> None:
+    def __init__(self, channels: list[int], out_channels: int = 1) -> None:
         """Initialize the decoder.
         Args:
             out_channels: The number of output channels.
-            hidden_dims: The number of channels in each hidden layer.
+            channels: The number of channels in each hidden layer.
         Returns:
             None
         """
@@ -68,22 +68,22 @@ class Decoder(nn.Module):
                 nn.BatchNorm2d(out_channels),
                 nn.LeakyReLU(),
             )
-            for in_channels, out_channels in zip(hidden_dims[:-1], hidden_dims[1:])
+            for in_channels, out_channels in zip(channels[:-1], channels[1:])
         ]
         modules.append(
             nn.Sequential(
                 nn.ConvTranspose2d(
-                    hidden_dims[-1],
-                    hidden_dims[-1],
+                    channels[-1],
+                    channels[-1],
                     kernel_size=3,
                     stride=2,
                     padding=1,
                     output_padding=1,
                 ),
-                nn.BatchNorm2d(hidden_dims[-1]),
+                nn.BatchNorm2d(channels[-1]),
                 nn.LeakyReLU(),
                 nn.Conv2d(
-                    hidden_dims[-1], out_channels=out_channels, kernel_size=3, padding=1
+                    channels[-1], out_channels=out_channels, kernel_size=3, padding=1
                 ),
                 nn.Sigmoid(),
             )
