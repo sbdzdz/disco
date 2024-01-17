@@ -313,50 +313,58 @@ class Autoencoder(ContinualModule):
     def __init__(
         self,
         in_channels: int,
-        hidden_dims: Optional[list[int]] = None,
+        img_size: int,
+        channels: Optional[list[int]] = None,
         backbone: str = "resnet18",
-        out_dim: int = 512,
         buffer_chunk_size: int = 64,
         **kwargs,
     ):
         """Initialize the autoencoder.
         Args:
             in_channels: The number of input channels.
-            hidden_dims: The number of channels in each hidden layer.
+            channels: The number of channels in each hidden layer of the decoder.
             backbone: The backbone model.
-            out_dim: The dimensionality of the latent representation.
             buffer_chunk_size: The chunk size for the buffer.
         """
         super().__init__(**kwargs)
-        self.out_dim = out_dim
-        self.buffer_chunk_size = buffer_chunk_size
 
-        self.in_channels = (in_channels,)
-        if hidden_dims is None:
-            hidden_dims = [32, 64, 128, 256, 512]
+        self.in_channels = in_channels
+        if channels is None:
+            channels = [512, 256, 128, 64, 32]
+
+        self.decoder_input_img_size = img_size // 2 ** len(channels)
+        assert (
+            self.decoder_input_img_size > 0
+        ), "Too many decoder layers for the input size."
+        self.decoder_input_size = self.decoder_input_img_size**2 * channels[-1]
 
         if backbone not in list_models(module=torchvision.models):
             raise ValueError(f"Unknown backbone: {backbone}")
 
-        self.backbone = get_model(backbone, weights=None, num_classes=self.out_dim)
-        self.decoder = Decoder(
-            hidden_dims=reversed(hidden_dims), out_channels=in_channels
+        self.backbone = get_model(
+            backbone, weights=None, num_classes=self.decoder_input_size
         )
+        self.buffer_chunk_size = buffer_chunk_size
+        self.decoder = Decoder(channels=channels, out_channels=in_channels)
 
     def configure_optimizers(self):
         """Configure the optimizers."""
         return torch.optim.Adam(
             [
-                {"params": self.backbone.parameters(), "lr": self.lr},
+                {"backbone": self.backbone.parameters(), "lr": self.lr},
                 {"encoder": self.decoder.parameters(), "lr": self.lr},
             ]
         )
 
     def forward(self, x):
         """Perform the forward pass."""
-        z = self.backbone(x).view(-1, 2, 3)
-        x_hat = self.decoder(z)
-        return x_hat
+        z = self.backbone(x).view(
+            -1,
+            self.channels[-1],
+            self.decoder_input_img_size,
+            self.decoder_input_img_size,
+        )
+        return self.decoder(z)
 
     def get_reconstruction(self, x):
         """Get the reconstruction."""
