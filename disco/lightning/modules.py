@@ -351,8 +351,8 @@ class Autoencoder(ContinualModule):
         """Configure the optimizers."""
         return torch.optim.Adam(
             [
-                {"backbone": self.backbone.parameters(), "lr": self.lr},
-                {"encoder": self.decoder.parameters(), "lr": self.lr},
+                {"params": self.backbone.parameters(), "lr": self.lr},
+                {"params": self.decoder.parameters(), "lr": self.lr},
             ]
         )
 
