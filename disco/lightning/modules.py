@@ -1,5 +1,5 @@
 """Lightning modules for the models."""
-from typing import List, Optional
+from typing import Optional
 
 import lightning.pytorch as pl
 import torch
@@ -358,6 +358,10 @@ class Autoencoder(ContinualModule):
         x_hat = self.decoder(z)
         return x_hat
 
+    def get_reconstruction(self, x):
+        """Get the reconstruction."""
+        return self.forward(x)
+
     def _step(self, batch):
         """Perform a training or validation step."""
         x, y = batch
@@ -372,8 +376,7 @@ class Autoencoder(ContinualModule):
     @torch.no_grad()
     def classify(self, x: torch.Tensor):
         """Classify the input."""
-        x_hat, *_ = self(x)
-        x_hat = x_hat.unsqueeze(1).detach()
+        x_hat = self.get_reconstruction(x).unsqueeze(1).detach()
         buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
             self.device
         )
@@ -432,6 +435,10 @@ class SpatialTransformer(ContinualModule):
 
         return x_hat, theta
 
+    def get_reconstruction(self, x):
+        """Get the reconstruction."""
+        return self.forward(x)[0]
+
     def _step(self, batch):
         """Perform a training or validation step."""
         x, y = batch
@@ -452,8 +459,7 @@ class SpatialTransformer(ContinualModule):
     @torch.no_grad()
     def classify(self, x: torch.Tensor):
         """Classify the input."""
-        x_hat, *_ = self(x)
-        x_hat = x_hat.unsqueeze(1).detach()
+        x_hat = self.get_reconstruction(x).unsqueeze(1).detach()
         buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
             self.device
         )
