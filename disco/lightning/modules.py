@@ -331,12 +331,13 @@ class Autoencoder(ContinualModule):
         self.in_channels = in_channels
         if channels is None:
             channels = [512, 256, 128, 64, 32]
+        self.channels = channels
 
         self.decoder_input_img_size = img_size // 2 ** len(channels)
         assert (
             self.decoder_input_img_size > 0
         ), "Too many decoder layers for the input size."
-        self.decoder_input_size = self.decoder_input_img_size**2 * channels[-1]
+        self.decoder_input_size = self.decoder_input_img_size**2 * channels[0]
 
         if backbone not in list_models(module=torchvision.models):
             raise ValueError(f"Unknown backbone: {backbone}")
@@ -360,7 +361,7 @@ class Autoencoder(ContinualModule):
         """Perform the forward pass."""
         z = self.backbone(x).view(
             -1,
-            self.channels[-1],
+            self.channels[0],
             self.decoder_input_img_size,
             self.decoder_input_img_size,
         )
