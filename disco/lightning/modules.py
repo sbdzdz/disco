@@ -307,101 +307,7 @@ class SupervisedClassifier(ContinualModule):
         return self.forward(x).argmax(dim=1)
 
 
-class Autoencoder(ContinualModule):
-    """A model that uses an autoencoder as the normalization network."""
-
-    def __init__(
-        self,
-        in_channels: int,
-        img_size: int,
-        channels: Optional[list[int]] = None,
-        backbone: str = "resnet18",
-        buffer_chunk_size: int = 64,
-        **kwargs,
-    ):
-        """Initialize the autoencoder.
-        Args:
-            in_channels: The number of input channels.
-            channels: The number of channels in each hidden layer of the decoder.
-            backbone: The backbone model.
-            buffer_chunk_size: The chunk size for the buffer.
-        """
-        super().__init__(**kwargs)
-
-        self.in_channels = in_channels
-        if channels is None:
-            channels = [512, 256, 128, 64, 32]
-        self.channels = channels
-
-        self.decoder_input_img_size = img_size // 2 ** len(channels)
-        assert (
-            self.decoder_input_img_size > 0
-        ), "Too many decoder layers for the input size."
-        self.decoder_input_size = self.decoder_input_img_size**2 * channels[0]
-
-        if backbone not in list_models(module=torchvision.models):
-            raise ValueError(f"Unknown backbone: {backbone}")
-
-        self.backbone = get_model(
-            backbone, weights=None, num_classes=self.decoder_input_size
-        )
-        self.buffer_chunk_size = buffer_chunk_size
-        self.decoder = Decoder(channels=channels, out_channels=in_channels)
-
-    def configure_optimizers(self):
-        """Configure the optimizers."""
-        return torch.optim.Adam(
-            [
-                {"params": self.backbone.parameters(), "lr": self.lr},
-                {"params": self.decoder.parameters(), "lr": self.lr},
-            ]
-        )
-
-    def forward(self, x):
-        """Perform the forward pass."""
-        z = self.backbone(x).view(
-            -1,
-            self.channels[0],
-            self.decoder_input_img_size,
-            self.decoder_input_img_size,
-        )
-        return self.decoder(z)
-
-    def get_reconstruction(self, x):
-        """Get the reconstruction."""
-        return self.forward(x)
-
-    def _step(self, batch):
-        """Perform a training or validation step."""
-        x, y = batch
-        x_hat = self.forward(x)
-        exemplars = torch.stack(
-            [torch.from_numpy(self._buffer[i]) for i in y.shape_id]
-        ).to(self.device)
-        return {
-            "loss": F.mse_loss(exemplars, x_hat),
-        }
-
-    @torch.no_grad()
-    def classify(self, x: torch.Tensor):
-        """Classify the input."""
-        x_hat = self.get_reconstruction(x).unsqueeze(1).detach()
-        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
-            self.device
-        )
-        buffer = buffer.unsqueeze(0).detach()
-
-        losses = []  # classify in chunks to avoid OOM
-        for chunk in torch.split(buffer, self.buffer_chunk_size, dim=1):
-            chunk = chunk.repeat(x_hat.shape[0], 1, 1, 1, 1)
-            loss = F.mse_loss(
-                x_hat.repeat(1, chunk.shape[1], 1, 1, 1), chunk, reduction="none"
-            ).mean(dim=(2, 3, 4))
-            losses.append(loss)
-        return torch.cat(losses, dim=1).argmin(dim=1)
-
-
-class SpatialTransformer(ContinualModule):
+class Regressor(ContinualModule):
     """A model that combines a parameter regressor and differentiable affine transforms."""
 
     def __init__(
@@ -531,3 +437,97 @@ class SpatialTransformer(ContinualModule):
             .repeat(batch_size, 1, 1)
             .to(self.device)
         )
+
+
+class Autoencoder(ContinualModule):
+    """A model that uses an autoencoder as the normalization network."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        img_size: int,
+        channels: Optional[list[int]] = None,
+        backbone: str = "resnet18",
+        buffer_chunk_size: int = 64,
+        **kwargs,
+    ):
+        """Initialize the autoencoder.
+        Args:
+            in_channels: The number of input channels.
+            channels: The number of channels in each hidden layer of the decoder.
+            backbone: The backbone model.
+            buffer_chunk_size: The chunk size for the buffer.
+        """
+        super().__init__(**kwargs)
+
+        self.in_channels = in_channels
+        if channels is None:
+            channels = [512, 256, 128, 64, 32]
+        self.channels = channels
+
+        self.decoder_input_img_size = img_size // 2 ** len(channels)
+        assert (
+            self.decoder_input_img_size > 0
+        ), "Too many decoder layers for the input size."
+        self.decoder_input_size = self.decoder_input_img_size**2 * channels[0]
+
+        if backbone not in list_models(module=torchvision.models):
+            raise ValueError(f"Unknown backbone: {backbone}")
+
+        self.backbone = get_model(
+            backbone, weights=None, num_classes=self.decoder_input_size
+        )
+        self.buffer_chunk_size = buffer_chunk_size
+        self.decoder = Decoder(channels=channels, out_channels=in_channels)
+
+    def configure_optimizers(self):
+        """Configure the optimizers."""
+        return torch.optim.Adam(
+            [
+                {"params": self.backbone.parameters(), "lr": self.lr},
+                {"params": self.decoder.parameters(), "lr": self.lr},
+            ]
+        )
+
+    def forward(self, x):
+        """Perform the forward pass."""
+        z = self.backbone(x).view(
+            -1,
+            self.channels[0],
+            self.decoder_input_img_size,
+            self.decoder_input_img_size,
+        )
+        return self.decoder(z)
+
+    def get_reconstruction(self, x):
+        """Get the reconstruction."""
+        return self.forward(x)
+
+    def _step(self, batch):
+        """Perform a training or validation step."""
+        x, y = batch
+        x_hat = self.forward(x)
+        exemplars = torch.stack(
+            [torch.from_numpy(self._buffer[i]) for i in y.shape_id]
+        ).to(self.device)
+        return {
+            "loss": F.mse_loss(exemplars, x_hat),
+        }
+
+    @torch.no_grad()
+    def classify(self, x: torch.Tensor):
+        """Classify the input."""
+        x_hat = self.get_reconstruction(x).unsqueeze(1).detach()
+        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
+            self.device
+        )
+        buffer = buffer.unsqueeze(0).detach()
+
+        losses = []  # classify in chunks to avoid OOM
+        for chunk in torch.split(buffer, self.buffer_chunk_size, dim=1):
+            chunk = chunk.repeat(x_hat.shape[0], 1, 1, 1, 1)
+            loss = F.mse_loss(
+                x_hat.repeat(1, chunk.shape[1], 1, 1, 1), chunk, reduction="none"
+            ).mean(dim=(2, 3, 4))
+            losses.append(loss)
+        return torch.cat(losses, dim=1).argmin(dim=1)

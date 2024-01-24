@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from disco.data import Latents, RandomDSprites
-from disco.lightning.modules import SpatialTransformer
+from disco.lightning.modules import Regressor
 
 
 @pytest.mark.parametrize("seed", [0, 1, 2])
@@ -15,7 +15,7 @@ def test_parameter_conversion(seed):
     np.random.seed(seed)
     batch_size = 16
     dataset = RandomDSprites()
-    transformer = SpatialTransformer()
+    transformer = Regressor()
     dataloader = DataLoader(dataset, batch_size, num_workers=0)
     images, factors = next(iter(dataloader))
     matrices = transformer.convert_parameters_to_matrix(factors)
