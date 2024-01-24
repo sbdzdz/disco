@@ -1,5 +1,5 @@
 """Lightning modules for the models."""
-from typing import List, Optional
+from typing import Optional
 
 import lightning.pytorch as pl
 import torch
@@ -11,7 +11,7 @@ from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from torchvision.models import get_model, list_models
 
 from disco.data import Latents
-from disco.models import MLP, BetaVAE
+from disco.models.blocks import Decoder
 
 
 class ContinualModule(pl.LightningModule):
@@ -307,6 +307,100 @@ class SupervisedClassifier(ContinualModule):
         return self.forward(x).argmax(dim=1)
 
 
+class Autoencoder(ContinualModule):
+    """A model that uses an autoencoder as the normalization network."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        img_size: int,
+        channels: Optional[list[int]] = None,
+        backbone: str = "resnet18",
+        buffer_chunk_size: int = 64,
+        **kwargs,
+    ):
+        """Initialize the autoencoder.
+        Args:
+            in_channels: The number of input channels.
+            channels: The number of channels in each hidden layer of the decoder.
+            backbone: The backbone model.
+            buffer_chunk_size: The chunk size for the buffer.
+        """
+        super().__init__(**kwargs)
+
+        self.in_channels = in_channels
+        if channels is None:
+            channels = [512, 256, 128, 64, 32]
+        self.channels = channels
+
+        self.decoder_input_img_size = img_size // 2 ** len(channels)
+        assert (
+            self.decoder_input_img_size > 0
+        ), "Too many decoder layers for the input size."
+        self.decoder_input_size = self.decoder_input_img_size**2 * channels[0]
+
+        if backbone not in list_models(module=torchvision.models):
+            raise ValueError(f"Unknown backbone: {backbone}")
+
+        self.backbone = get_model(
+            backbone, weights=None, num_classes=self.decoder_input_size
+        )
+        self.buffer_chunk_size = buffer_chunk_size
+        self.decoder = Decoder(channels=channels, out_channels=in_channels)
+
+    def configure_optimizers(self):
+        """Configure the optimizers."""
+        return torch.optim.Adam(
+            [
+                {"params": self.backbone.parameters(), "lr": self.lr},
+                {"params": self.decoder.parameters(), "lr": self.lr},
+            ]
+        )
+
+    def forward(self, x):
+        """Perform the forward pass."""
+        z = self.backbone(x).view(
+            -1,
+            self.channels[0],
+            self.decoder_input_img_size,
+            self.decoder_input_img_size,
+        )
+        return self.decoder(z)
+
+    def get_reconstruction(self, x):
+        """Get the reconstruction."""
+        return self.forward(x)
+
+    def _step(self, batch):
+        """Perform a training or validation step."""
+        x, y = batch
+        x_hat = self.forward(x)
+        exemplars = torch.stack(
+            [torch.from_numpy(self._buffer[i]) for i in y.shape_id]
+        ).to(self.device)
+        return {
+            "loss": F.mse_loss(exemplars, x_hat),
+        }
+
+    @torch.no_grad()
+    def classify(self, x: torch.Tensor):
+        """Classify the input."""
+        x_hat = self.get_reconstruction(x).unsqueeze(1).detach()
+        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
+            self.device
+        )
+        buffer = buffer.unsqueeze(0).detach()
+
+        losses = []  # classify in chunks to avoid OOM
+        for chunk in torch.split(buffer, self.buffer_chunk_size, dim=1):
+            chunk = chunk.repeat(x_hat.shape[0], 1, 1, 1, 1)
+            loss = F.mse_loss(
+                x_hat.repeat(1, chunk.shape[1], 1, 1, 1), chunk, reduction="none"
+            ).mean(dim=(2, 3, 4))
+            losses.append(loss)
+        return torch.cat(losses, dim=1).argmin(dim=1)
+
+
 class SpatialTransformer(ContinualModule):
     """A model that combines a parameter regressor and differentiable affine transforms."""
 
@@ -350,6 +444,10 @@ class SpatialTransformer(ContinualModule):
 
         return x_hat, theta
 
+    def get_reconstruction(self, x):
+        """Get the reconstruction."""
+        return self.forward(x)[0]
+
     def _step(self, batch):
         """Perform a training or validation step."""
         x, y = batch
@@ -370,8 +468,7 @@ class SpatialTransformer(ContinualModule):
     @torch.no_grad()
     def classify(self, x: torch.Tensor):
         """Classify the input."""
-        x_hat, *_ = self(x)
-        x_hat = x_hat.unsqueeze(1).detach()
+        x_hat = self.get_reconstruction(x).unsqueeze(1).detach()
         buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
             self.device
         )
@@ -434,120 +531,3 @@ class SpatialTransformer(ContinualModule):
             .repeat(batch_size, 1, 1)
             .to(self.device)
         )
-
-
-class SupervisedVAE(ContinualModule):
-    """A model that combines a VAE backbone and an MLP regressor."""
-
-    def __init__(
-        self,
-        vae: pl.LightningModule,
-        gamma: float = 0.5,
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        self.backbone = vae
-        self.gamma = gamma
-        self.regressor = LightningMLP(
-            dims=[self.backbone.latent_dim, 64, 64, len(self.factor_names)],
-        )
-
-    def configure_optimizers(self):
-        """Configure the optimizers."""
-        return torch.optim.Adam(
-            [
-                {"params": self.backbone.parameters(), "lr": self.backbone.lr},
-                {"params": self.regressor.parameters(), "lr": self.regressor.lr},
-            ]
-        )
-
-    def forward(self, x):
-        """Perform the forward pass."""
-        x_hat, mu, log_var = self.backbone(x)
-        return x_hat, mu, log_var, self.regressor(mu)
-
-    def _step(self, batch):
-        """Perform a training or validation step."""
-        x, y = batch
-        y = self._stack_factors(y)
-        x_hat, mu, log_var, y_hat = self.forward(x)
-        regressor_loss = self.regressor.loss_function(y, y_hat)["loss"]
-        vae_loss = self.backbone.loss_function(x, x_hat, mu, log_var)["loss"]
-        accuracy = (y.shape_id == self.classify(x)).float().mean()
-        return {
-            "accuracy": accuracy.item(),
-            "regression_loss": regressor_loss.item(),
-            "vae_loss": vae_loss.item(),
-            "loss": self.gamma * regressor_loss + (1 - self.gamma) * vae_loss,
-        }
-
-
-class LightningBetaVAE(pl.LightningModule):
-    """The β-VAE Lightning module."""
-
-    def __init__(
-        self,
-        img_size: int = 64,
-        in_channels: int = 1,
-        latent_dim: int = 10,
-        channels: Optional[list] = None,
-        beta: float = 1.0,
-        lr: float = 1e-3,
-    ):
-        super().__init__()
-        self.model = BetaVAE(
-            img_size,
-            in_channels,
-            channels,
-            latent_dim,
-            beta,
-        )
-        self.save_hyperparameters()
-        self.lr = lr
-
-    @property
-    def latent_dim(self):
-        """Dimensionality of the latent space."""
-        return self.model.latent_dim
-
-    def configure_optimizers(self):
-        """Initialize the optimizer."""
-        return torch.optim.Adam(self.parameters(), lr=self.lr)
-
-    def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
-        """Perform the forward pass."""
-        return self.model(x)
-
-    def _step(self, batch):
-        """Perform a training or validation step."""
-        x, _ = batch
-        x_hat, mu, log_var = self.forward(x)
-        return self.model.loss_function(x, x_hat, mu, log_var)
-
-
-class LightningMLP(pl.LightningModule):
-    """The MLP Lightning module."""
-
-    def __init__(self, dims: List[int], dropout_rate: float = 0.0, lr: float = 1e-3):
-        super().__init__()
-        self.model = MLP(dims, dropout_rate)
-        self.lr = lr
-
-    def configure_optimizers(self):
-        """Initialize the optimizer."""
-        return torch.optim.Adam(self.parameters(), lr=self.lr)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Perform the forward pass."""
-        return self.model(x)
-
-    def loss_function(self, *args, **kwargs):
-        """Calculate the loss."""
-        return self.model.loss_function(*args, **kwargs)
-
-    def training_step(self, batch, batch_idx):
-        """Perform a training step."""
-        x_hat = self.forward(batch)
-        loss = self.model.loss_function(batch, x_hat)
-        self.log(**{f"{k}_mlp_train": v for k, v in loss.items()})
-        return loss["loss"]

@@ -69,7 +69,9 @@ class VisualizationCallback(Callback):
     def log_reconstructions(pl_module, batch, name, num_imgs):
         """Log images and reconstructions"""
         batch = np.stack(batch[:num_imgs])
-        x_hat, *_ = pl_module(torch.from_numpy(batch).to(pl_module.device))
+        x_hat = pl_module.get_reconstruction(
+            torch.from_numpy(batch).to(pl_module.device)
+        )
         images = draw_batch_and_reconstructions(
             batch, x_hat.detach().cpu().numpy(), save=False
         )
@@ -87,7 +89,7 @@ class VisualizationCallback(Callback):
         x, y = batch
         x, y = x.to(pl_module.device), y.to(pl_module.device)
         x = x[:num_imgs]
-        x_hat, *_ = pl_module(x)
+        x_hat = pl_module.get_reconstruction(x)
         labels = pl_module.classify(x)
         closest = np.stack([pl_module._buffer[i] for i in labels])
         actual = np.stack([pl_module._buffer[i] for i in y.shape_id[:num_imgs]])
