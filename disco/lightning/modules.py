@@ -329,7 +329,8 @@ class Regressor(ContinualModule):
         else:
             self.backbone = get_model(backbone, weights=None, num_classes=self.out_dim)
 
-        self.backbone.fc = nn.Linear(self.backbone.fc.in_features, 6)
+        self.num_parameters = 6
+        self.backbone.fc = nn.Linear(self.backbone.fc.in_features, self.num_parameters)
         self.out_dim = out_dim
         self.gamma = gamma
         self.buffer_chunk_size = buffer_chunk_size
@@ -366,9 +367,9 @@ class Regressor(ContinualModule):
         theta = self.convert_parameters_to_matrix(y)
         if self.mask_n_theta_elements > 0:
             mask = torch.ones_like(theta)
-            indices = torch.randperm(mask.numel())[: self.mask_n_theta_elements]
+            indices = torch.randperm(self.num_parameters)[: self.mask_n_theta_elements]
             rows, cols = indices // mask.shape[-1], indices % mask.shape[-1]
-            mask[rows, cols] = 0
+            mask[:, rows, cols] = 0
             theta = theta * mask
             theta_hat = theta_hat * mask
         regression_loss = F.mse_loss(theta, theta_hat)
