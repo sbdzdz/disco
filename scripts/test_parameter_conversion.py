@@ -15,10 +15,10 @@ def main():
     """
     batch_size = 16
     dataset = RandomDSprites()
-    transformer = Regressor()
+    regressor = Regressor()
     dataloader = DataLoader(dataset, batch_size, num_workers=0)
     images, factors = next(iter(dataloader))
-    matrices = transformer.convert_parameters_to_matrix(factors)
+    matrices = regressor.convert_parameters_to_matrix(factors)
 
     factors = Latents(
         **{k: v.numpy() for k, v in factors._asdict().items()}
