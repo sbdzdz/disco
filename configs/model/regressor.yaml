@@ -1,4 +1,4 @@
-_target_: disco.lightning.modules.SpatialTransformer
+_target_: disco.lightning.modules.Regressor
 backbone: resnet18
 pretrained: false
 out_dim: 512

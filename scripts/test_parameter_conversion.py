@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from disco.data.infinite_dsprites import RandomDSprites, Latents
-from disco.lightning.modules import SpatialTransformer
+from disco.lightning.modules import Regressor
 from disco.visualization import draw_batch_and_reconstructions
 
 
@@ -15,7 +15,7 @@ def main():
     """
     batch_size = 16
     dataset = RandomDSprites()
-    transformer = SpatialTransformer()
+    transformer = Regressor()
     dataloader = DataLoader(dataset, batch_size, num_workers=0)
     images, factors = next(iter(dataloader))
     matrices = transformer.convert_parameters_to_matrix(factors)
