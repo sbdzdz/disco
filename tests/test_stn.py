@@ -1,4 +1,4 @@
-"""Tests for the spatial transformer network."""
+"""Tests for the regressor network."""
 import numpy as np
 import pytest
 import torch
