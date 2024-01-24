@@ -327,11 +327,9 @@ class Regressor(ContinualModule):
         if pretrained:
             self.backbone = get_model(backbone, weights="DEFAULT")
         else:
-            self.backbone = get_model(backbone, weights=None, num_classes=self.out_dim)
-
+            self.backbone = get_model(backbone, weights=None, num_classes=out_dim)
         self.num_parameters = 6
         self.backbone.fc = nn.Linear(self.backbone.fc.in_features, self.num_parameters)
-        self.out_dim = out_dim
         self.gamma = gamma
         self.buffer_chunk_size = buffer_chunk_size
         self.mask_n_theta_elements = mask_n_theta_elements
