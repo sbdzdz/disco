@@ -1,0 +1,5 @@
+_target_: disco.lightning.modules.SupervisedClassifier
+backbone: resnet18
+lr: ${training.lr}
+shapes_per_task: ${dataset.shapes_per_task}
+num_classes: ${eval:'${dataset.tasks} * ${dataset.shapes_per_task}'}

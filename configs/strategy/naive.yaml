@@ -1,0 +1,9 @@
+_target_: avalanche.training.supervised.Naive
+optimizer:
+  _target_: torch.optim.Adam
+  lr: ${training.lr}
+criterion:
+  _target_: torch.nn.CrossEntropyLoss
+train_mb_size: ${dataset.batch_size}
+eval_mb_size: ${dataset.batch_size}
+train_epochs: ${trainer.max_epochs}

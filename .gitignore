@@ -16,6 +16,7 @@ __pycache__
 
 # data
 *.npz
+*.zip
 
 # wandb
 wandb
@@ -25,3 +26,12 @@ wandb
 
 # logs
 outputs
+
+# profiling
+*.html
+
+# results
+img/media
+
+# figures
+*.pdf

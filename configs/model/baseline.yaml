@@ -1,0 +1,4 @@
+_target_: torchvision.models.get_model
+name: resnet18
+weights: null
+num_classes: ${eval:'${dataset.tasks} * ${dataset.shapes_per_task}'}

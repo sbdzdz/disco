@@ -1,9 +1,8 @@
-# codis
+# 🪩 Disco: Disentangled Continual Learning
 
 <p align="left">
 <a href="https://github.com/psf/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
 </p>
-Continual disentanglement
 
 ## Install
 
@@ -20,7 +19,7 @@ Here's how to use the dataset:
 
 ```python
 from torch.utils.data import DataLoader
-from codis.data import InfiniteDSprites
+from disco.data import InfiniteDSprites
 
 dataset = InfiniteDSprites()
 dataloader = DataLoader(dataset, batch_size=4)
