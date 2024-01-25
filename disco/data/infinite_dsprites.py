@@ -11,6 +11,19 @@ from scipy.interpolate import splev, splprep
 from sklearn.decomposition import PCA
 import torch
 from torch.utils.data import Dataset, IterableDataset
+from tensordict import TensorDict
+from disco.data.polygon_functions import polygon_vectorized
+
+# _fill_poly_vectorized = np.vectorize(lambda img,pts,color: cv2.fillPoly(img=img, pts=pts, color=color,
+#                                                                         lineType=cv2.LINE_AA))
+_bounding_rect_vectorized = torch.func.vmap(lambda pts: cv2.boundingRect(pts), in_dims=(0,), out_dims=0)
+
+_rectangle_vectorized = torch.func.vmap(lambda img, x, y, w, h: cv2.rectangle(img=img, pt1=(x,y), pt2=(x+w, y+h),
+                                                                              color=(0, 255, 0), thickness=2),
+                                        in_dims=(0,0,0,0,0), out_dims=0)
+_circle_vectorized = torch.func.vmap(lambda img, center: cv2.circle(img=img, center=tuple(center), radius=5, color=(255, 0, 0),
+                                                                    thickness=-1), in_dims=(0,0), out_dims=0)
+
 
 BaseLatents = namedtuple(
     "BaseLatents", "color shape shape_id scale orientation position_x, position_y"
@@ -304,10 +317,57 @@ class InfiniteDSprites(IterableDataset):
         return canvas
 
 
-    def apply_scale(self, shape: npt.NDArray, scale: float):
+
+
+    ###############
+
+
+    ##################
+
+    def draw_tensordict(self, latents:TensorDict, channels_first=True, debug=False):
+        ''' attempt at a parallelized version of the above.'''
+        b = latents.batch_size
+        assert len(b) == 1
+        b = b[0]
+        canvas = torch.zeros((b, self.canvas_size, self.canvas_size, 3), dtype=torch.int32)
+        canvas[:, :, :, :] = torch.tensor(self.background_color, device=latents["shape"].device)
+        shapes = latents["shape"]
+        shapes = self.apply_scale_multi(shapes, latents["scale"])
+        shapes = self.apply_orientation_multi(shapes, latents["orientation"])
+        shapes = self.apply_position_multi(shapes, latents["position_x"], latents["position_y"])
+        color = (255 * latents["color"]).to(dtype=int)
+
+        self.draw_shape_multiple(shapes, canvas, color)
+        if self.orientation_marker:
+            self.draw_orientation_marker_multi(canvas, latents)
+        if debug:
+            self.add_debug_info_multi(shapes, canvas)
+        if self.grayscale:
+            canvas = torch.mean(canvas, axis=3, keepdims=True)
+        if channels_first:
+            canvas = torch.transpose(canvas, (3, 1, 2)) #(2, 0, 1))
+        canvas = canvas.astype(np.float32) / 255.0
+        return canvas
+
+    def apply_scale(self, shape: npt.NDArray|torch.Tensor, scale: float):
         """Apply a scale to a shape."""
         height = self.canvas_size
         return self.scale_factor * height * scale * shape
+
+    def apply_scale_multi(self, shapes: torch.Tensor, scales: torch.Tensor):
+        """Apply a scale to a shape."""
+        height = self.canvas_size
+        l = len(scales.shape)
+        if l > len(shapes.shape):
+            raise ValueError(f"Mismatching shapes of inputs: scales.shape = {scales.shape}, "
+                             f"shapes.shape = {shapes.shape}")
+        # add_dims = [1]*(len(shapes.shape)-l)
+        n_add = len(shapes.shape) - l
+        scales = scales[(..., ) + (None, ) * n_add]  # https://github.com/pytorch/pytorch/issues/9410
+        scaled_shapes = scales * shapes
+        # scaled_shapes = torch.einsum("b...,b...->b...", scales, shapes )
+        return self.scale_factor * height * scaled_shapes
+
 
     @staticmethod
     def apply_orientation(shape: npt.NDArray, orientation: float):
@@ -325,6 +385,38 @@ class InfiniteDSprites(IterableDataset):
             ]
         )
         return rotation_matrix @ shape
+
+
+    @staticmethod
+    def apply_orientation_multi(shapes: torch.Tensor, orientations: torch.Tensor):
+        """Apply an orientation to a shape.
+        Args:
+            shape: An array of shape (b, 2, num_points).
+            orientation: The orientation in radians.
+        Returns:
+            The rotated shape.
+        """
+        b = len(orientations)
+        device = orientations.device
+        assert len(orientations.squeeze().shape) <= 1, f"{orientations.shape} - expected 1d vector of orientation angles"
+        rotation_matrix = torch.zeros(b, 2, 2, device=device, dtype=orientations.dtype)
+        rotation_matrix[:,0,0]= torch.cos(orientations)
+        rotation_matrix[:,0,1]= -torch.sin(orientations)
+        rotation_matrix[:,1,0]= torch.sin(orientations)
+        rotation_matrix[:,1,1]= torch.cos(orientations)
+
+        # orientation = orientations.to("cpu").detach()
+        # rotation_matrix_np = np.array(
+        #     [
+        #         [np.cos(orientation[5]), -np.sin(orientation[5])],
+        #         [np.sin(orientation[5]), np.cos(orientation[5])],
+        #     ]
+        # )
+        # assert np.allclose(rotation_matrix_np, rotation_matrix[5,:,:].to("cpu").detach())
+
+        retval= torch.einsum("bik,bij->bkj", rotation_matrix, shapes) # rotation_matrix @ shape
+        assert retval.shape[1:] == shapes.shape[1:]
+        return retval
 
     def apply_position(self, shape: npt.NDArray, position_x: float, position_y: float):
         """Apply a position to a shape.
@@ -344,11 +436,45 @@ class InfiniteDSprites(IterableDataset):
         ).reshape(2, 1)
         return shape + position
 
+
+    def apply_position_multi(self, shapes: torch.Tensor, positions_x: torch.Tensor, positions_y: torch.Tensor):
+        """Apply a position to a shape.
+        Args:
+            shapes: A tensor of shape (batchsize, 2, num_points).
+            positions_x: The x position of each shape.
+            positions_y: The y position of each shape.
+        Returns:
+            An array of shape (2, num_points).
+        """
+        b = len(positions_x)
+        height, width = self.canvas_size, self.canvas_size
+        positions = torch.stack(
+            [
+                0.25 * width + 0.5 * width * positions_x,
+                0.25 * height + 0.5 * height * positions_y,
+            ], dim=1)[:,:,None]
+
+        return shapes + positions
+
     @staticmethod
     def draw_shape(shape, canvas, color):
         """Draw a shape on a canvas."""
         shape = shape.T.astype(np.int32)
         cv2.fillPoly(img=canvas, pts=[shape], color=color, lineType=cv2.LINE_AA)
+
+    @staticmethod
+    def draw_shape_multiple(shape:torch.Tensor, canvas:torch.Tensor, color:torch.Tensor):
+        """Draw a shape on a canvas."""
+        shape = shape.transpose(1,2).type(torch.int32)#[:, None, ...]
+        assert shape.shape[2] == 2
+        assert canvas.shape[3] == 3, f"Expected 3 channels in last dimension, found: {canvas.shape}"
+        b, h, w, c = canvas.shape
+        mask = polygon_vectorized(shape[:,:,0], shape[:,:,1], shape=(h, w), return_mask=True)
+        canvas[mask[..., None]] = color
+
+        # _fill_poly_vectorized(canvas.to("cpu").detach().numpy(),
+        #                       shape.to("cpu").detach().numpy(),
+        #                       color.to("cpu").detach().numpy())
 
     def draw_orientation_marker(self, canvas, latents):
         """Mark the right half of the shape."""
@@ -370,6 +496,31 @@ class InfiniteDSprites(IterableDataset):
         right_half = shape_pixels[x > x0]
 
         canvas[right_half[:, 0], right_half[:, 1]] = self.orientation_marker_color
+
+
+    def draw_orientation_marker_multi(self, canvas, latents:TensorDict):
+        """Mark the right half of the shape."""
+        theta = latents["orientation"] - torch.pi / 2
+        device = theta.device
+        b = len(theta)
+        center = torch.zeros((b, 2, 1), device=device)
+        yx = self.apply_position_multi(center, latents["position_x"], latents["position_y"])
+        y0 = yx[:, 0]
+        x0 = yx[:, 1]
+        def rotate_points(x, y):
+            """Rotate the coordinate system by -theta around the center of the shape."""
+            x_prime = (x - x0) * np.cos(-theta) + (y - y0) * np.sin(-theta) + x0
+            y_prime = -(x - x0) * np.sin(-theta) + (y - y0) * np.cos(-theta) + y0
+            return x_prime, y_prime
+
+        # rotate shape pixel coordinates
+        shape_pixels = torch.argwhere(torch.any(canvas != self.background_color, axis=3))
+        x, _ = rotate_points(shape_pixels[:, 1], shape_pixels[:, 2])
+
+        # select the right half of the shape
+        right_half = shape_pixels[x > x0]
+
+        canvas[right_half[:, 0], right_half[:, 1], right_half[:, 2]] = self.orientation_marker_color
 
     def add_debug_info(self, shape, canvas):
         """Add debug info to the canvas."""
@@ -393,11 +544,28 @@ class InfiniteDSprites(IterableDataset):
             thickness=-1,
         )
 
+
+    def add_debug_info_multi(self, shapes:torch.Tensor, canvas:torch.Tensor):
+        """Add debug info to the canvas."""
+        raise NotImplementedError("You can try, but the below is likely to fail, it uses torch.func.vmap.")
+        shape_center = self.get_center_multi(canvas)
+        x, y, w, h = _bounding_rect_vectorized(shapes.transpose(1,2).astype(np.int32))
+        _rectangle_vectorized(img=canvas, x=x, y=y, w=w, h=h)
+        _circle_vectorized(img=canvas, center=shape_center[...,::-1].astype(np.int32))
+        _circle_vectorized(img=canvas, center=torch.tensor((self.canvas_size // 2, self.canvas_size // 2))[None,:])
+
+
     @staticmethod
     def get_center(canvas):
         """Get the center of the shape."""
         foreground_pixels = np.argwhere(np.any(canvas != [0, 0, 0], axis=2))
         return np.mean(foreground_pixels, axis=0)
+
+    @staticmethod
+    def get_center_multi(canvas):
+        """Get the center of the shape."""
+        foreground_pixels = torch.argwhere(np.any(canvas != [0, 0, 0], axis=4))
+        return torch.mean(foreground_pixels, axis=2)
 
     @staticmethod
     def is_monochrome(canvas):
