@@ -317,21 +317,22 @@ class Regressor(ContinualModule):
         out_dim: int = 512,
         gamma: float = 0.5,
         buffer_chunk_size: int = 64,
+        mask_n_theta_elements: int = 0,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.out_dim = out_dim
-        self.buffer_chunk_size = buffer_chunk_size
 
         if backbone not in list_models(module=torchvision.models):
             raise ValueError(f"Unknown backbone: {backbone}")
-
         if pretrained:
             self.backbone = get_model(backbone, weights="DEFAULT")
         else:
-            self.backbone = get_model(backbone, weights=None, num_classes=self.out_dim)
-        self.backbone.fc = nn.Linear(self.backbone.fc.in_features, 6)
+            self.backbone = get_model(backbone, weights=None, num_classes=out_dim)
+        self.num_parameters = 6
+        self.backbone.fc = nn.Linear(self.backbone.fc.in_features, self.num_parameters)
         self.gamma = gamma
+        self.buffer_chunk_size = buffer_chunk_size
+        self.mask_n_theta_elements = mask_n_theta_elements
 
     def configure_optimizers(self):
         """Configure the optimizers."""
@@ -362,6 +363,13 @@ class Regressor(ContinualModule):
             [torch.from_numpy(self._buffer[i]) for i in y.shape_id]
         ).to(self.device)
         theta = self.convert_parameters_to_matrix(y)
+        if self.mask_n_theta_elements > 0:
+            mask = torch.ones_like(theta)
+            indices = torch.randperm(self.num_parameters)[: self.mask_n_theta_elements]
+            rows, cols = indices // mask.shape[-1], indices % mask.shape[-1]
+            mask[:, rows, cols] = 0
+            theta = theta * mask
+            theta_hat = theta_hat * mask
         regression_loss = F.mse_loss(theta, theta_hat)
         reconstruction_loss = F.mse_loss(exemplars, x_hat)
         return {
