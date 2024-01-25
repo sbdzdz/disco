@@ -275,7 +275,7 @@ class InfiniteDSprites(IterableDataset):
         Returns:
             The image as a numpy array.
         """
-        canvas = np.zeros((self.canvas_size, self.canvas_size, 3)).astype(np.int32)
+        canvas = np.zeros((self.canvas_size, self.canvas_size, 3), dtype=np.int32)
         canvas[:, :] = self.background_color
         shape = self.apply_scale(latents.shape, latents.scale)
         shape = self.apply_orientation(shape, latents.orientation)
