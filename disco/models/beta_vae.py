@@ -1,4 +1,5 @@
 """The β-VAE model. See https://openreview.net/forum?id=Sy2fzU9gl for details."""
+
 from typing import List, Optional
 
 import torch

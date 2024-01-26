@@ -1,4 +1,5 @@
 """Training script."""
+
 import inspect
 import os
 from pathlib import Path

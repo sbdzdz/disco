@@ -1,4 +1,5 @@
 """Base VAE class. Adapted from https://github.com/AntixK/PyTorch-VAE."""
+
 from abc import abstractmethod
 from typing import Any, List
 
