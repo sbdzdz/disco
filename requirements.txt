@@ -5,6 +5,7 @@ lightning
 lightning-bolts
 matplotlib
 memray
+numba
 numpy
 omegaconf
 opencv-python

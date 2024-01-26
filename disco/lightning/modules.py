@@ -1,4 +1,5 @@
 """Lightning modules for the models."""
+
 from typing import Optional
 
 import lightning.pytorch as pl

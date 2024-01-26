@@ -1,4 +1,5 @@
 """Visualization tools."""
+
 from disco.visualization.visualization import (
     draw_batch,
     draw_batch_density,

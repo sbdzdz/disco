@@ -1,4 +1,5 @@
 """Lightning callbacks."""
+
 from typing import Any, Optional
 
 import lightning.pytorch as pl

@@ -1,4 +1,5 @@
 """Common blocks used in models."""
+
 from torch import nn
 
 

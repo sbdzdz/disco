@@ -1,4 +1,5 @@
 """A module containing an implementation of a simple autoencoder."""
+
 from typing import Optional
 
 from torch import nn
