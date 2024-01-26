@@ -15,6 +15,7 @@ dependencies = [
     "hydra-core",
     "lightning",
     "matplotlib",
+    "numba",
     "opencv-python",
     "scipy",
     "scikit-learn",
