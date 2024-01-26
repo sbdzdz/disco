@@ -329,14 +329,16 @@ class InfiniteDSprites(IterableDataset):
         b = latents.batch_size
         assert len(b) == 1
         b = b[0]
-        canvas = torch.zeros((b, self.canvas_size, self.canvas_size, 3), dtype=torch.int32)
+        canvas = torch.zeros((b, self.canvas_size, self.canvas_size, 3), dtype=torch.int32,
+                             device=latents["shape"].device)
         canvas[:, :, :, :] = torch.tensor(self.background_color, device=latents["shape"].device)
         shapes = latents["shape"]
         shapes = self.apply_scale_multi(shapes, latents["scale"])
         shapes = self.apply_orientation_multi(shapes, latents["orientation"])
         shapes = self.apply_position_multi(shapes, latents["position_x"], latents["position_y"])
-        color = (255 * latents["color"]).to(dtype=int)
-
+        # color = (255 * latents["color"]).to(dtype=int)
+        # todo: assert al colors are the same
+        color = 255 *latents["color"][0].to(dtype=int)
         self.draw_shape_multiple(shapes, canvas, color)
         if self.orientation_marker:
             self.draw_orientation_marker_multi(canvas, latents)
@@ -345,8 +347,8 @@ class InfiniteDSprites(IterableDataset):
         if self.grayscale:
             canvas = torch.mean(canvas, axis=3, keepdims=True)
         if channels_first:
-            canvas = torch.transpose(canvas, (3, 1, 2)) #(2, 0, 1))
-        canvas = canvas.astype(np.float32) / 255.0
+            canvas = torch.permute(canvas, (0, 3, 1, 2)) #(2, 0, 1))
+        canvas = canvas.type(torch.float32) / 255.0
         return canvas
 
     def apply_scale(self, shape: npt.NDArray|torch.Tensor, scale: float):
@@ -399,7 +401,7 @@ class InfiniteDSprites(IterableDataset):
         b = len(orientations)
         device = orientations.device
         assert len(orientations.squeeze().shape) <= 1, f"{orientations.shape} - expected 1d vector of orientation angles"
-        rotation_matrix = torch.zeros(b, 2, 2, device=device, dtype=orientations.dtype)
+        rotation_matrix = torch.zeros(b, 2, 2, device=device, dtype=shapes.dtype)
         rotation_matrix[:,0,0]= torch.cos(orientations)
         rotation_matrix[:,0,1]= -torch.sin(orientations)
         rotation_matrix[:,1,0]= torch.sin(orientations)
@@ -414,7 +416,8 @@ class InfiniteDSprites(IterableDataset):
         # )
         # assert np.allclose(rotation_matrix_np, rotation_matrix[5,:,:].to("cpu").detach())
 
-        retval= torch.einsum("bik,bij->bkj", rotation_matrix, shapes) # rotation_matrix @ shape
+        retval= torch.einsum("bki,bij->bkj", rotation_matrix, shapes) # rotation_matrix @ shape
+        # assert np.allclose(retval[5,...] ,  (rotation_matrix_np @ shapes[5,...].to("cpu").numpy()))
         assert retval.shape[1:] == shapes.shape[1:]
         return retval
 
@@ -469,8 +472,14 @@ class InfiniteDSprites(IterableDataset):
         assert shape.shape[2] == 2
         assert canvas.shape[3] == 3, f"Expected 3 channels in last dimension, found: {canvas.shape}"
         b, h, w, c = canvas.shape
-        mask = polygon_vectorized(shape[:,:,0], shape[:,:,1], shape=(h, w), return_mask=True)
-        canvas[mask[..., None]] = color
+        mask = torch.zeros((b, h, w), dtype=torch.bool, device=shape.device)
+        s=4
+        for i in range(0,b,s):
+            mask[i : i+s] = polygon_vectorized(shape[i : i+s, :, 0], shape[i : i+s, :, 1],
+                                                     shape=(h, w), return_mask=True)
+        assert color.squeeze().shape == (3,), f"Only one color supported per batch"
+        for i in range(3):
+            canvas[..., i].masked_fill_(mask, color[i])
 
         # _fill_poly_vectorized(canvas.to("cpu").detach().numpy(),
         #                       shape.to("cpu").detach().numpy(),
@@ -500,6 +509,9 @@ class InfiniteDSprites(IterableDataset):
 
     def draw_orientation_marker_multi(self, canvas, latents:TensorDict):
         """Mark the right half of the shape."""
+        raise NotImplementedError("You need to rewrite rotate_points to be vectorized, and maybe "
+                                  "rotate the entire canvas instead of just shape_pixels as they will"
+                                  "have different lengths per sample.")
         theta = latents["orientation"] - torch.pi / 2
         device = theta.device
         b = len(theta)
@@ -509,12 +521,13 @@ class InfiniteDSprites(IterableDataset):
         x0 = yx[:, 1]
         def rotate_points(x, y):
             """Rotate the coordinate system by -theta around the center of the shape."""
-            x_prime = (x - x0) * np.cos(-theta) + (y - y0) * np.sin(-theta) + x0
-            y_prime = -(x - x0) * np.sin(-theta) + (y - y0) * np.cos(-theta) + y0
+            x_prime = (x - x0) * torch.cos(-theta) + (y - y0) * torch.sin(-theta) + x0
+            y_prime = -(x - x0) * torch.sin(-theta) + (y - y0) * torch.cos(-theta) + y0
             return x_prime, y_prime
 
         # rotate shape pixel coordinates
-        shape_pixels = torch.argwhere(torch.any(canvas != self.background_color, axis=3))
+        background_color_tensor = torch.tensor(self.background_color, device=canvas.device, dtype=canvas.dtype)
+        shape_pixels = torch.argwhere(torch.any(canvas != background_color_tensor, dim=3))
         x, _ = rotate_points(shape_pixels[:, 1], shape_pixels[:, 2])
 
         # select the right half of the shape
@@ -938,7 +951,7 @@ class RandomDSpritesMapCustomized(Dataset):
 
     def transform_sample(self, latents:Latents, ):
         ''''''
-
+        raise NotImplementedError()
     # def __getitems__(self, indices):
     #   todo/can-do, for further optimization.
     #     pass
