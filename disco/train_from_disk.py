@@ -237,25 +237,16 @@ def create_benchmark(cfg):
     train_experiences = []
     test_experiences = []
 
-    for task_dir in Path(cfg.dataset.path).glob("task_*"):
-        train_dir = task_dir / "train"
-        test_dir = task_dir / "test"
+    for task in range(cfg.dataset.tasks):
+        task_dir = Path(cfg.dataset.path) / f"task_{task}"
+        with open(task_dir / "train/labels.txt") as f:
+            train_experience = [tuple(line.split()) for line in f.readlines()]
 
-        train_factors = np.load(train_dir / "factors.npz")
-        train_labels = train_factors["shape_id"]
+        with open(task_dir / "test/labels.txt") as f:
+            test_experience = [tuple(line.split()) for line in f.readlines()]
 
-        test_factors = np.load(test_dir / "factors.npz")
-        test_labels = test_factors["shape_id"]
-
-        for i, img_path in (train_dir).glob("sample_*.png"):
-            label = int(img_path.stem.split("_")[-1])
-            assert label == train_labels[i]
-            train_experiences.append((img_path, train_labels))
-
-        for i, img_path in (train_dir).glob("sample_*.png"):
-            label = int(img_path.stem.split("_")[-1])
-            assert label == test_labels[i]
-            test_experiences.append((img_path, train_labels))
+        train_experiences.append(train_experience)
+        test_experiences.append(test_experience)
 
     return paths_benchmark(
         train_experiences,
