@@ -44,7 +44,7 @@ class FileDataset(Dataset):
 
     def __getitem__(self, idx):
         img_path = self.path / f"sample_{idx}*.png"
-        image = read_image(img_path)
+        image = read_image(str(img_path))
 
         factors = ids.Factors(
             **{key: value[idx] for key, value in self.factors.items()}
