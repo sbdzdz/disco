@@ -43,7 +43,7 @@ class FileDataset(Dataset):
         return len(self.factors["shape_id"])
 
     def __getitem__(self, idx):
-        img_path = self.path / f"sample_{idx}*.png"
+        img_path = self.path / f"sample_{idx}.png"
         image = read_image(str(img_path))
 
         factors = ids.Factors(
