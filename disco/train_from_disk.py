@@ -37,7 +37,7 @@ class FileDataset(Dataset):
         self.path = Path(path)
         self.transform = transform
         self.target_transform = target_transform
-        self.factors = np.load(self.path / "factors.npz")
+        self.factors = np.load(self.path / "factors.npz", allow_pickle=True)
 
     def __len__(self):
         return len(self.factors["shape_id"])
