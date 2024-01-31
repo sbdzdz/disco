@@ -33,18 +33,12 @@ OmegaConf.register_new_resolver("eval", eval)
 
 
 class FileDataset(Dataset):
-    def __init__(
-        self,
-        path: Union[Path, str],
-        shapes: np.ndarray = None,
-        transform=None,
-        target_transform=None,
-    ):
+    def __init__(self, path: Union[Path, str], transform=None, target_transform=None):
         self.path = Path(path)
         self.transform = transform
         self.target_transform = target_transform
         self.factors = np.load(self.path / "factors.npz", allow_pickle=True)
-        self.shapes = shapes
+        self.shapes = np.load(self.path / "../shapes.npy", allow_pickle=True)
 
     def __len__(self):
         return len(self.factors["shape_id"])
@@ -74,7 +68,6 @@ class ContinualBenchmarkDisk:
             cfg: The configuration object.
         """
         self.path = Path(path)
-        self.shapes = np.load(self.path / "shapes.npz", allow_pickle=True)
 
     def __iter__(self):
         for task_dir in self.path.glob("task_*"):
