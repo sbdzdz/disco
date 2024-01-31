@@ -72,9 +72,9 @@ class ContinualBenchmarkDisk:
     def __iter__(self):
         for task_dir in self.path.glob("task_*"):
             task_exemplars = self.load_exemplars(task_dir)
-            train = FileDataset(task_dir / "train", self.shapes)
-            val = FileDataset(task_dir / "val", self.shapes)
-            test = FileDataset(task_dir / "test", self.shapes)
+            train = FileDataset(task_dir / "train")
+            val = FileDataset(task_dir / "val")
+            test = FileDataset(task_dir / "test")
             yield (train, val, test), task_exemplars
 
     def load_exemplars(self, task_dir):
