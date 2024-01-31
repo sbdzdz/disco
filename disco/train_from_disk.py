@@ -50,7 +50,9 @@ class FileDataset(Dataset):
         factors = ids.Factors(
             **{key: value[idx] for key, value in self.factors.items()}
         )
-        factors = factors.replace(shape=self.shapes[factors.shape_id.item()])
+        factors = factors.replace(
+            shape=self.shapes[factors.shape_id.item() % len(self.shapes)]
+        )
         if self.transform:
             image = self.transform(image)
         if self.target_transform:
