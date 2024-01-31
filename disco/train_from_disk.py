@@ -35,7 +35,7 @@ OmegaConf.register_new_resolver("eval", eval)
 class FileDataset(Dataset):
     def __init__(self, path: Union[Path, str], transform=None, target_transform=None):
         self.path = Path(path)
-        if transform is not None:
+        if transform is None:
             transform = ToTensor()
         self.transform = transform
         self.target_transform = target_transform
@@ -55,8 +55,7 @@ class FileDataset(Dataset):
         factors = factors.replace(
             shape=self.shapes[factors.shape_id.item() % len(self.shapes)]
         )
-        if self.transform:
-            image = self.transform(image)
+        image = self.transform(image)
         if self.target_transform:
             factors = self.target_transform(factors)
         return image, factors
