@@ -35,6 +35,8 @@ OmegaConf.register_new_resolver("eval", eval)
 class FileDataset(Dataset):
     def __init__(self, path: Union[Path, str], transform=None, target_transform=None):
         self.path = Path(path)
+        if transform is not None:
+            transform = ToTensor()
         self.transform = transform
         self.target_transform = target_transform
         self.factors = np.load(self.path / "factors.npz", allow_pickle=True)
