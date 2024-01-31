@@ -33,11 +33,18 @@ OmegaConf.register_new_resolver("eval", eval)
 
 
 class FileDataset(Dataset):
-    def __init__(self, path: Union[Path, str], transform=None, target_transform=None):
+    def __init__(
+        self,
+        path: Union[Path, str],
+        shapes: np.ndarray = None,
+        transform=None,
+        target_transform=None,
+    ):
         self.path = Path(path)
         self.transform = transform
         self.target_transform = target_transform
         self.factors = np.load(self.path / "factors.npz", allow_pickle=True)
+        self.shapes = shapes
 
     def __len__(self):
         return len(self.factors["shape_id"])
@@ -49,6 +56,7 @@ class FileDataset(Dataset):
         factors = ids.Factors(
             **{key: value[idx] for key, value in self.factors.items()}
         )
+        factors = factors.replace(shape=self.shapes[factors.shape_id.item()])
         if self.transform:
             image = self.transform(image)
         if self.target_transform:
@@ -66,13 +74,14 @@ class ContinualBenchmarkDisk:
             cfg: The configuration object.
         """
         self.path = Path(path)
+        self.shapes = np.load(self.path / "shapes.npz", allow_pickle=True)
 
     def __iter__(self):
         for task_dir in self.path.glob("task_*"):
             task_exemplars = self.load_exemplars(task_dir)
-            train = FileDataset(task_dir / "train")
-            val = FileDataset(task_dir / "val")
-            test = FileDataset(task_dir / "test")
+            train = FileDataset(task_dir / "train", self.shapes)
+            val = FileDataset(task_dir / "val", self.shapes)
+            test = FileDataset(task_dir / "test", self.shapes)
             yield (train, val, test), task_exemplars
 
     def load_exemplars(self, task_dir):
