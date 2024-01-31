@@ -35,8 +35,6 @@ OmegaConf.register_new_resolver("eval", eval)
 class FileDataset(Dataset):
     def __init__(self, path: Union[Path, str], transform=None, target_transform=None):
         self.path = Path(path)
-        if transform is None:
-            transform = ToTensor()
         self.transform = transform
         self.target_transform = target_transform
         self.factors = np.load(self.path / "factors.npz", allow_pickle=True)
@@ -47,7 +45,7 @@ class FileDataset(Dataset):
 
     def __getitem__(self, idx):
         img_path = self.path / f"sample_{idx}.png"
-        image = read_image(str(img_path))
+        image = read_image(str(img_path)) / 255.0
 
         factors = ids.Factors(
             **{key: value[idx] for key, value in self.factors.items()}
@@ -55,7 +53,8 @@ class FileDataset(Dataset):
         factors = factors.replace(
             shape=self.shapes[factors.shape_id.item() % len(self.shapes)]
         )
-        image = self.transform(image)
+        if self.transform:
+            image = self.transform(image)
         if self.target_transform:
             factors = self.target_transform(factors)
         return image, factors
