@@ -1,5 +1,5 @@
 name: idsprites
-path: $WORK/datasets/idsprites_sample
+path: $WORK/datasets/idsprites_new
 batch_size: 256
 factor_resolution: 8
 img_size: 256
