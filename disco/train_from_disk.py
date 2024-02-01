@@ -36,21 +36,23 @@ class FileDataset(Dataset):
         self.path = Path(path)
         self.transform = transform
         self.target_transform = target_transform
-        self.factors = np.load(self.path / "factors.npz", allow_pickle=True)
+        factors = np.load(self.path / "factors.npz", allow_pickle=True)
+        factors = [
+            dict(zip(factors, value)) for value in zip(*factors.values())
+        ]  # turn dict of lists into list of dicts
+        self.data = [ids.Factors(**factors) for factors in factors]
         self.shapes = np.load(self.path / "../shapes.npy", allow_pickle=True)
 
     def __len__(self):
-        return len(self.factors["shape_id"])
+        return len(self.data)
 
     def __getitem__(self, idx):
         img_path = self.path / f"sample_{idx}.png"
         image = read_image(str(img_path)) / 255.0
 
-        factors = ids.Factors(
-            **{key: value[idx] for key, value in self.factors.items()}
-        )
+        factors = self.factors[idx]
         factors = factors.replace(
-            shape=self.shapes[factors.shape_id.item() % len(self.shapes)]
+            shape=self.shapes[factors.shape_id % len(self.shapes)]
         )
         if self.transform:
             image = self.transform(image)
