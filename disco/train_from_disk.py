@@ -182,6 +182,7 @@ def load_random_images(path, num_imgs: int = 25):
     images = []
     for _ in range(num_imgs):
         val_dir = np.random.choice(task_dirs) / "val"
+        print(val_dir)
         image_path = np.random.choice(list(val_dir.glob("*.png")))
         images.append(np.array(read_image(str(image_path))))
     return np.stack(images)
