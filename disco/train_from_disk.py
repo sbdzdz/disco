@@ -17,7 +17,6 @@ from avalanche.training.plugins import EvaluationPlugin
 from hydra.utils import call, get_object, instantiate
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, Timer
 from omegaconf import DictConfig, OmegaConf
-from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision.io import read_image
 from torchvision.transforms import ToTensor
@@ -82,7 +81,7 @@ class ContinualBenchmarkDisk:
     def load_exemplars(self, task_dir):
         """Load the current task exemplars from a given directory."""
         paths = (task_dir / "exemplars").glob("exemplar_*.png")
-        return [np.array(Image.open(path)) for path in paths]
+        return [np.array(read_image(str(path))) for path in paths]
 
 
 @hydra.main(config_path="../configs", config_name="main", version_base=None)
@@ -172,7 +171,7 @@ def load_exemplars(path, task=0):
     """Load the current task exemplars from a file."""
     exemplars_dir = path / f"task_{task}/exemplars"
     paths = exemplars_dir.glob("exemplar_*.png")
-    return [np.array(Image.open(path)) for path in paths]
+    return [np.array(read_image(str(path))) for path in paths]
 
 
 def load_random_images(path, num_imgs: int = 25):
@@ -182,7 +181,7 @@ def load_random_images(path, num_imgs: int = 25):
     for _ in range(num_imgs):
         val_dir = np.random.choice(task_dirs) / "val"
         image_path = np.random.choice(list(val_dir.glob("*.png")))
-        images.append(np.array(Image.open(image_path)))
+        images.append(np.array(read_image(str(image_path))))
     return np.stack(images)
 
 
