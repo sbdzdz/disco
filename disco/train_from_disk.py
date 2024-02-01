@@ -31,6 +31,16 @@ torch.set_float32_matmul_precision("high")
 OmegaConf.register_new_resolver("eval", eval)
 
 
+def read_img_to_np(path: Union[Path, str]):
+    """Read an image and normalize it to [0, 1].
+    Args:
+        path: The path to the image.
+    Returns:
+        The image as a numpy array.
+    """
+    return np.array(read_image(Path(path)) / 255.0)
+
+
 class FileDataset(Dataset):
     def __init__(self, path: Union[Path, str], transform=None, target_transform=None):
         self.path = Path(path)
@@ -48,7 +58,7 @@ class FileDataset(Dataset):
 
     def __getitem__(self, idx):
         img_path = self.path / f"sample_{idx}.png"
-        image = read_image(str(img_path)) / 255.0
+        image = read_img_to_np(img_path)
 
         factors = self.data[idx]
         factors = factors.replace(
@@ -83,7 +93,7 @@ class ContinualBenchmarkDisk:
     def load_exemplars(self, task_dir):
         """Load the current task exemplars from a given directory."""
         paths = (task_dir / "exemplars").glob("exemplar_*.png")
-        return [np.array(read_image(str(path))) for path in paths]
+        return [read_img_to_np(path) for path in paths]
 
 
 @hydra.main(config_path="../configs", config_name="main", version_base=None)
@@ -173,7 +183,7 @@ def load_exemplars(path, task=0):
     """Load the current task exemplars from a file."""
     exemplars_dir = path / f"task_{task}/exemplars"
     paths = exemplars_dir.glob("exemplar_*.png")
-    return [np.array(read_image(str(path))) for path in paths]
+    return [read_img_to_np(path) for path in paths]
 
 
 def load_random_images(path, num_imgs: int = 25):
@@ -184,7 +194,7 @@ def load_random_images(path, num_imgs: int = 25):
         val_dir = np.random.choice(task_dirs) / "val"
         print(val_dir)
         image_path = np.random.choice(list(val_dir.glob("*.png")))
-        images.append(np.array(read_image(str(image_path))))
+        images.append(read_img_to_np(image_path))
     return np.stack(images)
 
 
