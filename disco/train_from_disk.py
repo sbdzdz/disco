@@ -38,7 +38,7 @@ def read_img_to_np(path: Union[Path, str]):
     Returns:
         The image as a numpy array.
     """
-    return np.array(read_image(Path(path)) / 255.0)
+    return np.array(read_image(str(path)) / 255.0)
 
 
 class FileDataset(Dataset):
