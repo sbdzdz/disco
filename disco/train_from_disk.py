@@ -84,7 +84,7 @@ class ContinualBenchmarkDisk:
 
     def __iter__(self):
         for task_dir in sorted(
-            self.path.glob("task_*"), key=lambda x: int(x.split("_")[-1])
+            self.path.glob("task_*"), key=lambda x: int(x.stem.split("_")[-1])
         ):
             task_exemplars = self.load_exemplars(task_dir)
             train = FileDataset(task_dir / "train")
