@@ -11,7 +11,7 @@
 #SBATCH --mail-user=sebastian.dziadzio@uni-tuebingen.de                                # Email to which notifications will be sent
 
 # print info about current job
-scontrol show job
+scontrol show job $SLURM_JOB_ID
 
 additional_args="$@"
 
