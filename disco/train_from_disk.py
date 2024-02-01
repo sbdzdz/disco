@@ -50,7 +50,7 @@ class FileDataset(Dataset):
         img_path = self.path / f"sample_{idx}.png"
         image = read_image(str(img_path)) / 255.0
 
-        factors = self.factors[idx]
+        factors = self.data[idx]
         factors = factors.replace(
             shape=self.shapes[factors.shape_id % len(self.shapes)]
         )
