@@ -75,7 +75,7 @@ class ContinualBenchmarkDisk:
     def __init__(
         self,
         path: Union[Path, str],
-        accumulate_test_set: bool = False,
+        accumulate_test_set: bool = True,
     ):
         """Initialize the continual learning benchmark.
         Args:
