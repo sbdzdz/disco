@@ -242,7 +242,7 @@ def create_loaders(cfg, datasets):
     return train_loader, val_loader, test_loader
 
 
-def train_baseline(cfg, benchmark):
+def train_baseline(cfg):
     """Train a standard continual learning baseline using Avalanche."""
     benchmark = create_benchmark(cfg)
     strategy = create_strategy(cfg)
@@ -259,7 +259,7 @@ def train_baseline(cfg, benchmark):
             and test_task % cfg.training.test_every_n_tasks == 0
         ):
             log_message(test_experience, "test")
-            strategy.eval(test_experience)
+            strategy.eval(test_experience[: test_task + 1])
 
 
 def create_benchmark(cfg):
