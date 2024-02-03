@@ -209,12 +209,14 @@ def create_loaders(cfg, datasets):
         num_workers=cfg.dataset.num_workers,
         shuffle=True,
         drop_last=True,
+        pin_memory=True,
     )
     val_loader = DataLoader(
         val_dataset,
         batch_size=cfg.dataset.batch_size,
         num_workers=cfg.dataset.num_workers,
         drop_last=True,
+        pin_memory=True,
     )
     test_loader = DataLoader(
         test_dataset,
@@ -222,6 +224,7 @@ def create_loaders(cfg, datasets):
         num_workers=cfg.dataset.num_workers,
         shuffle=True,  # shuffle for vis
         drop_last=True,
+        pin_memory=True,
     )
     return train_loader, val_loader, test_loader
 
