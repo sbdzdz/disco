@@ -267,7 +267,7 @@ def create_benchmark(cfg):
     test_experiences = []
 
     for task in range(cfg.dataset.tasks):
-        task_dir = Path(cfg.dataset.path) / f"task_{task}"
+        task_dir = Path(cfg.dataset.path) / f"task_{task+1}"
         with open(task_dir / "train/labels.txt") as f:
             train_experience = [tuple(line.split()) for line in f.readlines()]
 
