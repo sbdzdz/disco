@@ -258,7 +258,6 @@ class ContrastiveClassifier(ContinualModule):
         loss2 = self.info_nce_loss(x, buffer, y, buffer_labels)
 
         return {"loss": loss1 + loss2}
-        # return {"loss": self.info_nce_loss(x, y)}
 
     @torch.no_grad()
     def classify(self, x):
