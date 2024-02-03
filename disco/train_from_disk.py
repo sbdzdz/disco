@@ -244,15 +244,13 @@ def create_loaders(cfg, datasets):
 
 def train_baseline(cfg, benchmark):
     """Train a standard continual learning baseline using Avalanche."""
-    strategy = create_strategy(cfg)
     benchmark = create_benchmark(cfg)
+    strategy = create_strategy(cfg)
 
     for train_experience, test_experience in zip(
         benchmark.train_stream, benchmark.test_stream
     ):
-        train_task = train_experience.current_experience
-        print(f"Task {train_task} train: {len(train_experience.dataset)} samples.")
-        print(f"Classes train: {train_experience.classes_in_this_experience}")
+        log_message(train_experience, "train")
         strategy.train(train_experience)
 
         test_task = test_experience.current_experience
@@ -260,10 +258,7 @@ def train_baseline(cfg, benchmark):
             not cfg.training.test_once
             and test_task % cfg.training.test_every_n_tasks == 0
         ):
-            print(f"Task {test_task} test: {len(test_experience.dataset)} samples.")
-            min_class_id = min(test_experience.classes_in_this_experience)
-            max_class_id = max(test_experience.classes_in_this_experience)
-            print(f"Classes test: {min_class_id}-{max_class_id}")
+            log_message(test_experience, "test")
             strategy.eval(test_experience)
 
 
@@ -336,6 +331,16 @@ def create_evaluator(cfg):
         loss_metrics(minibatch=True),
         loggers=loggers,
     )
+
+
+def log_message(experience, stage):
+    """Log the length of the dataset and the classes in the current experience."""
+    print(
+        f"Task {experience.current_experience} {stage}: {len(experience.dataset)} samples."
+    )
+    min_class_id = min(experience.classes_in_this_experience)
+    max_class_id = max(experience.classes_in_this_experience)
+    print(f"Classes: {min_class_id}-{max_class_id}")
 
 
 if __name__ == "__main__":
