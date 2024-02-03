@@ -17,7 +17,7 @@ from avalanche.training.plugins import EvaluationPlugin
 from hydra.utils import call, get_object, instantiate
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, Timer
 from omegaconf import DictConfig, OmegaConf
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, ConcatDataset
 from torchvision.io import read_image
 from torchvision.transforms import ToTensor
 
@@ -75,12 +75,17 @@ class ContinualBenchmarkDisk:
     def __init__(
         self,
         path: Union[Path, str],
+        accumulate_test_set: bool = False,
     ):
         """Initialize the continual learning benchmark.
         Args:
-            cfg: The configuration object.
+            path: The path to the dataset.
+            accumulate_test_set: Whether to accumulate the test set over tasks.
         """
         self.path = Path(path)
+        self.accumulate_test_set = accumulate_test_set
+        if self.accumulate_test_set:
+            self.test_sets = []
 
     def __iter__(self):
         for task_dir in sorted(
@@ -90,7 +95,13 @@ class ContinualBenchmarkDisk:
             train = FileDataset(task_dir / "train")
             val = FileDataset(task_dir / "val")
             test = FileDataset(task_dir / "test")
-            yield (train, val, test), task_exemplars
+
+            if self.accumulate_test_set:
+                self.test_sets.append(test)
+                accumulated_test = ConcatDataset(self.test_sets)
+                yield (train, val, accumulated_test), task_exemplars
+            else:
+                yield (train, val, test), task_exemplars
 
     def load_exemplars(self, task_dir):
         """Load the current task exemplars from a given directory."""
@@ -119,7 +130,9 @@ def train_ours(cfg):
     trainer = instantiate(cfg.trainer, callbacks=callbacks)
     trainer.logger.log_hyperparams(config)
 
-    benchmark = ContinualBenchmarkDisk(cfg.dataset.path)
+    benchmark = ContinualBenchmarkDisk(
+        path=cfg.dataset.path, accumulate_test_set=cfg.dataset.accumulate_test_set
+    )
     model = instantiate(cfg.model)
     for task_id, (datasets, task_exemplars) in enumerate(benchmark):
         if cfg.training.reset_model:
