@@ -13,6 +13,7 @@ pillow
 pytest
 scipy
 scikit-learn
+timm
 torch
 torchmetrics
 tqdm
