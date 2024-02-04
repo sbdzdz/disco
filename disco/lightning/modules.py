@@ -4,6 +4,7 @@ from typing import Optional
 
 import lightning.pytorch as pl
 import torch
+import timm
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
@@ -313,7 +314,6 @@ class Regressor(ContinualModule):
     def __init__(
         self,
         backbone: str = "resnet18",
-        pretrained: bool = False,
         out_dim: int = 512,
         gamma: float = 0.5,
         buffer_chunk_size: int = 64,
@@ -324,10 +324,10 @@ class Regressor(ContinualModule):
 
         if backbone not in list_models(module=torchvision.models):
             raise ValueError(f"Unknown backbone: {backbone}")
-        if pretrained:
-            self.backbone = get_model(backbone, weights="DEFAULT")
-        else:
-            self.backbone = get_model(backbone, weights=None, num_classes=out_dim)
+        # self.backbone = get_model(backbone, weights=None, num_classes=out_dim)
+        self.backbone = timm.create_model(
+            backbone, pretrained=False, num_classes=out_dim
+        )
         self.num_parameters = 6
         self.backbone.fc = nn.Linear(self.backbone.fc.in_features, self.num_parameters)
         self.gamma = gamma
