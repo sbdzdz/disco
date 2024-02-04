@@ -358,9 +358,8 @@ class Regressor(ContinualModule):
         """Perform a training or validation step."""
         x, y = batch
         x_hat, theta_hat = self.forward(x)
-        exemplars = torch.stack(
-            [torch.from_numpy(self._buffer[i]) for i in y.shape_id]
-        ).to(self.device)
+        exemplars = torch.stack([torch.from_numpy(self._buffer[i]) for i in y.shape_id])
+        exemplars = exemplars.type_as(x_hat, device=self.device)
         theta = self.convert_parameters_to_matrix(y)
         if self.mask_n_theta_elements > 0:
             mask = torch.ones_like(theta)
@@ -382,10 +381,8 @@ class Regressor(ContinualModule):
     def classify(self, x: torch.Tensor):
         """Classify the input."""
         x_hat = self.get_reconstruction(x).unsqueeze(1).detach()
-        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
-            self.device
-        )
-        buffer = buffer.unsqueeze(0).detach()
+        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer])
+        buffer = buffer.type_as(x, device=self.device).unsqueeze(0).detach()
 
         losses = []  # classify in chunks to avoid OOM
         for chunk in torch.split(buffer, self.buffer_chunk_size, dim=1):
@@ -404,6 +401,7 @@ class Regressor(ContinualModule):
         Returns:
             A 2x3 transformation matrix.
         """
+        device = self.device
         scale, orientation, position_x, position_y = (
             factors.scale,
             factors.orientation,
@@ -415,13 +413,13 @@ class Regressor(ContinualModule):
         transform_matrix = self.batched_eye(batch_size)
 
         # scale
-        scale_matrix = self.batched_eye(batch_size)
+        scale_matrix = self.batched_eye(batch_size).type_as(scale, device=device)
         scale_matrix[:, 0, 0] = scale
         scale_matrix[:, 1, 1] = scale
         transform_matrix = torch.bmm(scale_matrix, transform_matrix)
 
         # rotate
-        orientation_matrix = self.batched_eye(batch_size)
+        orientation_matrix = self.batched_eye(batch_size).type_as(scale, device=device)
         orientation_matrix[:, 0, 0] = torch.cos(orientation)
         orientation_matrix[:, 0, 1] = -torch.sin(orientation)
         orientation_matrix[:, 1, 0] = torch.sin(orientation)
@@ -429,7 +427,7 @@ class Regressor(ContinualModule):
         transform_matrix = torch.bmm(orientation_matrix, transform_matrix)
 
         # move to the center
-        translation_matrix = self.batched_eye(batch_size)
+        translation_matrix = self.batched_eye(batch_size).type_as(scale, device=device)
         translation_matrix[:, 0, 2] = position_x - 0.5
         translation_matrix[:, 1, 2] = position_y - 0.5
         transform_matrix = torch.bmm(translation_matrix, transform_matrix)
@@ -438,12 +436,7 @@ class Regressor(ContinualModule):
 
     def batched_eye(self, batch_size):
         """Create a batch of identity matrices."""
-        return (
-            torch.eye(3, dtype=torch.float)
-            .unsqueeze(0)
-            .repeat(batch_size, 1, 1)
-            .to(self.device)
-        )
+        return torch.eye(3, dtype=torch.float).unsqueeze(0).repeat(batch_size, 1, 1)
 
 
 class Autoencoder(ContinualModule):
