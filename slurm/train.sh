@@ -25,4 +25,4 @@ python -m pip install -e $HOME/disco
 export PYTHONPATH=$PYTHONPATH:$HOME/disco
 export HYDRA_FULL_ERROR=1
 
-srun --gres=gpu:1 python $HOME/disco/disco/train.py dataset.tasks=500 dataset.factor_resolution=9 dataset.shapes_per_task=10 $additional_args
+python $HOME/disco/disco/train.py dataset.tasks=500 dataset.factor_resolution=9 dataset.shapes_per_task=10 $additional_args
