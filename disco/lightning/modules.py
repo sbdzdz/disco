@@ -4,13 +4,12 @@ from typing import Optional
 
 import lightning.pytorch as pl
 import torch
-import timm
+from timm import create_model, list_models
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 from pl_bolts.optimizers.lars import LARS
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
-from torchvision.models import get_model, list_models
 
 from disco.data import Latents
 from disco.models.blocks import Decoder
@@ -322,14 +321,14 @@ class Regressor(ContinualModule):
     ):
         super().__init__(**kwargs)
 
-        if backbone not in list_models(module=torchvision.models):
+        if backbone not in list_models():
             raise ValueError(f"Unknown backbone: {backbone}")
-        # self.backbone = get_model(backbone, weights=None, num_classes=out_dim)
-        self.backbone = timm.create_model(
-            backbone, pretrained=False, num_classes=out_dim
-        )
         self.num_parameters = 6
-        self.backbone.fc = nn.Linear(self.backbone.fc.in_features, self.num_parameters)
+        self.backbone = create_model(
+            backbone, pretrained=False, num_classes=self.num_parameters
+        )
+        # fc = nn.Linear(self.backbone.fc.in_features, self.num_parameters)
+
         self.gamma = gamma
         self.buffer_chunk_size = buffer_chunk_size
         self.mask_n_theta_elements = mask_n_theta_elements
@@ -482,7 +481,7 @@ class Autoencoder(ContinualModule):
         if backbone not in list_models(module=torchvision.models):
             raise ValueError(f"Unknown backbone: {backbone}")
 
-        self.backbone = get_model(
+        self.backbone = create_model(
             backbone, weights=None, num_classes=self.decoder_input_size
         )
         self.buffer_chunk_size = buffer_chunk_size
