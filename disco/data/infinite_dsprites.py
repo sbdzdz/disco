@@ -35,6 +35,18 @@ class Latents(BaseLatents):
             position_y=self.position_y.to(device, **kwargs),
         )
 
+    def type_as(self, tensor, **kwargs):
+        """Cast the latents to the same type as a tensor."""
+        return Latents(
+            color=self.color.type_as(tensor, **kwargs),
+            shape=self.shape.type_as(tensor, **kwargs),
+            shape_id=self.shape_id.type_as(tensor, **kwargs),
+            scale=self.scale.type_as(tensor, **kwargs),
+            orientation=self.orientation.type_as(tensor, **kwargs),
+            position_x=self.position_x.type_as(tensor, **kwargs),
+            position_y=self.position_y.type_as(tensor, **kwargs),
+        )
+
     def replace(self, **kwargs):
         return super()._replace(**kwargs)
 
