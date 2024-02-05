@@ -259,6 +259,7 @@ def train_baseline(cfg):
         ):
             log_message(test_experience, "test")
             strategy.eval(test_experience[: test_task + 1])
+    wandb.finish()
 
 
 def create_benchmark(cfg):
