@@ -92,9 +92,10 @@ def train(args):
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     wandb.init(project="disco", config=args)
 
-    for (train, _, test), _ in ContinualBenchmarkDisk(args.data_dir):
+    for task, (train, _, test), _ in enumerate(ContinualBenchmarkDisk(args.data_dir)):
+        task_start = time()
         for epoch in range(args.epochs):
-            start = time()
+            epoch_start = time()
             for batch in DataLoader(train, batch_size=args.batch_size, shuffle=True):
                 images, factors = batch
                 images = images.to(args.device)
@@ -105,12 +106,11 @@ def train(args):
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
-            end = time()
-            minutes = (end - start) // 60
-            seconds = (end - start) % 60
-            wandb.log({"epoch_time": end - start})
-            print(f"Epoch {epoch} took {minutes}min {seconds}s.")
+            epoch_end = time()
+            print(f"Task {task} epoch {epoch} done.")
+            log_duration(epoch_start, epoch_end, "epoch")
 
+        test_start = time()
         for batch in DataLoader(test, batch_size=args.batch_size):
             images, factors = batch
             images = images.to(args.device)
@@ -118,6 +118,17 @@ def train(args):
             output = model(images)
             loss = torch.nn.functional.MSE(output, factors)
             wandb.log({"test_loss": loss.item()})
+        test_end = time()
+        print(f"Task {task} test done.")
+        log_duration(test_start, test_end, "test")
+        log_duration(task_start, test_end, "task")
+
+
+def log_duration(start, end, name):
+    minutes = (end - start) // 60
+    seconds = (end - start) % 60
+    wandb.log({f"{name}_duration": end - start})
+    print(f"{name.capitalize()} took {minutes}min {seconds}s.")
 
 
 def stack_factors(factors, device):
