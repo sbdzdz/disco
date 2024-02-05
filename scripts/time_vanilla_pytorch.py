@@ -64,17 +64,14 @@ class ContinualBenchmarkDisk:
         for task_dir in sorted(
             self.path.glob("task_*"), key=lambda x: int(x.stem.split("_")[-1])
         ):
-            task_exemplars = self.load_exemplars(task_dir)
             train = FileDataset(task_dir / "train")
-            val = FileDataset(task_dir / "val")
             test = FileDataset(task_dir / "test")
 
             if self.accumulate_test_set:
                 self.test_sets.append(test)
-                accumulated_test = ConcatDataset(self.test_sets)
-                yield (train, val, accumulated_test), task_exemplars
-            else:
-                yield (train, val, test), task_exemplars
+                test = ConcatDataset(self.test_sets)
+
+            yield train, test
 
 
 def train(args):
@@ -82,7 +79,7 @@ def train(args):
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     wandb.init(project="disco", config=args)
 
-    for task, (train, _, test), _ in enumerate(ContinualBenchmarkDisk(args.data_dir)):
+    for task, (train, test) in enumerate(ContinualBenchmarkDisk(args.data_dir)):
         task_start = time()
         for epoch in range(args.epochs):
             epoch_start = time()
