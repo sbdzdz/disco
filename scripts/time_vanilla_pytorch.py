@@ -117,7 +117,7 @@ def log_duration(start, end, name):
     minutes = (end - start) // 60
     seconds = (end - start) % 60
     wandb.log({f"{name}_duration": end - start})
-    print(f"{name.capitalize()} took {minutes}min {seconds}s.")
+    print(f"{name} took {int(minutes)}min and {seconds:.2f}s.")
 
 
 def stack_factors(factors, device):
