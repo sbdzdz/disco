@@ -327,7 +327,6 @@ class Regressor(ContinualModule):
         self.backbone = create_model(
             backbone, pretrained=False, num_classes=self.num_parameters
         )
-        # fc = nn.Linear(self.backbone.fc.in_features, self.num_parameters)
 
         self.gamma = gamma
         self.buffer_chunk_size = buffer_chunk_size
