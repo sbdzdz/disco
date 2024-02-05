@@ -14,16 +14,6 @@ import idsprites as ids
 from time import time
 
 
-def read_img_to_np(path: Union[Path, str]):
-    """Read an image and normalize it to [0, 1].
-    Args:
-        path: The path to the image.
-    Returns:
-        The image as a numpy array.
-    """
-    return np.array(read_image(str(path)) / 255.0)
-
-
 class FileDataset(Dataset):
     def __init__(self, path: Union[Path, str], transform=None, target_transform=None):
         self.path = Path(path)
@@ -41,7 +31,7 @@ class FileDataset(Dataset):
 
     def __getitem__(self, idx):
         img_path = self.path / f"sample_{idx}.png"
-        image = read_img_to_np(img_path)
+        image = np.array(read_image(str(img_path)) / 255.0)
 
         factors = self.data[idx]
         factors = factors.replace(
@@ -122,6 +112,7 @@ def train(args):
         print(f"Task {task} test done.")
         log_duration(test_start, test_end, "test")
         log_duration(task_start, test_end, "task")
+    wandb.finish()
 
 
 def log_duration(start, end, name):
