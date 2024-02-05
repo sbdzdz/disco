@@ -254,8 +254,10 @@ def train_baseline(cfg):
         task = train_experience.current_experience
         if not cfg.training.test_once and task % cfg.training.test_every_n_tasks == 0:
             results.append(
-                strategy.eval(benchmark.test_stream[: task + 1]),
-                num_workers=cfg.dataset.num_workers,
+                strategy.eval(
+                    benchmark.test_stream[: task + 1],
+                    num_workers=cfg.dataset.num_workers,
+                )
             )
     print(results)
     wandb.finish()
