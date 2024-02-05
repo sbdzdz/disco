@@ -313,6 +313,7 @@ def create_evaluator(cfg):
     """Create the evaluation plugin."""
     config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
     config["job_id"] = os.environ.get("SLURM_JOB_ID")
+    wandb.init()
     wandb.run.define_metric("*", step_metric="Step", step_sync=True)
 
     loggers = [
