@@ -280,7 +280,6 @@ def create_benchmark(cfg):
         train_experiences,
         test_experiences,
         task_labels=[0] * len(train_experiences),
-        complete_test_set_only=True,
         train_transform=ToTensor(),
         eval_transform=ToTensor(),
     )
