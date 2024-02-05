@@ -247,19 +247,16 @@ def train_baseline(cfg):
     strategy = create_strategy(cfg)
     results = []
 
-    for train_experience, test_experience in zip(
-        benchmark.train_stream, benchmark.test_stream
-    ):
+    for train_experience in benchmark.train_stream:
         log_message(train_experience, "train")
-        strategy.train(train_experience)
+        strategy.train(train_experience, num_workers=cfg.dataset.num_workers)
 
-        test_task = test_experience.current_experience
-        if (
-            not cfg.training.test_once
-            and test_task % cfg.training.test_every_n_tasks == 0
-        ):
-            log_message(test_experience, "test")
-            results.append(strategy.eval(test_experience[: test_task + 1]))
+        task = train_experience.current_experience
+        if not cfg.training.test_once and task % cfg.training.test_every_n_tasks == 0:
+            results.append(
+                strategy.eval(benchmark.test_stream[: task + 1]),
+                num_workers=cfg.dataset.num_workers,
+            )
     print(results)
     wandb.finish()
 
@@ -335,7 +332,7 @@ def create_evaluator(cfg):
     ]
 
     return EvaluationPlugin(
-        accuracy_metrics(minibatch=True, experience=True),
+        accuracy_metrics(minibatch=False, epoch=False, experience=True, stream=True),
         loss_metrics(minibatch=True),
         loggers=loggers,
     )
