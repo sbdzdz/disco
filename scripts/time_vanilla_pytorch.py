@@ -120,7 +120,7 @@ def log_duration(start, end, name):
 
 
 def stack_factors(factors, device):
-    factor_names = ["scale", "orientation", "postion_x", "position_y"]
+    factor_names = ["scale", "orientation", "position_x", "position_y"]
     return (
         torch.cat(
             [getattr(factors, name).unsqueeze(-1) for name in factor_names],
