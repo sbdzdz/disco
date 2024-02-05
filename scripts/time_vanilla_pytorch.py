@@ -88,7 +88,7 @@ def train(args):
                 images = images.to(args.device)
                 factors = stack_factors(factors, args.device)
                 output = model(images)
-                loss = torch.nn.functional.MSE(output, factors)
+                loss = torch.nn.functional.mse_loss(output, factors)
                 wandb.log({"loss": loss.item()})
                 loss.backward()
                 optimizer.step()
