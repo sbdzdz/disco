@@ -358,7 +358,7 @@ class Regressor(ContinualModule):
         x, y = batch
         x_hat, theta_hat = self.forward(x)
         exemplars = torch.stack([torch.from_numpy(self._buffer[i]) for i in y.shape_id])
-        exemplars = exemplars.type_as(x_hat, device=self.device)
+        exemplars = exemplars.to(x_hat)
         theta = self.convert_parameters_to_matrix(y)
         if self.mask_n_theta_elements > 0:
             mask = torch.ones_like(theta)
@@ -381,7 +381,7 @@ class Regressor(ContinualModule):
         """Classify the input."""
         x_hat = self.get_reconstruction(x).unsqueeze(1).detach()
         buffer = torch.stack([torch.from_numpy(img) for img in self._buffer])
-        buffer = buffer.type_as(x, device=self.device).unsqueeze(0).detach()
+        buffer = buffer.to(x).unsqueeze(0).detach()
 
         losses = []  # classify in chunks to avoid OOM
         for chunk in torch.split(buffer, self.buffer_chunk_size, dim=1):
@@ -400,7 +400,6 @@ class Regressor(ContinualModule):
         Returns:
             A 2x3 transformation matrix.
         """
-        device = self.device
         scale, orientation, position_x, position_y = (
             factors.scale,
             factors.orientation,
@@ -409,16 +408,16 @@ class Regressor(ContinualModule):
         )
         batch_size = scale.shape[0]
 
-        transform_matrix = self.batched_eye(batch_size)
+        transform_matrix = self.batched_eye(batch_size).to(scale)
 
         # scale
-        scale_matrix = self.batched_eye(batch_size).type_as(scale, device=device)
+        scale_matrix = self.batched_eye(batch_size).to(scale)
         scale_matrix[:, 0, 0] = scale
         scale_matrix[:, 1, 1] = scale
         transform_matrix = torch.bmm(scale_matrix, transform_matrix)
 
         # rotate
-        orientation_matrix = self.batched_eye(batch_size).type_as(scale, device=device)
+        orientation_matrix = self.batched_eye(batch_size).to(scale)
         orientation_matrix[:, 0, 0] = torch.cos(orientation)
         orientation_matrix[:, 0, 1] = -torch.sin(orientation)
         orientation_matrix[:, 1, 0] = torch.sin(orientation)
@@ -426,7 +425,7 @@ class Regressor(ContinualModule):
         transform_matrix = torch.bmm(orientation_matrix, transform_matrix)
 
         # move to the center
-        translation_matrix = self.batched_eye(batch_size).type_as(scale, device=device)
+        translation_matrix = self.batched_eye(batch_size).to(scale)
         translation_matrix[:, 0, 2] = position_x - 0.5
         translation_matrix[:, 1, 2] = position_y - 0.5
         transform_matrix = torch.bmm(translation_matrix, transform_matrix)
