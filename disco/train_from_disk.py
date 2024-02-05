@@ -245,6 +245,7 @@ def train_baseline(cfg):
     """Train a standard continual learning baseline using Avalanche."""
     benchmark = create_benchmark(cfg)
     strategy = create_strategy(cfg)
+    results = []
 
     for train_experience, test_experience in zip(
         benchmark.train_stream, benchmark.test_stream
@@ -258,7 +259,8 @@ def train_baseline(cfg):
             and test_task % cfg.training.test_every_n_tasks == 0
         ):
             log_message(test_experience, "test")
-            strategy.eval(test_experience[: test_task + 1])
+            results.append(strategy.eval(test_experience[: test_task + 1]))
+    print(results)
     wandb.finish()
 
 
