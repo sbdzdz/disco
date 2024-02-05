@@ -36,6 +36,7 @@ trainer:
   strategy: auto
   accumulate_grad_batches: 1
   devices: -1
+  num_nodes: 1
 
 wandb:
   _target_: lightning.pytorch.loggers.WandbLogger
