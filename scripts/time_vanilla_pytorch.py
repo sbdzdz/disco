@@ -75,7 +75,7 @@ class ContinualBenchmarkDisk:
 
 
 def train(args):
-    model = timm.create_model("resnet18")
+    model = timm.create_model("resnet18").to(args.device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     wandb.init(project="disco", config=args)
 
