@@ -250,7 +250,6 @@ def train_baseline(cfg):
 
     results = []
     for task, train_experience in enumerate(benchmark.train_stream):
-        wandb.log({"task": task})
         log_message(train_experience, "train")
         train_start = time()
         strategy.train(train_experience, num_workers=cfg.dataset.num_workers)
@@ -266,7 +265,7 @@ def train_baseline(cfg):
             test_end = time()
             wandb.log({"test/time_per_task": (test_end - test_start) / 60})
             results.append(result)
-            log_metrics(result)
+            log_metrics(task, result)
     wandb.finish()
 
 
@@ -276,7 +275,10 @@ def setup_wandb(cfg):
     config["job_id"] = os.environ.get("SLURM_JOB_ID")
     wandb.init(project=cfg.wandb.project, group=cfg.wandb.group, config=config)
     wandb.define_metric("task")
-    wandb.define_metric("test_accuracy", step_metric="task")
+    wandb.define_metric("test/accuracy", step_metric="task")
+    wandb.define_metric("test/forgetting", step_metric="task")
+    wandb.define_metric("train/time_per_task", step_metric="task")
+    wandb.define_metric("test/time_per_task", step_metric="task")
 
 
 def create_benchmark(cfg):
@@ -362,10 +364,11 @@ def log_message(experience, stage):
     print(f"Classes: {min_class_id}-{max_class_id}")
 
 
-def log_metrics(result):
+def log_metrics(task, result):
     """Log the task and test accuracy to wandb."""
     wandb.log(
         {
+            "task": task,
             "test/accuracy": result["Top1_Acc_Stream/eval_phase/test_stream/Task000"],
             "test/forgetting": result["StreamForgetting/eval_phase/test_stream"],
         }
