@@ -267,7 +267,7 @@ def train_baseline(cfg):
             for logger in strategy.evaluator.loggers:
                 logger.log_single_metric("task", task)
                 logger.log_single_metric(
-                    "test_accuracy", sum(accuracies) / len(accuracies)
+                    "test_accuracy", sum(accuracies) / len(accuracies), task
                 )
 
 
