@@ -313,7 +313,10 @@ def create_benchmark(cfg):
 
 def create_strategy(cfg):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    evaluator = create_evaluator(cfg)
+    evaluator = EvaluationPlugin(
+        accuracy_metrics(minibatch=False, epoch=False, experience=False, stream=True),
+        forgetting_metrics(experience=False, stream=True),
+    )
     model = call(cfg.model)
 
     if cfg.strategy == "icarl":
@@ -333,25 +336,6 @@ def create_strategy(cfg):
             optimizer={"params": model.parameters()},
         )
     return strategy
-
-
-def create_evaluator(cfg):
-    """Create the evaluation plugin."""
-    # loggers = [
-    #    WandBLogger(
-    #        dir=cfg.wandb.save_dir,
-    #        save_code=False,
-    #        config=config,
-    #        params={"group": cfg.wandb.group, "project": cfg.wandb.project},
-    #    ),
-    # ]
-    # wandb.run.define_metric("*", step_metric="Step", step_sync=True)
-
-    return EvaluationPlugin(
-        accuracy_metrics(minibatch=False, epoch=False, experience=False, stream=True),
-        forgetting_metrics(experience=False, stream=True),
-        loggers=[],
-    )
 
 
 def log_message(experience, stage):
