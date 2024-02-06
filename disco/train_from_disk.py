@@ -245,11 +245,11 @@ def train_baseline(cfg):
     """Train a standard continual learning baseline using Avalanche."""
     benchmark = create_benchmark(cfg)
     strategy = create_strategy(cfg)
-    results = []
 
     wandb.define_metric("task")
     wandb.define_metric("test_accuracy", step_metric="task")
 
+    results = []
     for task, train_experience in enumerate(benchmark.train_stream):
         log_message(train_experience, "train")
         strategy.train(train_experience, num_workers=cfg.dataset.num_workers)
@@ -260,13 +260,20 @@ def train_baseline(cfg):
                 num_workers=cfg.dataset.num_workers,
             )
             results.append(result)
-            accuracies = [
-                result[f"Top1_Acc_Exp/eval_phase/test_stream/Task000/Exp{exp:03d}"]
-                for exp in range(task + 1)
-            ]
-            wandb.log(
-                {"task": task, "test_accuracy": sum(accuracies) / len(accuracies)}
-            )
+            log_metrics(task, result)
+
+
+def log_metrics(task, result):
+    """Log the task and test accuracy to wandb."""
+    wandb.log(
+        {
+            "task": task,
+            "test_accuracy": result["Top1_Acc_Stream/eval_phase/test_stream/Task000"],
+            "test_forgetting": result[
+                "StreamForgetting/eval_phase/test_stream/Task000"
+            ],
+        }
+    )
 
 
 def create_benchmark(cfg):
@@ -328,20 +335,20 @@ def create_evaluator(cfg):
     config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
     config["job_id"] = os.environ.get("SLURM_JOB_ID")
 
-    loggers = [
-        WandBLogger(
-            dir=cfg.wandb.save_dir,
-            save_code=False,
-            config=config,
-            params={"group": cfg.wandb.group, "project": cfg.wandb.project},
-        ),
-    ]
+    # loggers = [
+    #    WandBLogger(
+    #        dir=cfg.wandb.save_dir,
+    #        save_code=False,
+    #        config=config,
+    #        params={"group": cfg.wandb.group, "project": cfg.wandb.project},
+    #    ),
+    # ]
     # wandb.run.define_metric("*", step_metric="Step", step_sync=True)
 
     return EvaluationPlugin(
-        accuracy_metrics(minibatch=False, epoch=False, experience=True, stream=True),
+        accuracy_metrics(minibatch=False, epoch=False, experience=False, stream=True),
         forgetting_metrics(experience=False, stream=True),
-        loggers=loggers,
+        loggers=[],
     )
 
 
