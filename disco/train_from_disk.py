@@ -329,15 +329,12 @@ def create_evaluator(cfg):
     loggers = [
         WandBLogger(
             dir=cfg.wandb.save_dir,
-            project_name=f"{cfg.wandb.project}_baselines",
-            params={"group": cfg.wandb.group},
             config=config,
         ),
     ]
 
     return EvaluationPlugin(
-        accuracy_metrics(minibatch=False, epoch=False, experience=True, stream=True),
-        loss_metrics(minibatch=True),
+        accuracy_metrics(minibatch=False, epoch=False, experience=False, stream=True),
         loggers=loggers,
     )
 
