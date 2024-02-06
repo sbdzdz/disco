@@ -337,7 +337,7 @@ def create_evaluator(cfg):
 
     return EvaluationPlugin(
         accuracy_metrics(minibatch=False, epoch=False, experience=True, stream=True),
-        forgetting_metrics(minibatch=False, epoch=False, experience=False, stream=True),
+        forgetting_metrics(experience=False, stream=True),
         loggers=loggers,
     )
 
