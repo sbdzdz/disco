@@ -247,11 +247,10 @@ def train_baseline(cfg):
     strategy = create_strategy(cfg)
     results = []
 
-    for train_experience in benchmark.train_stream:
+    for task, train_experience in enumerate(benchmark.train_stream):
         log_message(train_experience, "train")
         strategy.train(train_experience, num_workers=cfg.dataset.num_workers)
 
-        task = train_experience.current_experience
         if not cfg.training.test_once and task % cfg.training.test_every_n_tasks == 0:
             results.append(
                 strategy.eval(
@@ -259,7 +258,11 @@ def train_baseline(cfg):
                     num_workers=cfg.dataset.num_workers,
                 )
             )
-    print(results)
+            accuracies = [
+                results[f"Top1_Acc_Exp/eval_phase/test_stream/Task000/Exp{task:03d}"]
+                for task in range(task + 1)
+            ]
+            wandb.log("test_accuracy", sum(accuracies) / len(accuracies), step=task)
     wandb.finish()
 
 
