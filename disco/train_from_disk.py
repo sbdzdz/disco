@@ -261,7 +261,9 @@ def train_baseline(cfg):
                 result[f"Top1_Acc_Exp/eval_phase/test_stream/Task000/Exp{exp:03d}"]
                 for exp in range(task + 1)
             ]
-            wandb.log({"test_accuracy": sum(accuracies) / len(accuracies)})
+            strategy.evaluator.loggers[0].log_single_metric(
+                "test_accuracy", sum(accuracies) / len(accuracies), task
+            )
 
 
 def create_benchmark(cfg):
