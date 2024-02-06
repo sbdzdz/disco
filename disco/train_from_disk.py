@@ -262,7 +262,6 @@ def train_baseline(cfg):
                 for exp in range(task + 1)
             ]
             wandb.log({"test_accuracy": sum(accuracies) / len(accuracies)})
-    wandb.finish()
 
 
 def create_benchmark(cfg):
@@ -323,18 +322,19 @@ def create_evaluator(cfg):
     """Create the evaluation plugin."""
     config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
     config["job_id"] = os.environ.get("SLURM_JOB_ID")
-    wandb.init(project=cfg.wandb.project, group=cfg.wandb.group, config=config)
-    wandb.run.define_metric("*", step_metric="Step", step_sync=True)
 
     loggers = [
         WandBLogger(
             dir=cfg.wandb.save_dir,
+            save_code=False,
             config=config,
+            params={"group": cfg.wandb.group, "project": cfg.wandb.project},
         ),
     ]
+    wandb.run.define_metric("*", step_metric="Step", step_sync=True)
 
     return EvaluationPlugin(
-        accuracy_metrics(minibatch=False, epoch=False, experience=False, stream=True),
+        accuracy_metrics(minibatch=False, epoch=False, experience=True, stream=True),
         loggers=loggers,
     )
 
