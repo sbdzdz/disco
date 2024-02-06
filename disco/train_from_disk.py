@@ -336,7 +336,7 @@ def create_evaluator(cfg):
             params={"group": cfg.wandb.group, "project": cfg.wandb.project},
         ),
     ]
-    wandb.run.define_metric("*", step_metric="Step", step_sync=True)
+    # wandb.run.define_metric("*", step_metric="Step", step_sync=True)
 
     return EvaluationPlugin(
         accuracy_metrics(minibatch=False, epoch=False, experience=True, stream=True),
