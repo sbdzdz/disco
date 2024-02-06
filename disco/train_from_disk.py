@@ -3,6 +3,7 @@
 import inspect
 import os
 from pathlib import Path
+from time import time
 from typing import Union
 
 import hydra
@@ -17,7 +18,7 @@ from avalanche.training.plugins import EvaluationPlugin
 from hydra.utils import call, get_object, instantiate
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, Timer
 from omegaconf import DictConfig, OmegaConf
-from torch.utils.data import DataLoader, Dataset, ConcatDataset
+from torch.utils.data import ConcatDataset, DataLoader, Dataset
 from torchvision.io import read_image
 from torchvision.transforms import ToTensor
 
@@ -249,16 +250,23 @@ def train_baseline(cfg):
 
     results = []
     for task, train_experience in enumerate(benchmark.train_stream):
+        wandb.log({"task": task})
         log_message(train_experience, "train")
+        train_start = time()
         strategy.train(train_experience, num_workers=cfg.dataset.num_workers)
+        train_end = time()
+        wandb.log({"train/time_per_task": (train_end - train_start) / 60})
 
         if not cfg.training.test_once and task % cfg.training.test_every_n_tasks == 0:
+            test_start = time()
             result = strategy.eval(
                 benchmark.test_stream[: task + 1],
                 num_workers=cfg.dataset.num_workers,
             )
+            test_end = time()
+            wandb.log({"test/time_per_task": (test_end - test_start) / 60})
             results.append(result)
-            log_metrics(task, result)
+            log_metrics(result)
     wandb.finish()
 
 
@@ -354,13 +362,12 @@ def log_message(experience, stage):
     print(f"Classes: {min_class_id}-{max_class_id}")
 
 
-def log_metrics(task, result):
+def log_metrics(result):
     """Log the task and test accuracy to wandb."""
     wandb.log(
         {
-            "task": task,
-            "test_accuracy": result["Top1_Acc_Stream/eval_phase/test_stream/Task000"],
-            "test_forgetting": result["StreamForgetting/eval_phase/test_stream"],
+            "test/accuracy": result["Top1_Acc_Stream/eval_phase/test_stream/Task000"],
+            "test/forgetting": result["StreamForgetting/eval_phase/test_stream"],
         }
     )
 
