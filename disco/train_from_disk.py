@@ -11,7 +11,7 @@ import numpy as np
 import torch
 import wandb
 from avalanche.benchmarks.generators import paths_benchmark
-from avalanche.evaluation.metrics import accuracy_metrics, loss_metrics
+from avalanche.evaluation.metrics import accuracy_metrics, forgetting_metrics
 from avalanche.logging import WandBLogger
 from avalanche.training.plugins import EvaluationPlugin
 from hydra.utils import call, get_object, instantiate
