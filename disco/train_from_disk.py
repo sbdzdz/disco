@@ -246,6 +246,7 @@ def train_baseline(cfg):
     benchmark = create_benchmark(cfg)
     strategy = create_strategy(cfg)
 
+    wandb.init(project=cfg.wandb.project, group=cfg.wandb.group, config=cfg)
     wandb.define_metric("task")
     wandb.define_metric("test_accuracy", step_metric="task")
 
@@ -261,6 +262,7 @@ def train_baseline(cfg):
             )
             results.append(result)
             log_metrics(task, result)
+    wandb.finish()
 
 
 def log_metrics(task, result):
