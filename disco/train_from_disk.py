@@ -243,12 +243,9 @@ def create_loaders(cfg, datasets):
 
 def train_baseline(cfg):
     """Train a standard continual learning baseline using Avalanche."""
+    setup_wandb(cfg)
     benchmark = create_benchmark(cfg)
     strategy = create_strategy(cfg)
-
-    wandb.init(project=cfg.wandb.project, group=cfg.wandb.group, config=cfg)
-    wandb.define_metric("task")
-    wandb.define_metric("test_accuracy", step_metric="task")
 
     results = []
     for task, train_experience in enumerate(benchmark.train_stream):
@@ -265,17 +262,13 @@ def train_baseline(cfg):
     wandb.finish()
 
 
-def log_metrics(task, result):
-    """Log the task and test accuracy to wandb."""
-    wandb.log(
-        {
-            "task": task,
-            "test_accuracy": result["Top1_Acc_Stream/eval_phase/test_stream/Task000"],
-            "test_forgetting": result[
-                "StreamForgetting/eval_phase/test_stream/Task000"
-            ],
-        }
-    )
+def setup_wandb(cfg):
+    """Set up wandb logging."""
+    config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
+    config["job_id"] = os.environ.get("SLURM_JOB_ID")
+    wandb.init(project=cfg.wandb.project, group=cfg.wandb.group, config=config)
+    wandb.define_metric("task")
+    wandb.define_metric("test_accuracy", step_metric="task")
 
 
 def create_benchmark(cfg):
@@ -334,9 +327,6 @@ def create_strategy(cfg):
 
 def create_evaluator(cfg):
     """Create the evaluation plugin."""
-    config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
-    config["job_id"] = os.environ.get("SLURM_JOB_ID")
-
     # loggers = [
     #    WandBLogger(
     #        dir=cfg.wandb.save_dir,
@@ -362,6 +352,19 @@ def log_message(experience, stage):
     min_class_id = min(experience.classes_in_this_experience)
     max_class_id = max(experience.classes_in_this_experience)
     print(f"Classes: {min_class_id}-{max_class_id}")
+
+
+def log_metrics(task, result):
+    """Log the task and test accuracy to wandb."""
+    wandb.log(
+        {
+            "task": task,
+            "test_accuracy": result["Top1_Acc_Stream/eval_phase/test_stream/Task000"],
+            "test_forgetting": result[
+                "StreamForgetting/eval_phase/test_stream/Task000"
+            ],
+        }
+    )
 
 
 if __name__ == "__main__":
