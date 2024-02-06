@@ -360,9 +360,7 @@ def log_metrics(task, result):
         {
             "task": task,
             "test_accuracy": result["Top1_Acc_Stream/eval_phase/test_stream/Task000"],
-            "test_forgetting": result[
-                "StreamForgetting/eval_phase/test_stream/Task000"
-            ],
+            "test_forgetting": result["StreamForgetting/eval_phase/test_stream"],
         }
     )
 
