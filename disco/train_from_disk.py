@@ -59,6 +59,7 @@ class FileDataset(Dataset):
         factors = factors.replace(
             shape=self.shapes[factors.shape_id % len(self.shapes)]
         )
+        factors = factors.to(torch.float32)
         if self.transform:
             image = self.transform(image)
         if self.target_transform:
