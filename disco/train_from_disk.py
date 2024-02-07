@@ -13,12 +13,11 @@ import torch
 import wandb
 from avalanche.benchmarks.generators import paths_benchmark
 from avalanche.evaluation.metrics import accuracy_metrics, forgetting_metrics
-from avalanche.logging import WandBLogger
 from avalanche.training.plugins import EvaluationPlugin
 from hydra.utils import call, get_object, instantiate
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, Timer
 from omegaconf import DictConfig, OmegaConf
-from torch.utils.data import ConcatDataset, DataLoader, Dataset
+from torch.utils.data import ConcatDataset, DataLoader, Dataset, Subset
 from torchvision.io import read_image
 from torchvision.transforms import ToTensor
 
@@ -28,7 +27,9 @@ from disco.lightning.callbacks import (
     VisualizationCallback,
 )
 
-torch.set_float32_matmul_precision("high")
+seed = 42
+torch.manual_seed(seed)
+np.random.seed(seed)
 OmegaConf.register_new_resolver("eval", eval)
 
 
@@ -77,6 +78,7 @@ class ContinualBenchmarkDisk:
         self,
         path: Union[Path, str],
         accumulate_test_set: bool = True,
+        test_subset: int = 100,
     ):
         """Initialize the continual learning benchmark.
         Args:
@@ -85,6 +87,7 @@ class ContinualBenchmarkDisk:
         """
         self.path = Path(path)
         self.accumulate_test_set = accumulate_test_set
+        self.test_subset = test_subset
         if self.accumulate_test_set:
             self.test_sets = []
 
@@ -98,6 +101,9 @@ class ContinualBenchmarkDisk:
             test = FileDataset(task_dir / "test")
 
             if self.accumulate_test_set:
+                test = Subset(
+                    test, np.random.choice(len(test), self.test_subset, replace=False)
+                )
                 self.test_sets.append(test)
                 accumulated_test = ConcatDataset(self.test_sets)
                 yield (train, val, accumulated_test), task_exemplars
@@ -132,7 +138,9 @@ def train_ours(cfg):
     trainer.logger.log_hyperparams(config)
 
     benchmark = ContinualBenchmarkDisk(
-        path=cfg.dataset.path, accumulate_test_set=cfg.dataset.accumulate_test_set
+        path=cfg.dataset.path,
+        accumulate_test_set=cfg.dataset.accumulate_test_set,
+        test_subset=cfg.dataset.test_subset,
     )
     model = instantiate(cfg.model)
     for task_id, (datasets, task_exemplars) in enumerate(benchmark):
