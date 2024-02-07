@@ -2,6 +2,7 @@
 
 import inspect
 import os
+import random
 from pathlib import Path
 from time import time
 from typing import Union
@@ -30,6 +31,8 @@ from disco.lightning.callbacks import (
 seed = 42
 torch.manual_seed(seed)
 np.random.seed(seed)
+random.seed(seed)
+
 OmegaConf.register_new_resolver("eval", eval)
 
 
@@ -306,6 +309,10 @@ def create_benchmark(cfg):
                 (task_dir / "test" / parts[0], int(parts[1]))
                 for parts in (line.strip().split(maxsplit=1) for line in f)
             ]
+        if cfg.dataset.test_subset is not None:
+            test_experience = random.sample(
+                test_experience, cfg.dataset.test_subset, replace=False
+            ).tolist()
 
         train_experiences.append(train_experience)
         test_experiences.append(test_experience)
