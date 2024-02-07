@@ -334,7 +334,7 @@ def create_strategy(cfg):
     )
     model = call(cfg.model)
 
-    if cfg.strategy == "icarl":
+    if cfg.strategy._target_ == "avalanche.training.supervised.ICaRL":
         strategy = instantiate(
             cfg.strategy,
             device=device,
