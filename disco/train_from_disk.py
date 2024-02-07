@@ -312,9 +312,7 @@ def create_benchmark(cfg):
                 for parts in (line.strip().split(maxsplit=1) for line in f)
             ]
         if cfg.dataset.test_subset is not None:
-            test_experience = random.sample(
-                test_experience, cfg.dataset.test_subset
-            ).tolist()
+            test_experience = random.sample(test_experience, cfg.dataset.test_subset)
 
         train_experiences.append(train_experience)
         test_experiences.append(test_experience)
