@@ -7,7 +7,6 @@ import torch
 from timm import create_model, list_models
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision
 from pl_bolts.optimizers.lars import LARS
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 
