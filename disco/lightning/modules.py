@@ -110,10 +110,9 @@ class ContrastiveClassifier(ContinualModule):
             loss_temperature: The temperature for the InfoNCE loss.
         """
         super().__init__(**kwargs)
-        if backbone in list_models(module=torchvision.models):
-            self.backbone = get_model(backbone, weights=None, num_classes=out_dim)
-        else:
+        if backbone not in list_models():
             raise ValueError(f"Unknown backbone: {backbone}")
+        self.backbone = create_model(backbone, pretrained=False, num_classes=out_dim)
 
         # add a projection
         mlp_dimension = self.backbone.fc.in_features
@@ -280,10 +279,9 @@ class SupervisedClassifier(ContinualModule):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        if backbone in list_models(module=torchvision.models):
-            self.backbone = get_model(backbone, weights=None, num_classes=num_classes)
-        else:
+        if backbone not in list_models():
             raise ValueError(f"Unknown backbone: {backbone}")
+        self.backbone = create_model(backbone, weights=None, num_classes=num_classes)
 
     def configure_optimizers(self):
         """Configure the optimizers."""
@@ -313,7 +311,6 @@ class Regressor(ContinualModule):
     def __init__(
         self,
         backbone: str = "resnet18",
-        out_dim: int = 512,
         gamma: float = 0.5,
         buffer_chunk_size: int = 64,
         mask_n_theta_elements: int = 0,
@@ -469,11 +466,10 @@ class Autoencoder(ContinualModule):
         ), "Too many decoder layers for the input size."
         self.decoder_input_size = self.decoder_input_img_size**2 * channels[0]
 
-        if backbone not in list_models(module=torchvision.models):
+        if backbone not in list_models():
             raise ValueError(f"Unknown backbone: {backbone}")
-
         self.backbone = create_model(
-            backbone, weights=None, num_classes=self.decoder_input_size
+            backbone, pretrained=False, num_classes=self.decoder_input_size
         )
         self.buffer_chunk_size = buffer_chunk_size
         self.decoder = Decoder(channels=channels, out_channels=in_channels)
