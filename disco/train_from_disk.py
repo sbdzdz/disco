@@ -311,7 +311,7 @@ def create_benchmark(cfg):
             ]
         if cfg.dataset.test_subset is not None:
             test_experience = random.sample(
-                test_experience, cfg.dataset.test_subset, replace=False
+                test_experience, cfg.dataset.test_subset
             ).tolist()
 
         train_experiences.append(train_experience)
