@@ -1,6 +1,5 @@
 _target_: disco.lightning.modules.Regressor
 backbone: resnet18
-out_dim: 512
 gamma: 1.0
 buffer_chunk_size: 48
 mask_n_theta_elements: 0
