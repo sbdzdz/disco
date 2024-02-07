@@ -36,16 +36,6 @@ random.seed(seed)
 OmegaConf.register_new_resolver("eval", eval)
 
 
-def read_img_to_np(path: Union[Path, str]):
-    """Read an image and normalize it to [0, 1].
-    Args:
-        path: The path to the image.
-    Returns:
-        The image as a numpy array.
-    """
-    return np.array(read_image(str(path)) / 255.0)
-
-
 class FileDataset(Dataset):
     def __init__(self, path: Union[Path, str], transform=None, target_transform=None):
         self.path = Path(path)
@@ -63,7 +53,7 @@ class FileDataset(Dataset):
 
     def __getitem__(self, idx):
         img_path = self.path / f"sample_{idx}.png"
-        image = read_img_to_np(img_path)
+        image = read_image(str(img_path)) / 255.0
 
         factors = self.data[idx]
         factors = factors.replace(
@@ -117,6 +107,16 @@ class ContinualBenchmarkDisk:
         """Load the current task exemplars from a given directory."""
         paths = (task_dir / "exemplars").glob("exemplar_*.png")
         return [read_img_to_np(path) for path in paths]
+
+
+def read_img_to_np(path: Union[Path, str]):
+    """Read an image and normalize it to [0, 1].
+    Args:
+        path: The path to the image.
+    Returns:
+        The image as a numpy array.
+    """
+    return np.array(read_image(str(path)) / 255.0)
 
 
 @hydra.main(config_path="../configs", config_name="main", version_base=None)
