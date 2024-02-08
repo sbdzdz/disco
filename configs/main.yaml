@@ -28,7 +28,7 @@ training:
 trainer:
   _target_: lightning.pytorch.Trainer
   default_root_dir: ${oc.env:WORK}/${project.name}/lightning
-  enable_checkpointing: true
+  enable_checkpointing: false
   enable_progress_bar: false
   max_epochs: ${training.epochs_per_task}
   log_every_n_steps: 1
