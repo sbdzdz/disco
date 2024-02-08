@@ -38,6 +38,7 @@ trainer:
   devices: -1
   num_nodes: 1
   precision: 32
+  profiler: null
 
 wandb:
   _target_: lightning.pytorch.loggers.WandbLogger
