@@ -352,9 +352,7 @@ class Regressor(ContinualModule):
     def _step(self, batch):
         """Perform a training or validation step."""
         x, y = batch
-        x_hat, theta_hat = self.forward(x)
-        exemplars = torch.stack([torch.from_numpy(self._buffer[i]) for i in y.shape_id])
-        exemplars = exemplars.to(x_hat)
+        _, theta_hat = self.forward(x)
         theta = self.convert_parameters_to_matrix(y)
         if self.mask_n_theta_elements > 0:
             mask = torch.ones_like(theta)
@@ -363,14 +361,8 @@ class Regressor(ContinualModule):
             mask[:, rows, cols] = 0
             theta = theta * mask
             theta_hat = theta_hat * mask
-        regression_loss = F.mse_loss(theta, theta_hat)
-        reconstruction_loss = F.mse_loss(exemplars, x_hat)
-        return {
-            "reconstruction_loss": reconstruction_loss,
-            "regression_loss": regression_loss,
-            "loss": self.gamma * regression_loss
-            + (1 - self.gamma) * reconstruction_loss,
-        }
+        loss = F.mse_loss(theta, theta_hat)
+        return {"loss": loss}
 
     @torch.no_grad()
     def classify(self, x: torch.Tensor):
