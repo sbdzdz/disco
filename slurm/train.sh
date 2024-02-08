@@ -4,7 +4,7 @@
 #SBATCH --nodes=1                                                                      # Ensure that all cores are on one machine
 #SBATCH --time=9-00:00                                                                 # Runtime in D-HH:MM
 #SBATCH --gres=gpu:1                                                                   # Request 1 GPU
-#SBATCH --mem=50G                                                                      # Memory pool for all cores (see also --mem-per-cpu)
+#SBATCH --mem=100G                                                                     # Memory pool for all cores (see also --mem-per-cpu)
 #SBATCH --output=/mnt/qb/work/bethge/dziadzio08/projects/disco/slurm/hostname_%j.out   # File to which STDOUT will be written - make sure this is not on $HOME
 #SBATCH --error=/mnt/qb/work/bethge/dziadzio08/projects/disco/slurm/hostname_%j.err    # File to which STDERR will be written - make sure this is not on $HOME
 #SBATCH --mail-type=END,FAIL                                                           # Type of email notification- BEGIN,END,FAIL,ALL
