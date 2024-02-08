@@ -1,5 +1,5 @@
 name: idsprites
-path: /mnt/qb/work/bethge/dziadzio08/datasets/idsprites_new
+path: /mnt/qb/work/bethge/dziadzio08/datasets/idsprites_short
 batch_size: 256
 factor_resolution: 8
 img_size: 256
