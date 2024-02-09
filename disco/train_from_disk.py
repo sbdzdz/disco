@@ -8,7 +8,6 @@ from time import time
 from typing import Union
 
 import hydra
-import idsprites as ids
 import numpy as np
 import torch
 import wandb
@@ -18,7 +17,7 @@ from avalanche.training.plugins import EvaluationPlugin
 from hydra.utils import call, get_object, instantiate
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, Timer
 from omegaconf import DictConfig, OmegaConf
-from torch.utils.data import ConcatDataset, DataLoader, Dataset
+from torch.utils.data import DataLoader
 from torchvision.io import read_image
 from torchvision.transforms import ToTensor
 
@@ -27,6 +26,7 @@ from disco.lightning.callbacks import (
     MetricsCallback,
     VisualizationCallback,
 )
+from disco.data import ContinualBenchmarkDisk
 
 seed = 42
 torch.manual_seed(seed)
@@ -34,75 +34,6 @@ np.random.seed(seed)
 random.seed(seed)
 
 OmegaConf.register_new_resolver("eval", eval)
-
-
-class FileDataset(Dataset):
-    def __init__(self, path: Union[Path, str], transform=None, target_transform=None):
-        self.path = Path(path)
-        self.transform = transform
-        self.target_transform = target_transform
-        factors = np.load(self.path / "factors.npz", allow_pickle=True)
-        factors = [
-            dict(zip(factors, value)) for value in zip(*factors.values())
-        ]  # turn dict of lists into list of dicts
-        self.data = [ids.Factors(**factors) for factors in factors]
-        self.shapes = np.load(self.path / "../shapes.npy", allow_pickle=True)
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        img_path = self.path / f"sample_{idx}.png"
-        image = read_image(str(img_path)) / 255.0
-
-        factors = self.data[idx]
-        factors = factors.replace(
-            shape=self.shapes[factors.shape_id % len(self.shapes)]
-        )
-        factors = factors.to_tensor().to(torch.float32)
-        factors = factors.replace(shape_id=factors.shape_id.to(torch.long))
-        if self.transform:
-            image = self.transform(image)
-        if self.target_transform:
-            factors = self.target_transform(factors)
-        return image, factors
-
-
-class ContinualBenchmarkDisk:
-    def __init__(
-        self,
-        path: Union[Path, str],
-        accumulate_test_set: bool = True,
-    ):
-        """Initialize the continual learning benchmark.
-        Args:
-            path: The path to the dataset.
-            accumulate_test_set: Whether to accumulate the test set over tasks.
-        """
-        self.path = Path(path)
-        self.accumulate_test_set = accumulate_test_set
-        if self.accumulate_test_set:
-            self.test_sets = []
-
-    def __iter__(self):
-        for task_dir in sorted(
-            self.path.glob("task_*"), key=lambda x: int(x.stem.split("_")[-1])
-        ):
-            task_exemplars = self.load_exemplars(task_dir)
-            train = FileDataset(task_dir / "train")
-            val = FileDataset(task_dir / "val")
-            test = FileDataset(task_dir / "test")
-
-            if self.accumulate_test_set:
-                self.test_sets.append(test)
-                test = ConcatDataset(self.test_sets)
-
-            yield (train, val, test), task_exemplars
-
-    def load_exemplars(self, task_dir):
-        """Load the current task exemplars from a given directory."""
-        paths = (task_dir / "exemplars").glob("exemplar_*.png")
-        return [read_img_to_np(path) for path in paths]
 
 
 def read_img_to_np(path: Union[Path, str]):
