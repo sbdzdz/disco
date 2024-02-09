@@ -248,7 +248,7 @@ def create_loaders(cfg, datasets):
         batch_size=cfg.dataset.batch_size,
         num_workers=cfg.dataset.num_workers,
         shuffle=True,  # shuffle for vis
-        drop_last=True,
+        drop_last=False,
         pin_memory=True,
     )
     return train_loader, val_loader, test_loader
