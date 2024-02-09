@@ -95,7 +95,6 @@ def setup_wandb(cfg):
     wandb.init(project=cfg.wandb.project, group=cfg.wandb.group, config=config)
     wandb.define_metric("task")
     wandb.define_metric("test/accuracy", step_metric="task")
-    wandb.define_metric("test/forgetting", step_metric="task")
     wandb.define_metric("train/time_per_task", step_metric="task")
     wandb.define_metric("test/time_per_task", step_metric="task")
 
@@ -286,7 +285,6 @@ def log_metrics(task, result):
         {
             "task": task,
             "test/accuracy": result["Top1_Acc_Stream/eval_phase/test_stream/Task000"],
-            "test/forgetting": result["StreamForgetting/eval_phase/test_stream"],
         }
     )
 
