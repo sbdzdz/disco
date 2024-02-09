@@ -268,6 +268,8 @@ def train_baseline(cfg):
         strategy.train(train_experience, num_workers=cfg.dataset.num_workers)
         train_end = time()
         wandb.log({"train/time_per_task": (train_end - train_start) / 60})
+        if task == 0:  # train again to learn features
+            strategy.train(train_experience, num_workers=cfg.dataset.num_workers)
 
         if not cfg.training.test_once and task % cfg.training.test_every_n_tasks == 0:
             test_start = time()
