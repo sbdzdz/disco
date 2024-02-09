@@ -73,7 +73,6 @@ class ContinualBenchmarkDisk:
         self,
         path: Union[Path, str],
         accumulate_test_set: bool = True,
-        test_subset: int = 100,
     ):
         """Initialize the continual learning benchmark.
         Args:
@@ -82,7 +81,6 @@ class ContinualBenchmarkDisk:
         """
         self.path = Path(path)
         self.accumulate_test_set = accumulate_test_set
-        self.test_subset = test_subset
         if self.accumulate_test_set:
             self.test_sets = []
 
@@ -96,9 +94,6 @@ class ContinualBenchmarkDisk:
             test = FileDataset(task_dir / "test")
 
             if self.accumulate_test_set:
-                test = Subset(
-                    test, np.random.choice(len(test), self.test_subset, replace=False)
-                )
                 self.test_sets.append(test)
                 accumulated_test = ConcatDataset(self.test_sets)
                 yield (train, val, accumulated_test), task_exemplars
