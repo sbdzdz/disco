@@ -162,6 +162,18 @@ def train_ours(cfg):
     trainer.test(model, test_loader)
 
 
+def setup_wandb(cfg):
+    """Set up wandb logging."""
+    config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
+    config["job_id"] = os.environ.get("SLURM_JOB_ID")
+    wandb.init(project=cfg.wandb.project, group=cfg.wandb.group, config=config)
+    wandb.define_metric("task")
+    wandb.define_metric("test/accuracy", step_metric="task")
+    wandb.define_metric("test/forgetting", step_metric="task")
+    wandb.define_metric("train/time_per_task", step_metric="task")
+    wandb.define_metric("test/time_per_task", step_metric="task")
+
+
 def build_callbacks(cfg: DictConfig):
     """Prepare the appropriate callbacks."""
     dataset_path = Path(cfg.dataset.path)
@@ -274,18 +286,6 @@ def train_baseline(cfg):
             results.append(result)
             log_metrics(task, result)
     wandb.finish()
-
-
-def setup_wandb(cfg):
-    """Set up wandb logging."""
-    config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
-    config["job_id"] = os.environ.get("SLURM_JOB_ID")
-    wandb.init(project=cfg.wandb.project, group=cfg.wandb.group, config=config)
-    wandb.define_metric("task")
-    wandb.define_metric("test/accuracy", step_metric="task")
-    wandb.define_metric("test/forgetting", step_metric="task")
-    wandb.define_metric("train/time_per_task", step_metric="task")
-    wandb.define_metric("test/time_per_task", step_metric="task")
 
 
 def create_benchmark(cfg):
