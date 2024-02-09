@@ -16,7 +16,7 @@ def _main(args):
         dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers
     )
     times = []
-    for images in dataloader:
+    for images, _ in dataloader:
         start = time()
         model(images.to(device))
         end = time()
