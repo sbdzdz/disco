@@ -130,12 +130,9 @@ def train(cfg: DictConfig) -> None:
 
 def train_ours(cfg):
     """Train our model in a continual learning setting."""
-    config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
-    config["job_id"] = os.environ.get("SLURM_JOB_ID")
-
+    setup_wandb(cfg)
     callbacks = build_callbacks(cfg)
     trainer = instantiate(cfg.trainer, callbacks=callbacks)
-    trainer.logger.log_hyperparams(config)
 
     benchmark = ContinualBenchmarkDisk(
         path=cfg.dataset.path,
