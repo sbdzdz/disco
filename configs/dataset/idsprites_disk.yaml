@@ -7,4 +7,3 @@ num_channels: 3
 num_workers: 8
 shapes_per_task: 10
 accumulate_test_set: true
-tasks: 1000

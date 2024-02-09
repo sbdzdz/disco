@@ -12,7 +12,7 @@ import numpy as np
 import torch
 import wandb
 from avalanche.benchmarks.generators import paths_benchmark
-from avalanche.evaluation.metrics import accuracy_metrics, forgetting_metrics
+from avalanche.evaluation.metrics import accuracy_metrics
 from avalanche.training.plugins import EvaluationPlugin
 from hydra.utils import call, get_object, instantiate
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, Timer
@@ -218,8 +218,9 @@ def create_benchmark(cfg):
     train_experiences = []
     test_experiences = []
 
-    for task in range(cfg.dataset.tasks):
-        task_dir = Path(cfg.dataset.path) / f"task_{task+1}"
+    for task_dir in sorted(
+        cfg.dataset.path.glob("task_*"), key=lambda x: int(x.stem.split("_")[-1])
+    ):
         with open(task_dir / "train/labels.txt") as f:
             train_experience = [
                 (task_dir / "train" / parts[0], int(parts[1]))
