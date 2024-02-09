@@ -137,7 +137,6 @@ def train_ours(cfg):
     benchmark = ContinualBenchmarkDisk(
         path=cfg.dataset.path,
         accumulate_test_set=cfg.dataset.accumulate_test_set,
-        test_subset=cfg.dataset.test_subset,
     )
     model = instantiate(cfg.model)
     for task_id, (datasets, task_exemplars) in enumerate(benchmark):
@@ -305,9 +304,6 @@ def create_benchmark(cfg):
                 (task_dir / "test" / parts[0], int(parts[1]))
                 for parts in (line.strip().split(maxsplit=1) for line in f)
             ]
-        if cfg.dataset.test_subset is not None:
-            test_experience = random.sample(test_experience, cfg.dataset.test_subset)
-
         train_experiences.append(train_experience)
         test_experiences.append(test_experience)
 
