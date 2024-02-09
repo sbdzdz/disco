@@ -10,8 +10,8 @@ classifier:
   _target_: torch.nn.Linear
   in_features: 256
   out_features: ${eval:'${dataset.tasks} * ${dataset.shapes_per_task}'}
-memory_size: 2000
 fixed_memory: true
 train_mb_size: ${dataset.batch_size}
 eval_mb_size: ${dataset.batch_size}
 train_epochs: ${trainer.max_epochs}
+memory_size: 200

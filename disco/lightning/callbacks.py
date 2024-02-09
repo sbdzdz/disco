@@ -69,13 +69,10 @@ class VisualizationCallback(Callback):
     @torch.no_grad()
     def log_reconstructions(pl_module, batch, name, num_imgs):
         """Log images and reconstructions"""
-        batch = np.stack(batch[:num_imgs])
-        x_hat = pl_module.get_reconstruction(
-            torch.from_numpy(batch).to(pl_module.device)
-        )
-        images = draw_batch_and_reconstructions(
-            batch, x_hat.detach().cpu().numpy(), save=False
-        )
+        batch = torch.from_numpy(np.stack(batch[:num_imgs]))
+        batch = batch.to(pl_module.backbone)
+        x_hat = pl_module.get_reconstruction(batch).detach().cpu().numpy()
+        images = draw_batch_and_reconstructions(batch, x_hat, save=False)
         pl_module.logger.log_image(name, images=[images])
 
     @staticmethod
@@ -88,7 +85,8 @@ class VisualizationCallback(Callback):
     @torch.no_grad()
     def log_classification(pl_module, batch, name, num_imgs):
         x, y = batch
-        x, y = x.to(pl_module.device), y.to(pl_module.device)
+        x = x.to(pl_module.backbone)
+        y = y.to(pl_module.backbone)
         x = x[:num_imgs]
         x_hat = pl_module.get_reconstruction(x)
         labels = pl_module.classify(x)

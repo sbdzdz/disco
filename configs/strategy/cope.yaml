@@ -7,5 +7,5 @@ criterion:
 train_mb_size: ${dataset.batch_size}
 eval_mb_size: ${dataset.batch_size}
 train_epochs: ${trainer.max_epochs}
-mem_size: 2000
 n_classes: ${eval:'${dataset.tasks} * ${dataset.shapes_per_task}'}
+mem_size: 200

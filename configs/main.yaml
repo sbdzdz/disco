@@ -28,7 +28,7 @@ training:
 trainer:
   _target_: lightning.pytorch.Trainer
   default_root_dir: ${oc.env:WORK}/${project.name}/lightning
-  enable_checkpointing: true
+  enable_checkpointing: false
   enable_progress_bar: false
   max_epochs: ${training.epochs_per_task}
   log_every_n_steps: 1
@@ -36,6 +36,9 @@ trainer:
   strategy: auto
   accumulate_grad_batches: 1
   devices: -1
+  num_nodes: 1
+  precision: 32
+  profiler: null
 
 wandb:
   _target_: lightning.pytorch.loggers.WandbLogger

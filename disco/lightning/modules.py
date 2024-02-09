@@ -4,12 +4,11 @@ from typing import Optional
 
 import lightning.pytorch as pl
 import torch
+from timm import create_model, list_models
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision
 from pl_bolts.optimizers.lars import LARS
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
-from torchvision.models import get_model, list_models
 
 from disco.data import Latents
 from disco.models.blocks import Decoder
@@ -110,10 +109,9 @@ class ContrastiveClassifier(ContinualModule):
             loss_temperature: The temperature for the InfoNCE loss.
         """
         super().__init__(**kwargs)
-        if backbone in list_models(module=torchvision.models):
-            self.backbone = get_model(backbone, weights=None, num_classes=out_dim)
-        else:
+        if backbone not in list_models():
             raise ValueError(f"Unknown backbone: {backbone}")
+        self.backbone = create_model(backbone, pretrained=False, num_classes=out_dim)
 
         # add a projection
         mlp_dimension = self.backbone.fc.in_features
@@ -258,7 +256,6 @@ class ContrastiveClassifier(ContinualModule):
         loss2 = self.info_nce_loss(x, buffer, y, buffer_labels)
 
         return {"loss": loss1 + loss2}
-        # return {"loss": self.info_nce_loss(x, y)}
 
     @torch.no_grad()
     def classify(self, x):
@@ -281,10 +278,9 @@ class SupervisedClassifier(ContinualModule):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        if backbone in list_models(module=torchvision.models):
-            self.backbone = get_model(backbone, weights=None, num_classes=num_classes)
-        else:
+        if backbone not in list_models():
             raise ValueError(f"Unknown backbone: {backbone}")
+        self.backbone = create_model(backbone, weights=None, num_classes=num_classes)
 
     def configure_optimizers(self):
         """Configure the optimizers."""
@@ -314,8 +310,6 @@ class Regressor(ContinualModule):
     def __init__(
         self,
         backbone: str = "resnet18",
-        pretrained: bool = False,
-        out_dim: int = 512,
         gamma: float = 0.5,
         buffer_chunk_size: int = 64,
         mask_n_theta_elements: int = 0,
@@ -323,14 +317,13 @@ class Regressor(ContinualModule):
     ):
         super().__init__(**kwargs)
 
-        if backbone not in list_models(module=torchvision.models):
+        if backbone not in list_models():
             raise ValueError(f"Unknown backbone: {backbone}")
-        if pretrained:
-            self.backbone = get_model(backbone, weights="DEFAULT")
-        else:
-            self.backbone = get_model(backbone, weights=None, num_classes=out_dim)
         self.num_parameters = 6
-        self.backbone.fc = nn.Linear(self.backbone.fc.in_features, self.num_parameters)
+        self.backbone = create_model(
+            backbone, pretrained=False, num_classes=self.num_parameters
+        )
+
         self.gamma = gamma
         self.buffer_chunk_size = buffer_chunk_size
         self.mask_n_theta_elements = mask_n_theta_elements
@@ -359,10 +352,7 @@ class Regressor(ContinualModule):
     def _step(self, batch):
         """Perform a training or validation step."""
         x, y = batch
-        x_hat, theta_hat = self.forward(x)
-        exemplars = torch.stack(
-            [torch.from_numpy(self._buffer[i]) for i in y.shape_id]
-        ).to(self.device)
+        _, theta_hat = self.forward(x)
         theta = self.convert_parameters_to_matrix(y)
         if self.mask_n_theta_elements > 0:
             mask = torch.ones_like(theta)
@@ -371,23 +361,15 @@ class Regressor(ContinualModule):
             mask[:, rows, cols] = 0
             theta = theta * mask
             theta_hat = theta_hat * mask
-        regression_loss = F.mse_loss(theta, theta_hat)
-        reconstruction_loss = F.mse_loss(exemplars, x_hat)
-        return {
-            "reconstruction_loss": reconstruction_loss,
-            "regression_loss": regression_loss,
-            "loss": self.gamma * regression_loss
-            + (1 - self.gamma) * reconstruction_loss,
-        }
+        loss = F.mse_loss(theta, theta_hat)
+        return {"loss": loss}
 
     @torch.no_grad()
     def classify(self, x: torch.Tensor):
         """Classify the input."""
         x_hat = self.get_reconstruction(x).unsqueeze(1).detach()
-        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer]).to(
-            self.device
-        )
-        buffer = buffer.unsqueeze(0).detach()
+        buffer = torch.stack([torch.from_numpy(img) for img in self._buffer])
+        buffer = buffer.to(x).unsqueeze(0).detach()
 
         losses = []  # classify in chunks to avoid OOM
         for chunk in torch.split(buffer, self.buffer_chunk_size, dim=1):
@@ -414,16 +396,16 @@ class Regressor(ContinualModule):
         )
         batch_size = scale.shape[0]
 
-        transform_matrix = self.batched_eye(batch_size)
+        transform_matrix = self.batched_eye(batch_size).to(scale)
 
         # scale
-        scale_matrix = self.batched_eye(batch_size)
+        scale_matrix = self.batched_eye(batch_size).to(scale)
         scale_matrix[:, 0, 0] = scale
         scale_matrix[:, 1, 1] = scale
         transform_matrix = torch.bmm(scale_matrix, transform_matrix)
 
         # rotate
-        orientation_matrix = self.batched_eye(batch_size)
+        orientation_matrix = self.batched_eye(batch_size).to(scale)
         orientation_matrix[:, 0, 0] = torch.cos(orientation)
         orientation_matrix[:, 0, 1] = -torch.sin(orientation)
         orientation_matrix[:, 1, 0] = torch.sin(orientation)
@@ -431,7 +413,7 @@ class Regressor(ContinualModule):
         transform_matrix = torch.bmm(orientation_matrix, transform_matrix)
 
         # move to the center
-        translation_matrix = self.batched_eye(batch_size)
+        translation_matrix = self.batched_eye(batch_size).to(scale)
         translation_matrix[:, 0, 2] = position_x - 0.5
         translation_matrix[:, 1, 2] = position_y - 0.5
         transform_matrix = torch.bmm(translation_matrix, transform_matrix)
@@ -440,12 +422,7 @@ class Regressor(ContinualModule):
 
     def batched_eye(self, batch_size):
         """Create a batch of identity matrices."""
-        return (
-            torch.eye(3, dtype=torch.float)
-            .unsqueeze(0)
-            .repeat(batch_size, 1, 1)
-            .to(self.device)
-        )
+        return torch.eye(3, dtype=torch.float).unsqueeze(0).repeat(batch_size, 1, 1)
 
 
 class Autoencoder(ContinualModule):
@@ -480,11 +457,10 @@ class Autoencoder(ContinualModule):
         ), "Too many decoder layers for the input size."
         self.decoder_input_size = self.decoder_input_img_size**2 * channels[0]
 
-        if backbone not in list_models(module=torchvision.models):
+        if backbone not in list_models():
             raise ValueError(f"Unknown backbone: {backbone}")
-
-        self.backbone = get_model(
-            backbone, weights=None, num_classes=self.decoder_input_size
+        self.backbone = create_model(
+            backbone, pretrained=False, num_classes=self.decoder_input_size
         )
         self.buffer_chunk_size = buffer_chunk_size
         self.decoder = Decoder(channels=channels, out_channels=in_channels)
