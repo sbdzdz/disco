@@ -1,6 +1,7 @@
 """Load a pre-trained ResNet-18 model and time inference on a set of images."""
 
 import timm
+import torch
 from disco.data import FileDataset
 from time import time
 from argparse import ArgumentParser
@@ -8,7 +9,8 @@ from torch.utils.data import DataLoader
 
 
 def _main(args):
-    model = timm.create_model("resnet18", pretrained=True)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = timm.create_model("resnet18", pretrained=True).to(device)
     dataset = FileDataset(args.dataset_path)
     dataloader = DataLoader(
         dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers
@@ -16,7 +18,7 @@ def _main(args):
     times = []
     for images in dataloader:
         start = time()
-        model(images)
+        model(images.to(device))
         end = time()
         times.append(end - start)
     average = sum(times) / len(times)
