@@ -216,9 +216,10 @@ def train_baseline(cfg):
 def create_benchmark(cfg):
     train_experiences = []
     test_experiences = []
+    path = Path(cfg.dataset.path)
 
     for task_dir in sorted(
-        cfg.dataset.path.glob("task_*"), key=lambda x: int(x.stem.split("_")[-1])
+        path.glob("task_*"), key=lambda x: int(x.stem.split("_")[-1])
     ):
         with open(task_dir / "train/labels.txt") as f:
             train_experience = [
