@@ -30,4 +30,5 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_path", type=str, help="Path to the dataset.")
     parser.add_argument("--batch_size", type=int, default=32, help="Batch size.")
     parser.add_argument("--num_workers", type=int, default=4, help="Number of workers.")
-    _main()
+    args = parser.parse_args()
+    _main(args)
