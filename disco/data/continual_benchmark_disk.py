@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Union
 
 from torchvision.io import read_image
-from codis.data import FileDataset
+from disco.data import FileDataset
 from torch.utils.data import ConcatDataset
 import numpy as np
 
