@@ -247,7 +247,6 @@ def create_strategy(cfg):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     evaluator = EvaluationPlugin(
         accuracy_metrics(minibatch=False, epoch=False, experience=False, stream=True),
-        forgetting_metrics(experience=False, stream=True),
     )
     model = call(cfg.model)
 
