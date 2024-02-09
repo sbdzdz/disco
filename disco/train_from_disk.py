@@ -95,11 +95,7 @@ class ContinualBenchmarkDisk:
 
             if self.accumulate_test_set:
                 self.test_sets.append(test)
-                test = (
-                    ConcatDataset(self.test_sets)
-                    if len(self.test_sets) > 1
-                    else self.test_sets[0]
-                )
+                test = ConcatDataset(self.test_sets)
 
             yield (train, val, test), task_exemplars
 
