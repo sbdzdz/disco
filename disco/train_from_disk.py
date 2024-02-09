@@ -95,10 +95,13 @@ class ContinualBenchmarkDisk:
 
             if self.accumulate_test_set:
                 self.test_sets.append(test)
-                accumulated_test = ConcatDataset(self.test_sets)
-                yield (train, val, accumulated_test), task_exemplars
-            else:
-                yield (train, val, test), task_exemplars
+                test = (
+                    ConcatDataset(self.test_sets)
+                    if len(self.test_sets) > 1
+                    else self.test_sets[0]
+                )
+
+            yield (train, val, test), task_exemplars
 
     def load_exemplars(self, task_dir):
         """Load the current task exemplars from a given directory."""
@@ -139,10 +142,10 @@ def train_ours(cfg):
         accumulate_test_set=cfg.dataset.accumulate_test_set,
     )
     model = instantiate(cfg.model)
-    for task_id, (datasets, task_exemplars) in enumerate(benchmark):
+    for task, (datasets, task_exemplars) in enumerate(benchmark):
         if cfg.training.reset_model:
             model = instantiate(cfg.model)
-        model.task_id = task_id
+        model.task_id = task
         train_loader, val_loader, test_loader = create_loaders(cfg, datasets)
 
         for exemplar in task_exemplars:
@@ -152,10 +155,7 @@ def train_ours(cfg):
             trainer.fit(model, train_loader, val_loader)
         else:
             trainer.fit(model, train_loader)
-        if (
-            not cfg.training.test_once
-            and task_id % cfg.training.test_every_n_tasks == 0
-        ):
+        if not cfg.training.test_once and task % cfg.training.test_every_n_tasks == 0:
             trainer.test(model, test_loader)
         trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
     trainer.test(model, test_loader)
