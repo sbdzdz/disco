@@ -18,7 +18,7 @@ from avalanche.training.plugins import EvaluationPlugin
 from hydra.utils import call, get_object, instantiate
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, Timer
 from omegaconf import DictConfig, OmegaConf
-from torch.utils.data import ConcatDataset, DataLoader, Dataset, Subset
+from torch.utils.data import ConcatDataset, DataLoader, Dataset
 from torchvision.io import read_image
 from torchvision.transforms import ToTensor
 
