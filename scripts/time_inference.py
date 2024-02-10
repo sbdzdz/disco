@@ -7,15 +7,21 @@ from time import time
 from argparse import ArgumentParser
 from torch.utils.data import DataLoader
 from pathlib import Path
+from tqdm import tqdm
 
 
 def _main(args):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = timm.create_model("resnet18", pretrained=True).to(device)
+    start = time()
     datasets = [
         FileDataset(task_dir / "test")
-        for task_dir in Path(args.dataset_path).glob("task_*")
+        for task_dir in tqdm(Path(args.dataset_path).glob("task_*"))
     ]
+    end = time()
+    duration_min = (end - start) / 60
+    print(f"Loading the dataset took {duration_min:.2f} minutes.")
+
     dataset = torch.utils.data.ConcatDataset(datasets)
     dataloader = DataLoader(
         dataset, batch_size=args.batch_size, num_workers=args.num_workers
