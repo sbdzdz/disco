@@ -381,15 +381,16 @@ class Regressor(ContinualModule):
             losses.append(loss)
         return torch.cat(losses, dim=1).argmin(dim=1)
 
-    def crop(self, batch, buffer):
+    @staticmethod
+    def crop(batch, buffer):
         """Crop the batch and the buffer to the bounding box of the shape."""
         min_x, max_x = batch.shape[3], 0
         min_y, max_y = batch.shape[2], 0
 
         for image in batch:
-            eps = 1e-6
-            black_pixels = (image < eps).all(dim=0)
-            white_pixels = (image > 1 - eps).all(dim=0)
+            epsilon = 1e-6
+            black_pixels = torch.where(image[0] <= epsilon)
+            white_pixels = torch.where(image[0] >= 1 - epsilon)
             shape_pixels_y = torch.cat((black_pixels[0], white_pixels[0]), dim=0)
             shape_pixels_x = torch.cat((black_pixels[1], white_pixels[1]), dim=0)
 
