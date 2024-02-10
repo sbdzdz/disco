@@ -190,7 +190,6 @@ def train_baseline(cfg):
     benchmark = create_benchmark(cfg)
     strategy = create_strategy(cfg)
 
-    results = []
     for task, train_experience in enumerate(benchmark.train_stream):
         log_message(train_experience, "train")
         train_start = time()
@@ -202,15 +201,35 @@ def train_baseline(cfg):
 
         if not cfg.training.test_once and task % cfg.training.test_every_n_tasks == 0:
             test_start = time()
-            result = strategy.eval(
-                benchmark.test_stream[: task + 1],
-                num_workers=cfg.dataset.num_workers,
-            )
+            # result = strategy.eval(
+            #    benchmark.test_stream[: task + 1],
+            #    num_workers=cfg.dataset.num_workers,
+            # )
+            test_baseline(strategy, task, cfg)
             test_end = time()
             wandb.log({"test/time_per_task": (test_end - test_start) / 60})
-            results.append(result)
-            log_metrics(task, result)
+            # log_metrics(task, result)
     wandb.finish()
+
+
+def test_baseline(strategy, current_task, cfg):
+    from disco.data import FileDataset
+
+    """Test a standard continual learning baseline using Avalanche."""
+    datasets = [
+        FileDataset(cfg.dataset.path / f"{task}/test")
+        for task in range(current_task + 1)
+    ]
+    dataset = torch.utils.data.ConcatDataset(datasets)
+    dataloader = DataLoader(
+        dataset, batch_size=cfg.dataset.batch_size, num_workers=cfg.dataset.num_workers
+    )
+    accuracies = []
+    for images, factors in dataloader:
+        labels = factors.shape_id
+        accuracy = strategy.model(images.to(strategy.device)).argmax(1) == labels
+        accuracies.append(accuracy)
+    wandb.log({"test/accuracy": torch.stack(accuracies).float().mean()})
 
 
 def create_benchmark(cfg):
