@@ -11,29 +11,31 @@ from tqdm import tqdm
 
 
 def _main(args):
+    start = time()
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = timm.create_model("resnet18", pretrained=True).to(device)
     model.eval()
-    start = time()
     datasets = [
         FileDataset(task_dir / "test")
         for task_dir in tqdm(Path(args.dataset_path).glob("task_*"))
     ]
-    end = time()
-    duration_min = (end - start) / 60
-    print(f"Loading the dataset took {duration_min:.2f} minutes.")
-
     dataset = torch.utils.data.ConcatDataset(datasets)
     dataloader = DataLoader(
         dataset, batch_size=args.batch_size, num_workers=args.num_workers
     )
-    start = time()
+    loading_end = time()
+    duration_min = (loading_end - start) / 60
+    print(f"Loading the dataset took {duration_min:.2f} minutes.")
+
+    training_start = time()
     for images, _ in dataloader:
         model(images.to(device))
         end = time()
     end = time()
+    training_duration_min = (end - training_start) / 60
     duration_min = (end - start) / 60
-    print(f"Inference took {duration_min:.2f} minutes.")
+    print(f"Inference took {training_duration_min:.2f} minutes.")
+    print(f"Total duration: {duration_min:.2f} minutes.")
 
 
 if __name__ == "__main__":
