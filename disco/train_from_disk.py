@@ -216,6 +216,7 @@ def test_baseline(strategy, current_task, cfg):
     from disco.data import FileDataset
 
     """Test a standard continual learning baseline using Avalanche."""
+    strategy.model.eval()
     datasets = [
         FileDataset(Path(cfg.dataset.path) / f"task_{task+1}/test")
         for task in range(current_task + 1)
@@ -230,6 +231,7 @@ def test_baseline(strategy, current_task, cfg):
         accuracy = strategy.model(images.to(strategy.device)).argmax(1) == labels
         accuracies.append(accuracy)
     wandb.log({"test/accuracy": torch.stack(accuracies).float().mean()})
+    strategy.model.train()
 
 
 def create_benchmark(cfg):
