@@ -217,7 +217,7 @@ def test_baseline(strategy, current_task, cfg):
 
     """Test a standard continual learning baseline using Avalanche."""
     datasets = [
-        FileDataset(Path(cfg.dataset.path) / f"{task}/test")
+        FileDataset(Path(cfg.dataset.path) / f"task_{task}/test")
         for task in range(current_task + 1)
     ]
     dataset = torch.utils.data.ConcatDataset(datasets)
