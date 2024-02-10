@@ -370,6 +370,7 @@ class Regressor(ContinualModule):
         x_hat = self.get_reconstruction(x).unsqueeze(1).detach()
         buffer = torch.stack([torch.from_numpy(img) for img in self._buffer])
         buffer = buffer.to(x).unsqueeze(0).detach()
+        x_hat, buffer = self.crop(x_hat, buffer)
 
         losses = []  # classify in chunks to avoid OOM
         for chunk in torch.split(buffer, self.buffer_chunk_size, dim=1):
@@ -379,6 +380,29 @@ class Regressor(ContinualModule):
             ).mean(dim=(2, 3, 4))
             losses.append(loss)
         return torch.cat(losses, dim=1).argmin(dim=1)
+
+    def crop(self, batch, buffer):
+        """Crop the batch and the buffer to the bounding box of the shape."""
+        min_x, max_x = batch.shape[3], 0
+        min_y, max_y = batch.shape[2], 0
+
+        for image in batch:
+            eps = 1e-6
+            black_pixels = (image < eps).all(dim=0)
+            white_pixels = (image > 1 - eps).all(dim=0)
+            shape_pixels_y = torch.cat((black_pixels[0], white_pixels[0]), dim=0)
+            shape_pixels_x = torch.cat((black_pixels[1], white_pixels[1]), dim=0)
+
+            if shape_pixels_x.numel() > 0 and shape_pixels_y.numel() > 0:
+                min_y = min(min_y, shape_pixels_y.min().item())
+                max_y = max(max_y, shape_pixels_y.max().item())
+                min_x = min(min_x, shape_pixels_x.min().item())
+                max_x = max(max_x, shape_pixels_x.max().item())
+
+        return (
+            batch[:, :, min_y : max_y + 1, min_x : max_x + 1],
+            buffer[:, :, min_y : max_y + 1, min_x : max_x + 1],
+        )
 
     def convert_parameters_to_matrix(self, factors):
         """Convert the ground truth factors to a transformation matrix.
