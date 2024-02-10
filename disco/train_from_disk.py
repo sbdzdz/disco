@@ -227,10 +227,10 @@ def test_baseline(strategy, current_task, cfg):
     )
     accuracies = []
     for images, factors in dataloader:
-        labels = factors.shape_id
-        accuracy = strategy.model(images.to(strategy.device)).argmax(1) == labels
-        accuracies.append(accuracy)
-    wandb.log({"test/accuracy": torch.stack(accuracies).float().mean()})
+        actual = factors.shape_id.to(strategy.device)
+        predicted = strategy.model(images.to(strategy.device)).argmax(1)
+        accuracies.append((predicted == actual).float().mean().item())
+    wandb.log("test/accuracy", np.mean(accuracies))
     strategy.model.train()
 
 
