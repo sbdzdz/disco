@@ -13,6 +13,7 @@ from tqdm import tqdm
 def _main(args):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = timm.create_model("resnet18", pretrained=True).to(device)
+    model.eval()
     start = time()
     datasets = [
         FileDataset(task_dir / "test")
