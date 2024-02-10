@@ -270,13 +270,11 @@ def create_strategy(cfg):
     )
     model = call(cfg.model)
 
-    if cfg.strategy._target_ == "avalanche.training.supervised.ICaRL":
+    if cfg.strategy._target_ == "avalanche.training.supervised.LearningToPrompt":
         strategy = instantiate(
             cfg.strategy,
             device=device,
             evaluator=evaluator,
-            optimizer={"params": model.parameters()},
-            herding=True,
         )
     else:
         strategy = instantiate(
