@@ -450,6 +450,51 @@ class Regressor(ContinualModule):
         return torch.eye(3, dtype=torch.float).unsqueeze(0).repeat(batch_size, 1, 1)
 
 
+class FastRegressor(Regressor):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # get a randomly initialized CNN as a feature extractor
+        self.feature_extractor = nn.Sequential(
+            nn.Conv2d(
+                in_channels=3, out_channels=16, kernel_size=3, stride=2, padding=1
+            ),
+            nn.Conv2d(
+                in_channels=16, out_channels=32, kernel_size=3, stride=2, padding=1
+            ),
+            nn.Conv2d(
+                in_channels=32, out_channels=64, kernel_size=3, stride=2, padding=1
+            ),
+            nn.Conv2d(
+                in_channels=64, out_channels=128, kernel_size=3, stride=2, padding=1
+            ),
+            nn.Conv2d(
+                in_channels=128, out_channels=256, kernel_size=3, stride=2, padding=1
+            ),
+            nn.Conv2d(
+                in_channels=256, out_channels=512, kernel_size=8, stride=1
+            ),  # This layer outputs (512, 1, 1)
+            nn.Flatten(),  # Flatten the output to produce a vector of 512 numbers
+        )
+        for param in self.feature_extractor.parameters():
+            param.requires_grad = False
+
+    @torch.no_grad()
+    def add_exemplar(self, exemplar):
+        # add the exemplar features to the buffer
+        self._buffer.append(self.feature_extractor(exemplar))
+
+    def classify(self, x: torch.Tensor):
+        # get the features of the input
+        x_features = self.feature_extractor(x)
+        # get the features of the buffer
+        buffer_features = torch.stack(self._buffer)
+        # compute the cosine similarity between the input and the buffer
+        similarity = F.cosine_similarity(
+            x_features.unsqueeze(1), buffer_features.unsqueeze(0), dim=2
+        )
+        return similarity.argmax(dim=1)
+
+
 class Autoencoder(ContinualModule):
     """A model that uses an autoencoder as the normalization network."""
 

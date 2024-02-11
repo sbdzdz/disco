@@ -1,0 +1,4 @@
+_target_: disco.lightning.modules.FastRegressor
+backbone: resnet18
+lr: ${training.lr}
+shapes_per_task: ${dataset.shapes_per_task}
