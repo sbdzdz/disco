@@ -195,7 +195,7 @@ def train_baseline(cfg):
         train_start = time()
         strategy.train(train_experience, num_workers=cfg.dataset.num_workers)
         train_end = time()
-        wandb.log({"train/time_per_task": (train_end - train_start) / 60})
+        wandb.log({"task": task, "train/time_per_task": (train_end - train_start) / 60})
         if task == 0:  # train again to learn features
             strategy.train(train_experience, num_workers=cfg.dataset.num_workers)
 
@@ -230,7 +230,7 @@ def test_baseline(strategy, current_task, cfg):
         actual = factors.shape_id.to(strategy.device)
         predicted = strategy.model(images.to(strategy.device)).argmax(1)
         accuracies.append((predicted == actual).float().mean().item())
-    wandb.log({"task": current_task, "test/accuracy": np.mean(accuracies)})
+    wandb.log({"test/accuracy": np.mean(accuracies)})
     strategy.model.train()
 
 
