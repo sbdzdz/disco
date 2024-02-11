@@ -310,7 +310,6 @@ class Regressor(ContinualModule):
     def __init__(
         self,
         backbone: str = "resnet18",
-        gamma: float = 0.5,
         buffer_chunk_size: int = 64,
         mask_n_theta_elements: int = 0,
         **kwargs,
@@ -324,7 +323,6 @@ class Regressor(ContinualModule):
             backbone, pretrained=False, num_classes=self.num_parameters
         )
 
-        self.gamma = gamma
         self.buffer_chunk_size = buffer_chunk_size
         self.mask_n_theta_elements = mask_n_theta_elements
 
