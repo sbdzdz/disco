@@ -480,16 +480,15 @@ class FastRegressor(Regressor):
     @torch.no_grad()
     def add_exemplar(self, exemplar):
         # add the exemplar features to the buffer
-        exemplar = torch.from_numpy(exemplar).unsqueeze(0).to(self.device)
+        exemplar = torch.from_numpy(exemplar).to(self.device)
         self._buffer.append(self.feature_extractor(exemplar).cpu().numpy())
 
     def classify(self, x: torch.Tensor):
-        x = self.feature_extractor(x)
-        buffer = np.stack(self._buffer)
-        buffer = torch.from_numpy(buffer).to(self.device)
-        # compute the cosine similarity between the input and the buffer
-        similarity = F.cosine_similarity(x.unsqueeze(1), buffer.unsqueeze(0), dim=2)
-        return similarity.argmax(dim=1)
+        buffer = torch.from_numpy(np.stack(self._buffer))
+        buffer = buffer.to(self.device).unsqueeze(0)  # (1, n, 512)
+        x = self.feature_extractor(x).unsqueeze(1)  # (m, 1, 512)
+        similarity = F.cosine_similarity(x, buffer, dim=2)  # (m, n)
+        return similarity.argmax(dim=1)  # (m,)
 
 
 class Autoencoder(ContinualModule):
