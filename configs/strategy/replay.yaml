@@ -4,10 +4,10 @@ optimizer:
   lr: ${training.lr}
 plugins:
   - _target_: avalanche.training.plugins.ReplayPlugin
-    mem_size: buffer.mem_size
+    mem_size: ${buffer.mem_size}
     storage_policy:
       _target_: avalanche.training.storage_policy.ReservoirSamplingBuffer
-      max_size: buffer.mem_size
+      max_size: ${buffer.mem_size}
 criterion:
   _target_: torch.nn.CrossEntropyLoss
 train_mb_size: ${dataset.batch_size}
