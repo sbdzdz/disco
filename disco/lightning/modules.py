@@ -5,6 +5,7 @@ from typing import Optional
 import lightning.pytorch as pl
 import torch
 from timm import create_model, list_models
+import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from pl_bolts.optimizers.lars import LARS
@@ -472,24 +473,22 @@ class FastRegressor(Regressor):
                 in_channels=256, out_channels=512, kernel_size=8, stride=1
             ),  # This layer outputs (512, 1, 1)
             nn.Flatten(),  # Flatten the output to produce a vector of 512 numbers
-        )
+        ).to(self.device)
         for param in self.feature_extractor.parameters():
             param.requires_grad = False
 
     @torch.no_grad()
     def add_exemplar(self, exemplar):
         # add the exemplar features to the buffer
-        self._buffer.append(self.feature_extractor(exemplar))
+        exemplar = torch.from_numpy(exemplar).unsqueeze(0).to(self.device)
+        self._buffer.append(self.feature_extractor(exemplar).cpu().numpy())
 
     def classify(self, x: torch.Tensor):
-        # get the features of the input
-        x_features = self.feature_extractor(x)
-        # get the features of the buffer
-        buffer_features = torch.stack(self._buffer)
+        x = self.feature_extractor(x)
+        buffer = np.stack(self._buffer)
+        buffer = torch.from_numpy(buffer).to(self.device)
         # compute the cosine similarity between the input and the buffer
-        similarity = F.cosine_similarity(
-            x_features.unsqueeze(1), buffer_features.unsqueeze(0), dim=2
-        )
+        similarity = F.cosine_similarity(x.unsqueeze(1), buffer.unsqueeze(0), dim=2)
         return similarity.argmax(dim=1)
 
 
