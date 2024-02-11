@@ -2,6 +2,7 @@
 Example:
     python scripts/visualize_loss.py --wandb_groups resnet
 """
+
 import json
 from argparse import ArgumentParser
 from itertools import zip_longest
@@ -10,8 +11,6 @@ from pathlib import Path
 import numpy as np
 import wandb
 from matplotlib import pyplot as plt
-from matplotlib.ticker import MaxNLocator
-from tqdm import tqdm
 import scienceplots  # noqa: F401
 
 
@@ -40,9 +39,9 @@ def visualize_metric(args):
 
     metrics = {}
     for name, runs in run_dict.items():
-        values = [load_run(run, args, name) for run in runs]
+        values = [load_run(run, args) for run in runs]
         max_len = max(map(len, values))
-        if name.startswith("test"):
+        if args.metric_name.startswith("test"):
             steps = [i * get_testing_frequency(runs) for i in range(max_len)]
         else:
             steps = list(range(max_len))
@@ -55,15 +54,7 @@ def visualize_metric(args):
 
 
 def truncate(metrics: dict, max_steps: int):
-    """Truncate the metrics to a maximum number of steps.
-    Args:
-        metrics: A dictionary mapping a metric name to a tuple of (steps, values).
-        max_steps: The maximum number of steps to keep.
-    Returns:
-        A new dictionary mapping a metric name to a tuple of (steps, values) with the
-        steps truncated to the maximum number of steps and the values truncated
-        accordingly.
-    """
+    """Truncate the metrics to a maximum number of steps."""
     return {
         name: (
             [step for step in steps if step <= max_steps],
@@ -74,11 +65,7 @@ def truncate(metrics: dict, max_steps: int):
 
 
 def get_testing_frequency(runs):
-    """Get the frequency at which the model is tested.
-    Args:
-        runs: A list of wandb run objects.
-    Returns:
-        The frequency at which the model is tested."""
+    """Get the frequency at which the model is tested."""
     try:
         test_every_n_tasks = [
             run.config["training"]["test_every_n_tasks"] for run in runs
@@ -88,10 +75,10 @@ def get_testing_frequency(runs):
         ), "All runs must have the same testing frequency."
         return test_every_n_tasks[0]
     except KeyError:
-        return 1
+        return 10
 
 
-def load_run(run, args, name):
+def load_run(run, args):
     """Load the metric values for a single run."""
     path = (
         Path(__file__).parent.parent / f"img/media/{run.name}/{args.metric_name}.json"
@@ -100,61 +87,24 @@ def load_run(run, args, name):
         print(f"Found saved run data for {run.name}.")
         with open(path, "r") as f:
             values = json.load(f)
-    elif is_baseline(name):
-        values = download_baseline_results(run, args.metric_name)
     else:
-        values = download_our_results(run, args.metric_name)
-    if not path.exists() or args.force_download:
+        values = download_results(run, args.metric_name)
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as f:
             json.dump(values, f)
     return values
 
 
-def is_baseline(name):
-    """Check if the run is a baseline run."""
-    return "Learning" in name or "Synaptic" in name  # TODO: fix this
-
-
-def download_baseline_results(run, metric_name):
-    """Get the metric values for each baseline run."""
-    num_experiences = max(
-        row["TrainingExperience"]
-        for row in run.history(keys=["TrainingExperience"], pandas=False)
-    )
-    values = []
-    for task in tqdm(
-        range(num_experiences),
-        desc=f"Downloading run data for {run.name}",
-    ):
-        metric_name = f"Top1_Acc_Exp/eval_phase/test_stream/Task000/Exp{task:03d}"
-        values.extend(
-            row[metric_name] for row in run.history(keys=[metric_name], pandas=False)
-        )
-    return values
-
-
-def download_our_results(run, metric_name: str):
+def download_results(run, metric_name: str):
     """Get the metric values for each run."""
     print(f"Downloading run data for {run.name}.")
-    return take_last(run.scan_history(keys=["trainer/global_step", metric_name]))
-
-
-def take_last(scan):
-    """If there are multiple values for the same step, take the last one."""
-    result = []
-    current_step = None
-    for row in reversed(list(scan)):
-        step, value = row.values()
-        if step != current_step:
-            result.append(value)
-            current_step = step
-    return result[::-1]
+    scan = run.scan_history(keys=["task", metric_name])
+    return [row[metric_name] for row in scan]
 
 
 def plot(args, metrics):
     plt.style.use(["science", "bright"])
-    if args.fig_height is None and args.fig_width is None:
+    if args.fig_height is None or args.fig_width is None:
         _, ax = plt.subplots(layout="tight")
     else:
         _, ax = plt.subplots(layout="tight", figsize=(args.fig_width, args.fig_height))
@@ -172,7 +122,6 @@ def plot(args, metrics):
 
     ax.set_xlabel("Tasks")
     ax.set_xlim([args.xmin, args.xmax])
-    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
     ax.yaxis.set_major_formatter("{x:.1f}")
     metric_name = args.metric_name.split("/")[-1].replace("_", " ").capitalize()
@@ -202,7 +151,7 @@ def _main():
         "--wandb_entity",
         type=str,
         help="Wandb entity and project name, e.g. disco/disco",
-        default="disco/disco",
+        default="codis/disco",
     )
     parser.add_argument("--wandb_groups", type=str, nargs="+", help="Wandb group name")
     parser.add_argument(
