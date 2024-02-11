@@ -486,7 +486,9 @@ class FastRegressor(Regressor):
     def classify(self, x: torch.Tensor):
         buffer = torch.from_numpy(np.stack(self._buffer))
         buffer = buffer.to(self.device).unsqueeze(0)  # (1, n, 512)
+        buffer = buffer.repeat(x.shape[0], 1, 1)  # (m, n, 512)
         x = self.feature_extractor(x).unsqueeze(1)  # (m, 1, 512)
+        x = x.repeat(1, buffer.shape[1], 1)  # (m, n, 512)
         similarity = F.cosine_similarity(x, buffer, dim=2)  # (m, n)
         return similarity.argmax(dim=1)  # (m,)
 
