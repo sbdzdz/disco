@@ -1,0 +1,4 @@
+_target_: avalanche.training.plugins.ReplayPlugin
+storage_policy:
+  _target_: avalanche.training.storage_policy.ReservoirSamplingBuffer
+  max_size: 200

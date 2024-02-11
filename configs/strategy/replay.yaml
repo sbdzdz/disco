@@ -1,12 +1,11 @@
-_target_: avalanche.training.supervised.Replay
+_target_: avalanche.training.supervised.Naive
 optimizer:
   _target_: torch.optim.Adam
   lr: ${training.lr}
+plugins:
+  - ${replay_plugin}
 criterion:
   _target_: torch.nn.CrossEntropyLoss
-storage_policy:
-  _target_: avalanche.training.storage_policy.ReservoirSamplingBuffer
-  max_size: 200
 train_mb_size: ${dataset.batch_size}
 eval_mb_size: ${dataset.batch_size}
 train_epochs: ${trainer.max_epochs}
