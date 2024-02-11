@@ -9,7 +9,7 @@ plugins:
       _target_: avalanche.training.storage_policy.ReservoirSamplingBuffer
       max_size: ${mem_size}
 criterion:
-_target_: torch.nn.CrossEntropyLoss
+  _target_: torch.nn.CrossEntropyLoss
 train_mb_size: ${dataset.batch_size}
 eval_mb_size: ${dataset.batch_size}
 train_epochs: ${trainer.max_epochs}
