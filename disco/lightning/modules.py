@@ -481,7 +481,8 @@ class FastRegressor(Regressor):
     def add_exemplar(self, exemplar):
         # add the exemplar features to the buffer
         exemplar = torch.from_numpy(exemplar).to(self.device)
-        self._buffer.append(self.feature_extractor(exemplar).cpu().numpy())
+        features = self.feature_extractor(exemplar).cpu().numpy()
+        self._buffer.append(features[0])
 
     def classify(self, x: torch.Tensor):
         buffer = torch.from_numpy(np.stack(self._buffer))
