@@ -230,7 +230,7 @@ def test_baseline(strategy, current_task, cfg):
         actual = factors.shape_id.to(strategy.device)
         predicted = strategy.model(images.to(strategy.device)).argmax(1)
         accuracies.append((predicted == actual).float().mean().item())
-    wandb.log({"test/accuracy": np.mean(accuracies)})
+    wandb.log({"task": current_task, "test/accuracy": np.mean(accuracies)})
     strategy.model.train()
 
 
