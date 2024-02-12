@@ -452,28 +452,11 @@ class Regressor(ContinualModule):
 class FastRegressor(Regressor):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # get a randomly initialized CNN as a feature extractor
+        resnet = create_model("resnet18", pretrained=True)
         self.feature_extractor = nn.Sequential(
-            nn.Conv2d(
-                in_channels=3, out_channels=16, kernel_size=3, stride=2, padding=1
-            ),
-            nn.Conv2d(
-                in_channels=16, out_channels=32, kernel_size=3, stride=2, padding=1
-            ),
-            nn.Conv2d(
-                in_channels=32, out_channels=64, kernel_size=3, stride=2, padding=1
-            ),
-            nn.Conv2d(
-                in_channels=64, out_channels=128, kernel_size=3, stride=2, padding=1
-            ),
-            nn.Conv2d(
-                in_channels=128, out_channels=256, kernel_size=3, stride=2, padding=1
-            ),
-            nn.Conv2d(
-                in_channels=256, out_channels=512, kernel_size=8, stride=1
-            ),  # This layer outputs (512, 1, 1)
-            nn.Flatten(),  # Flatten the output to produce a vector of 512 numbers
-        ).to(self.device)
+            *list(resnet.children())[:-2],
+            nn.Flatten(),
+        )
         for param in self.feature_extractor.parameters():
             param.requires_grad = False
 
