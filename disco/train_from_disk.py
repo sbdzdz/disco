@@ -19,7 +19,7 @@ from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, Ti
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 from torchvision.io import read_image
-from torchvision.transforms import ToTensor, Resize
+from torchvision.transforms import ToTensor, Resize, Compose
 
 from disco.lightning.callbacks import (
     LoggingCallback,
@@ -257,12 +257,14 @@ def create_benchmark(cfg):
         train_experiences.append(train_experience)
         test_experiences.append(test_experience)
 
+    transform = Compose([Resize((224, 224)), ToTensor()])
+
     return paths_benchmark(
         train_experiences,
         test_experiences,
         task_labels=[0] * len(train_experiences),
-        train_transform=ToTensor(),
-        eval_transform=ToTensor(),
+        train_transform=transform,
+        eval_transform=transform,
     )
 
 
