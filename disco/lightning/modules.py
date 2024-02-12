@@ -463,7 +463,7 @@ class FastRegressor(Regressor):
     @torch.no_grad()
     def add_exemplar(self, exemplar):
         # add the exemplar features to the buffer
-        exemplar = torch.from_numpy(exemplar).to(self.device)
+        exemplar = torch.from_numpy(exemplar).unsqueeze(0).to(self.device)
         features = self.feature_extractor(exemplar).cpu().numpy()
         self._buffer.append(features[0])
 
