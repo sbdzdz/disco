@@ -227,6 +227,8 @@ def test_baseline(strategy, current_task, cfg):
     for images, factors in dataloader:
         actual = factors.shape_id.to(strategy.device)
         output = strategy.forward(images.to(strategy.device))
+        if isinstance(output, dict):
+            output = output["logits"]
         predicted = output.argmax(1)
         accuracies.append((predicted == actual).float().mean().item())
     wandb.log({"test/accuracy": np.mean(accuracies)})
