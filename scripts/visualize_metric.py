@@ -103,7 +103,10 @@ def download_results(run, metric_name: str):
 
 
 def plot(args, metrics):
-    plt.style.use(["science", "grid", "vibrant"])
+    style = ["science", "vibrant"]
+    if args.grid:
+        style.append("grid")
+    plt.style.use(style)
     plt.rcParams["font.family"] = "Times"
     if args.fig_height is None or args.fig_width is None:
         _, ax = plt.subplots(layout="tight")
@@ -175,6 +178,7 @@ def _main():
     parser.add_argument(
         "--show_std", action="store_true", help="Visualize standard deviation."
     )
+    parser.add_argument("--grid", action="store_true", help="Add grid to the plot.")
     parser.add_argument(
         "--plot_title", type=str, default=None, help="Title of the plot."
     )
