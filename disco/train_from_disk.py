@@ -214,7 +214,7 @@ def test_baseline(strategy, current_task, cfg):
 
     """Test a standard continual learning baseline using Avalanche."""
     strategy.model.eval()
-    transform = Resize((224, 224))
+    transform = Resize((224, 224), antialias=True)
     datasets = [
         FileDataset(Path(cfg.dataset.path) / f"task_{task+1}/test", transform=transform)
         for task in range(current_task + 1)
