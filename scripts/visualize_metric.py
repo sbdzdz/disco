@@ -103,7 +103,8 @@ def download_results(run, metric_name: str):
 
 
 def plot(args, metrics):
-    plt.style.use(["science", "bright"])
+    plt.style.use(["science", "grid", "vibrant"])
+    plt.rcParams["font.family"] = "Times"
     if args.fig_height is None or args.fig_width is None:
         _, ax = plt.subplots(layout="tight")
     else:
