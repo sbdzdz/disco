@@ -1,5 +1,5 @@
 _target_: avalanche.training.supervised.LearningToPrompt
-model_name: vit_base_patch16_224
+model_name: vit_tiny_patch16_224
 criterion:
   _target_: torch.nn.CrossEntropyLoss
 train_mb_size: ${dataset.batch_size}
