@@ -226,7 +226,8 @@ def test_baseline(strategy, current_task, cfg):
     accuracies = []
     for images, factors in dataloader:
         actual = factors.shape_id.to(strategy.device)
-        output = strategy.model(images.to(strategy.device))
+        model = strategy.model.to(strategy.device)
+        output = model(images.to(strategy.device))
         if isinstance(output, dict):
             output = output["logits"]
         predicted = output.argmax(1)
