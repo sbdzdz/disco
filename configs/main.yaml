@@ -24,6 +24,7 @@ training:
   log_train_accuracy: false
   log_val_accuracy: false
   log_test_accuracy: true
+  sanity_check: false
 
 buffer:
   mem_size: 200

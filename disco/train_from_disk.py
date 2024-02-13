@@ -191,6 +191,8 @@ def train_baseline(cfg):
     strategy = create_strategy(cfg)
 
     for task, train_experience in enumerate(benchmark.train_stream):
+        if cfg.training.sanity_check:
+            test_baseline(strategy, task, cfg)
         log_message(train_experience, "train")
         train_start = time()
         strategy.train(train_experience, num_workers=cfg.dataset.num_workers)
@@ -201,14 +203,9 @@ def train_baseline(cfg):
 
         if not cfg.training.test_once and task % cfg.training.test_every_n_tasks == 0:
             test_start = time()
-            # result = strategy.eval(
-            #    benchmark.test_stream[: task + 1],
-            #    num_workers=cfg.dataset.num_workers,
-            # )
             test_baseline(strategy, task, cfg)
             test_end = time()
             wandb.log({"test/time_per_task": (test_end - test_start) / 60})
-            # log_metrics(task, result)
     wandb.finish()
 
 
@@ -229,7 +226,8 @@ def test_baseline(strategy, current_task, cfg):
     accuracies = []
     for images, factors in dataloader:
         actual = factors.shape_id.to(strategy.device)
-        predicted = strategy.model(images.to(strategy.device)).argmax(1)
+        output = strategy.model(images.to(strategy.device))
+        predicted = output.argmax(1)
         accuracies.append((predicted == actual).float().mean().item())
     wandb.log({"test/accuracy": np.mean(accuracies)})
     strategy.model.train()
@@ -300,16 +298,6 @@ def log_message(experience, stage):
     min_class_id = min(experience.classes_in_this_experience)
     max_class_id = max(experience.classes_in_this_experience)
     print(f"Classes: {min_class_id}-{max_class_id}")
-
-
-def log_metrics(task, result):
-    """Log the task and test accuracy to wandb."""
-    wandb.log(
-        {
-            "task": task,
-            "test/accuracy": result["Top1_Acc_Stream/eval_phase/test_stream/Task000"],
-        }
-    )
 
 
 if __name__ == "__main__":
