@@ -108,10 +108,13 @@ def plot(args, metrics):
         style.append("grid")
     plt.style.use(style)
     plt.rcParams["font.family"] = "Times"
-    if args.fig_height is None or args.fig_width is None:
-        _, ax = plt.subplots(layout="tight")
-    else:
-        _, ax = plt.subplots(layout="tight", figsize=(args.fig_width, args.fig_height))
+
+    fig = plt.figure(figsize=(args.fig_width, args.fig_height))
+
+    left_margin = 0.1
+    axes_width = 0.95 * (1 - left_margin - 0.05)
+    ax = fig.add_axes([left_margin, 0.1, axes_width, 0.8])
+
     for name, (steps, values) in metrics.items():
         values_mean = length_agnostic_mean(values)
         ax.plot(steps, values_mean, label=name)
@@ -134,7 +137,8 @@ def plot(args, metrics):
 
     if args.plot_title is None:
         args.plot_title = f"{metric_name.capitalize()} (test)"
-    ax.legend(loc=args.legend_loc)
+
+    ax.legend(loc=args.legend_loc, bbox_to_anchor=(1.45, 0.5), frameon=False)
 
     plt.savefig(args.out_path, bbox_inches="tight")
 
@@ -192,8 +196,8 @@ def _main():
     )
     parser.add_argument("--ymin", type=float, default=-0.05, help="Y-axis min limit.")
     parser.add_argument("--ymax", type=float, default=1.05, help="Y-axis max limit.")
-    parser.add_argument("--fig_width", type=float)
-    parser.add_argument("--fig_height", type=float)
+    parser.add_argument("--fig_width", type=float, default=4)
+    parser.add_argument("--fig_height", type=float, default=3)
     parser.add_argument(
         "--legend_loc",
         type=str,
