@@ -192,7 +192,6 @@ def _main():
     )
     parser.add_argument("--ymin", type=float, default=-0.05, help="Y-axis min limit.")
     parser.add_argument("--ymax", type=float, default=1.05, help="Y-axis max limit.")
-    parser.add_argument("--fontsize", type=int, default=20)
     parser.add_argument("--fig_width", type=float)
     parser.add_argument("--fig_height", type=float)
     parser.add_argument(
