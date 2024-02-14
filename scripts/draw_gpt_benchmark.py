@@ -5,12 +5,13 @@ from pathlib import Path
 
 import idsprites as ids
 from PIL import Image
+from tqdm import tqdm
 
 
 def draw_gpt_benchmark(args):
     dataset = ids.RandomDSprites(img_size=args.img_size)
     shapes = [dataset.generate_shape() for _ in range(args.num_tasks)]
-    for task, shape in enumerate(shapes):
+    for task, shape in tqdm(enumerate(shapes)):
         path = args.out_path / f"task_{task}"
         path.mkdir(parents=True, exist_ok=True)
         canonical_factors = ids.Factors(
