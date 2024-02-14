@@ -62,7 +62,7 @@ def query_gpt(args):
 def estimate_cost_dollars(num_choices, num_tasks):
     images_per_task = 1 + sum(range(2, num_choices))
     tokens_per_task = 65 * images_per_task + 1
-    return 0.01 * num_tasks * tokens_per_task / 1000
+    return num_tasks * tokens_per_task / 1000 * 0.01
 
 
 def run_task(task_dir, client, num_choices):
