@@ -82,7 +82,10 @@ def train_ours(cfg):
             trainer.fit(model, train_loader, val_loader)
         else:
             trainer.fit(model, train_loader)
-        if not cfg.training.test_once and task % cfg.training.test_every_n_tasks == 0:
+        if (
+            not cfg.training.test_once
+            and task % int(cfg.training.test_every_n_tasks) == 0
+        ):
             trainer.test(model, test_loader)
         trainer.fit_loop.max_epochs += cfg.trainer.max_epochs
     trainer.test(model, test_loader)
