@@ -72,10 +72,12 @@ def run_task(task_dir, client, num_choices):
             model="gpt-4-vision-preview",
             messages=messages,
         )
-    except openai.BadRequestError as e:
-        print(e.message)
+        predicted_answer = int(response.choices[0].message.content.strip())
+    except ValueError:
+        print(response.choices[0].message.content.strip())
         predicted_answer = -1
-    predicted_answer = int(response.choices[0].message.content.strip())
+    except openai.BadRequestError:
+        predicted_answer = -1
     return actual_answer, predicted_answer
 
 
