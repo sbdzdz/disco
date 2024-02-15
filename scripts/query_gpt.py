@@ -1,8 +1,10 @@
-import openai
-from argparse import ArgumentParser
-from pathlib import Path
 import base64
 import random
+import time
+from argparse import ArgumentParser
+from pathlib import Path
+
+import openai
 from tqdm import tqdm
 
 
@@ -65,18 +67,31 @@ def estimate_cost_dollars(num_choices, num_tasks):
     return num_tasks * tokens_per_task / 1000 * 0.01
 
 
-def run_task(task_dir, client, num_choices):
+def run_task(task_dir, client, num_choices, max_retries=5):
     messages, actual_answer = load_task(task_dir, num_choices)
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4-vision-preview",
-            messages=messages,
-        )
-        predicted_answer = int(response.choices[0].message.content.strip())
-    except ValueError:
-        print(response.choices[0].message.content.strip())
-        predicted_answer = -1
-    except openai.BadRequestError:
+    retry_count = 0
+    while retry_count < max_retries:
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4-vision-preview",
+                messages=messages,
+            )
+            predicted_answer = int(response.choices[0].message.content.strip())
+            break
+        except ValueError:
+            print(response.choices[0].message.content.strip())
+            predicted_answer = -1
+            break
+        except openai.RateLimitError:
+            print("Rate limit exceeded, waiting for 2 minutes before retrying...")
+            time.sleep(120)
+            retry_count += 1
+        except openai.BadRequestError as e:
+            print(e.message)
+            predicted_answer = -1
+            break
+    if retry_count == max_retries:
+        print("Maximum number of retries exceeded...")
         predicted_answer = -1
     return actual_answer, predicted_answer
 
