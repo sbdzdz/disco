@@ -55,7 +55,7 @@ def query_gpt(args):
         accuracies.append(accuracy)
         print(f"Accuracy: {accuracy}")
 
-    with open(args.out_path / "results.csv", "w") as f:
+    with open(args.out_path / "gpt_results.csv", "w") as f:
         f.write("num_choices,accuracy\n")
         for num_choices, accuracy in zip(range(2, args.num_choices), accuracies):
             f.write(f"{num_choices},{accuracy}\n")
