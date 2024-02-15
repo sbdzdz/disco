@@ -19,6 +19,7 @@ __pycache__
 *.zip
 *.pt
 *.csv
+*.txt
 
 # wandb
 wandb
