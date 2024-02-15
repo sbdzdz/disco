@@ -173,9 +173,7 @@ def _main():
         "--metric_name", type=str, help="Metric name", default="accuracy"
     )
     parser.add_argument("--max_steps", type=int, help="Max number of steps to plot.")
-    parser.add_argument(
-        "--out_path", type=Path, default=repo_root / "img/joint_training.png"
-    )
+    parser.add_argument("--out_path", type=Path, default=repo_root / "plots/metric.pdf")
     parser.add_argument(
         "--force_download", action="store_true", help="Don't use cached data."
     )
