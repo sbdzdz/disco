@@ -2,8 +2,9 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import pandas as pd
-from matplotlib import pyplot as plt
 import scienceplots  # noqa: F401
+from matplotlib import pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
 
 def plot_gpt_benchmark(args):
@@ -27,7 +28,7 @@ def plot_gpt_benchmark(args):
     )
 
     ax.set_xlabel("Number of choices")
-    ax.set_xlim([1, 10])
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
     ax.legend(loc="right", bbox_to_anchor=(1.45, 0.5), frameon=False)
 
@@ -47,8 +48,8 @@ if __name__ == "__main__":
         default=root / "results/gpt_results.csv",
         help="Path to the .csv file with benchmark results.",
     )
-    parser.add_argument("--ymin", type=float, default=0.0)
-    parser.add_argument("--ymax", type=float, default=1.0)
+    parser.add_argument("--ymin", type=float, default=-0.05)
+    parser.add_argument("--ymax", type=float, default=1.05)
     parser.add_argument("--fig_width", type=float, default=4)
     parser.add_argument("--fig_height", type=float, default=3)
     parser.add_argument("--out_path", type=Path, default=root / "plots/gpt.pdf")
