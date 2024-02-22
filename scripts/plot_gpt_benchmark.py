@@ -19,12 +19,25 @@ def plot_gpt_benchmark(args):
     axes_width = 0.95 * (1 - left_margin - 0.05)
     ax = fig.add_axes([left_margin, 0.1, axes_width, 0.8])
 
-    ax.plot(df["num_choices"], df["accuracy"], label="GPT-4 Vision")
+    ax.plot(
+        df["num_choices"],
+        df["accuracy"],
+        label="GPT-4 Vision",
+        marker="o",
+        linewidth=1,
+        markersize=3,
+        zorder=3,
+    )
     ax.plot(
         df["num_choices"],
         [1 / n for n in df["num_choices"]],
-        "k--",
+        color="gray",
+        linestyle=":",
+        marker="o",
+        markersize=3,
+        linewidth=1,
         label="Random",
+        zorder=2,
     )
 
     ax.set_xlabel("Number of choices")
