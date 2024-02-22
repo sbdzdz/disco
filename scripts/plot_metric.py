@@ -9,9 +9,9 @@ from itertools import zip_longest
 from pathlib import Path
 
 import numpy as np
+import scienceplots  # noqa: F401
 import wandb
 from matplotlib import pyplot as plt
-import scienceplots  # noqa: F401
 
 
 def visualize_metric(args):
@@ -126,13 +126,6 @@ def plot(args, metrics):
                 values_mean + values_std,
                 alpha=0.3,
             )
-    if args.include_contrastive:
-        path = Path("sebastian/hostname_4570651.out")
-        values = get_test_acc(path, end_task=args.max_steps)
-        values = values[::10] + [values[-1]]
-        steps = [10 * i for i in range(len(values))]
-        ax.plot(steps, values, label="Contrastive")
-
     ax.set_xlabel("Tasks")
     ax.set_xlim([args.xmin, args.xmax])
 
@@ -147,26 +140,6 @@ def plot(args, metrics):
     ax.legend(loc=args.legend_loc, bbox_to_anchor=(1.45, 0.5), frameon=False)
 
     plt.savefig(args.out_path, bbox_inches="tight")
-
-
-def get_test_acc(path, end_task=-1):
-    with open(path, "r") as f:
-        lines = f.readlines()
-        texts = ""
-        for line in lines:
-            texts += line[:-1] if line[-1] == "\n" else line
-
-    texts = texts.split("task_id")[1:]
-    corrects = [text.split("[")[1].split("]")[0].split(", ") for text in texts]
-    counts = [text.split("[")[2].split("]")[0].split(", ") for text in texts]
-    corrects = [
-        np.array([float(x) for x in corrects_]) for corrects_ in corrects[:end_task]
-    ]
-    counts = [np.array([float(x) for x in count]) for count in counts[:end_task]]
-    corrects = [corrects_.sum() for corrects_ in corrects]
-    counts = [counts_.sum() for counts_ in counts]
-    accs = [corrects[i] / counts[i] for i in range(len(corrects))]
-    return accs
 
 
 def length_agnostic_mean(arrays):
@@ -227,11 +200,6 @@ def _main():
         type=str,
         default="best",
         help="Location of the legend.",
-    )
-    parser.add_argument(
-        "--include_contrastive",
-        action="store_true",
-        help="Include contrastive baseline.",
     )
     args = parser.parse_args()
     visualize_metric(args)
