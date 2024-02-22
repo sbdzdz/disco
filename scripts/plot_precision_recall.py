@@ -29,9 +29,10 @@ def plot_precision_recall(args):
         recall.append(is_correct[~is_seen].float().mean())
 
     ax.set_ylim([args.ymin, args.ymax])
-    ax.plot(recall, precision)
+    ax.plot(recall, precision, label="DCL")
     plt.xlabel("Recall")
     plt.ylabel("Precision")
+    ax.legend(loc="right", bbox_to_anchor=(1.45, 0.5), frameon=False)
 
     plt.savefig(args.out_path, bbox_inches="tight")
 
