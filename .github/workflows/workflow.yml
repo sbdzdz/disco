@@ -23,6 +23,7 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install black pytest
         python -m pip install -r requirements.txt --upgrade
+        python -m pip install --index-url https://test.pypi.org/simple/ idsprites
         python -m pip install -e .
     - name: Run ruff
       uses: chartboost/ruff-action@v1

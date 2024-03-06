@@ -4,11 +4,11 @@ from typing import Optional
 
 import lightning.pytorch as pl
 import torch
-from timm import create_model, list_models
 import torch.nn as nn
 import torch.nn.functional as F
 from pl_bolts.optimizers.lars import LARS
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
+from timm import create_model, list_models
 
 from disco.data import Latents
 from disco.models.blocks import Decoder
@@ -310,7 +310,6 @@ class Regressor(ContinualModule):
     def __init__(
         self,
         backbone: str = "resnet18",
-        gamma: float = 0.5,
         buffer_chunk_size: int = 64,
         mask_n_theta_elements: int = 0,
         **kwargs,
@@ -324,7 +323,6 @@ class Regressor(ContinualModule):
             backbone, pretrained=False, num_classes=self.num_parameters
         )
 
-        self.gamma = gamma
         self.buffer_chunk_size = buffer_chunk_size
         self.mask_n_theta_elements = mask_n_theta_elements
 
@@ -370,6 +368,7 @@ class Regressor(ContinualModule):
         x_hat = self.get_reconstruction(x).unsqueeze(1).detach()
         buffer = torch.stack([torch.from_numpy(img) for img in self._buffer])
         buffer = buffer.to(x).unsqueeze(0).detach()
+        x_hat, buffer = self.crop(x_hat, buffer)
 
         losses = []  # classify in chunks to avoid OOM
         for chunk in torch.split(buffer, self.buffer_chunk_size, dim=1):
@@ -379,6 +378,30 @@ class Regressor(ContinualModule):
             ).mean(dim=(2, 3, 4))
             losses.append(loss)
         return torch.cat(losses, dim=1).argmin(dim=1)
+
+    @staticmethod
+    def crop(batch, buffer):
+        """Crop the batch and the buffer to the bounding box of the shape."""
+        min_x, max_x = batch.shape[3], 0
+        min_y, max_y = batch.shape[2], 0
+
+        for image in batch:
+            epsilon = 1e-6
+            black_pixels = torch.where(image[0] <= epsilon)
+            white_pixels = torch.where(image[0] >= 1 - epsilon)
+            shape_pixels_y = torch.cat((black_pixels[0], white_pixels[0]), dim=0)
+            shape_pixels_x = torch.cat((black_pixels[1], white_pixels[1]), dim=0)
+
+            if shape_pixels_x.numel() > 0 and shape_pixels_y.numel() > 0:
+                min_y = min(min_y, shape_pixels_y.min().item())
+                max_y = max(max_y, shape_pixels_y.max().item())
+                min_x = min(min_x, shape_pixels_x.min().item())
+                max_x = max(max_x, shape_pixels_x.max().item())
+
+        return (
+            batch[:, :, min_y : max_y + 1, min_x : max_x + 1],
+            buffer[:, :, min_y : max_y + 1, min_x : max_x + 1],
+        )
 
     def convert_parameters_to_matrix(self, factors):
         """Convert the ground truth factors to a transformation matrix.

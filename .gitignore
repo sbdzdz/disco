@@ -17,6 +17,9 @@ __pycache__
 # data
 *.npz
 *.zip
+*.pt
+*.csv
+*.txt
 
 # wandb
 wandb

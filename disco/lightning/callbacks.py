@@ -133,7 +133,7 @@ class LoggingCallback(Callback):
         if trainer.current_epoch == trainer.max_epochs - 1:
             elapsed_min = (time.time() - self.train_start_time) / 60
             pl_module.log("train/time_per_task", elapsed_min)
-            pl_module.log("task_id", float(pl_module.task_id))
+            pl_module.log("task", float(pl_module.task_id))
             print(f"Training time per task: {elapsed_min:.2f}m")
 
     def on_validation_start(

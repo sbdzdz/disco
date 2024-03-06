@@ -14,7 +14,7 @@ hydra:
 training:
   strategy: naive
   reset_model: false
-  callbacks: [checkpointing, learning_rate_monitor, logging, metrics, timer, visualization]
+  callbacks: [logging, metrics, timer]
   lr: 0.001
   test_once: false
   test_every_n_tasks: 1
@@ -24,6 +24,10 @@ training:
   log_train_accuracy: false
   log_val_accuracy: false
   log_test_accuracy: true
+  sanity_check: false
+
+buffer:
+  mem_size: 200
 
 trainer:
   _target_: lightning.pytorch.Trainer

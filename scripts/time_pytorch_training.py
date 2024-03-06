@@ -1,77 +1,14 @@
 """Train a Resnet-18 on Infinite DSprites with vanilla PyTorch."""
 
 from argparse import ArgumentParser
-from pathlib import Path
-import wandb
-from typing import Union
-
-import numpy as np
-import torch
-import timm
-from torch.utils.data import DataLoader, Dataset, ConcatDataset
-from torchvision.io import read_image
-import idsprites as ids
 from time import time
 
+import timm
+import torch
+import wandb
+from torch.utils.data import DataLoader
 
-class FileDataset(Dataset):
-    def __init__(self, path: Union[Path, str], transform=None, target_transform=None):
-        self.path = Path(path)
-        self.transform = transform
-        self.target_transform = target_transform
-        factors = np.load(self.path / "factors.npz", allow_pickle=True)
-        factors = [
-            dict(zip(factors, value)) for value in zip(*factors.values())
-        ]  # turn dict of lists into list of dicts
-        self.data = [ids.Factors(**factors) for factors in factors]
-        self.shapes = np.load(self.path / "../shapes.npy", allow_pickle=True)
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        img_path = self.path / f"sample_{idx}.png"
-        image = np.array(read_image(str(img_path)) / 255.0)
-
-        factors = self.data[idx]
-        factors = factors.replace(
-            shape=self.shapes[factors.shape_id % len(self.shapes)]
-        )
-        if self.transform:
-            image = self.transform(image)
-        if self.target_transform:
-            factors = self.target_transform(factors)
-        return image, factors
-
-
-class ContinualBenchmarkDisk:
-    def __init__(
-        self,
-        path: Union[Path, str],
-        accumulate_test_set: bool = True,
-    ):
-        """Initialize the continual learning benchmark.
-        Args:
-            path: The path to the dataset.
-            accumulate_test_set: Whether to accumulate the test set over tasks.
-        """
-        self.path = Path(path)
-        self.accumulate_test_set = accumulate_test_set
-        if self.accumulate_test_set:
-            self.test_sets = []
-
-    def __iter__(self):
-        for task_dir in sorted(
-            self.path.glob("task_*"), key=lambda x: int(x.stem.split("_")[-1])
-        ):
-            train = FileDataset(task_dir / "train")
-            test = FileDataset(task_dir / "test")
-
-            if self.accumulate_test_set:
-                self.test_sets.append(test)
-                test = ConcatDataset(self.test_sets)
-
-            yield train, test
+from disco.data import ContinualBenchmarkDisk
 
 
 def train(args):
@@ -140,4 +77,5 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--epochs", type=int, default=5)
     args = parser.parse_args()
+    train(args)
     train(args)
