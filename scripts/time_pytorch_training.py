@@ -1,13 +1,13 @@
 """Train a Resnet-18 on Infinite DSprites with vanilla PyTorch."""
 
 from argparse import ArgumentParser
-from pathlib import Path
-import wandb
-
-import torch
-import timm
-from torch.utils.data import DataLoader
 from time import time
+
+import timm
+import torch
+import wandb
+from torch.utils.data import DataLoader
+
 from disco.data import ContinualBenchmarkDisk
 
 
@@ -77,4 +77,5 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--epochs", type=int, default=5)
     args = parser.parse_args()
+    train(args)
     train(args)
