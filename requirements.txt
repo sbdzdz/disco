@@ -1,7 +1,6 @@
 avalanche-lib
 hydra-core
 imageio
-idsprites
 lightning
 lightning-bolts
 matplotlib
