@@ -3,13 +3,13 @@
 from typing import Optional
 
 import lightning.pytorch as pl
-import torch
-from timm import create_model, list_models
 import numpy as np
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from pl_bolts.optimizers.lars import LARS
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
+from timm import create_model, list_models
 
 from disco.data import Latents
 from disco.models.blocks import Decoder
@@ -447,34 +447,6 @@ class Regressor(ContinualModule):
     def batched_eye(self, batch_size):
         """Create a batch of identity matrices."""
         return torch.eye(3, dtype=torch.float).unsqueeze(0).repeat(batch_size, 1, 1)
-
-
-class FastRegressor(Regressor):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        resnet = create_model("resnet18", pretrained=True)
-        self.feature_extractor = nn.Sequential(
-            *list(resnet.children())[:-2],
-            nn.Flatten(),
-        )
-        for param in self.feature_extractor.parameters():
-            param.requires_grad = False
-
-    @torch.no_grad()
-    def add_exemplar(self, exemplar):
-        # add the exemplar features to the buffer
-        exemplar = torch.from_numpy(exemplar).unsqueeze(0).to(self.device)
-        features = self.feature_extractor(exemplar).cpu().numpy()
-        self._buffer.append(features[0])
-
-    def classify(self, x: torch.Tensor):
-        buffer = torch.from_numpy(np.stack(self._buffer))
-        buffer = buffer.to(self.device).unsqueeze(0)  # (1, n, 512)
-        buffer = buffer.repeat(x.shape[0], 1, 1)  # (m, n, 512)
-        x = self.feature_extractor(x).unsqueeze(1)  # (m, 1, 512)
-        x = x.repeat(1, buffer.shape[1], 1)  # (m, n, 512)
-        similarity = F.cosine_similarity(x, buffer, dim=2)  # (m, n)
-        return similarity.argmax(dim=1)  # (m,)
 
 
 class Autoencoder(ContinualModule):
