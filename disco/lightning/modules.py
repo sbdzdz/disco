@@ -311,7 +311,6 @@ class Regressor(ContinualModule):
         self,
         backbone: str = "resnet18",
         buffer_chunk_size: int = 64,
-        mask_n_theta_elements: int = 0,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -324,7 +323,6 @@ class Regressor(ContinualModule):
         )
 
         self.buffer_chunk_size = buffer_chunk_size
-        self.mask_n_theta_elements = mask_n_theta_elements
 
     def configure_optimizers(self):
         """Configure the optimizers."""
@@ -352,13 +350,6 @@ class Regressor(ContinualModule):
         x, y = batch
         _, theta_hat = self.forward(x)
         theta = self.convert_parameters_to_matrix(y)
-        if self.mask_n_theta_elements > 0:
-            mask = torch.ones_like(theta)
-            indices = torch.randperm(self.num_parameters)[: self.mask_n_theta_elements]
-            rows, cols = indices // mask.shape[-1], indices % mask.shape[-1]
-            mask[:, rows, cols] = 0
-            theta = theta * mask
-            theta_hat = theta_hat * mask
         loss = F.mse_loss(theta, theta_hat)
         return {"loss": loss}
 
