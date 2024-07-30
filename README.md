@@ -4,6 +4,8 @@
 <a href="https://github.com/psf/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
 </p>
 
+Code for [Infinite dSprites for Disentangled Continual Learning: Separating Memory Edits from Generalization](https://arxiv.org/abs/2312.16731) (CoLLAs 2024).
+
 ## Install
 
 Install the requirements and the package (ideally in a virtual environment):
