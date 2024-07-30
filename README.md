@@ -4,7 +4,9 @@
 <a href="https://github.com/psf/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
 </p>
 
-[Infinite dSprites for Disentangled Continual Learning: Separating Memory Edits from Generalization](https://arxiv.org/abs/2312.16731) (CoLLAs 2024).
+[Infinite dSprites for Disentangled Continual Learning: Separating Memory Edits from Generalization](https://arxiv.org/abs/2312.16731)
+
+Published at [CoLLAs 2024](https://lifelong-ml.cc/Conferences/2024/acceptedpapersandvideos/conf-2024-30).
 
 ## Install
 
