@@ -29,3 +29,23 @@ draw_batch(batch, show=True)
 ```
 
 For other use cases and a more detailed introduction, see the notebooks in the [examples](examples/) folder.
+
+## Plots
+
+Plots require TeX Live. To install it on macOS, use Homebrew:
+
+```bash
+brew install --cask mactex
+```
+
+Make sure the executables are in your PATH:
+
+```bash
+find / -name kpsewhich 2>/dev/null
+```
+
+Add the directory from the output to your PATH, e.g.:
+
+```bash
+export PATH=/usr/local/texlive/2023/bin/universal-darwin:$PAT
+```
