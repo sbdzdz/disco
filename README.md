@@ -32,7 +32,9 @@ For other use cases and a more detailed introduction, see the notebooks in the [
 
 ## Plots
 
-Plots require TeX Live. To install it on macOS, use Homebrew:
+To reproduce the paper plots, see [plots.sh](plots/plots.sh) script.
+
+Rendering the figures requires TeX Live. To install it on macOS, use Homebrew:
 
 ```bash
 brew install --cask mactex
