@@ -40,8 +40,8 @@ def plot_precision_recall(args):
 if __name__ == "__main__":
     root = Path(__file__).parent.parent
     parser = ArgumentParser()
-    parser.add_argument("--fig_height", type=int, default=3)
-    parser.add_argument("--fig_width", type=int, default=4)
+    parser.add_argument("--fig_height", type=float, default=3)
+    parser.add_argument("--fig_width", type=float, default=4)
     parser.add_argument("--grid", action="store_true")
     parser.add_argument(
         "--path", type=Path, default=root / "results/precision_recall.pt"
